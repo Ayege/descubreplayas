@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+
+# Earth Engine service-account key (never commit)
+ee-key.json
+*-key.json
+
+# Local detection outputs
+patches.geojson
+sargapp-499614-79c16e0890e7.json

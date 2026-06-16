@@ -1,0 +1,20 @@
+# Daily keep-alive ping to /health to prevent Supabase free-tier idle-pause.
+# Requires API_BASE_URL secret in repo Settings > Secrets and variables > Actions.
+
+name: keepalive
+
+on:
+  schedule:
+    - cron: "0 12 * * *"   # 12:00 UTC every day
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health
+        run: |
+          curl --fail --silent --show-error \
+            "${{ secrets.API_BASE_URL }}/health"
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}

@@ -1,0 +1,2 @@
+# Render deployment manifest for the FastAPI service (free web service).
+# TODO: define service (env: python, buildCommand, startCommand, envVars from dashboard).

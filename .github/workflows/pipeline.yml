@@ -1,0 +1,52 @@
+# Scheduled pipeline run — detect, drift, store, dispatch every 6 hours.
+# Secrets required in repo Settings > Secrets and variables > Actions:
+#   EE_PROJECT, EE_SERVICE_ACCOUNT_JSON (the full JSON string, not a path),
+#   CMEMS_USERNAME, CMEMS_PASSWORD,
+#   SUPABASE_URL, SUPABASE_KEY,
+#   TELEGRAM_BOT_TOKEN, API_BASE_URL
+
+name: pipeline
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # 00:00 06:00 12:00 18:00 UTC every day
+  workflow_dispatch:          # also triggerable manually from the Actions tab
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      EE_PROJECT:               ${{ secrets.EE_PROJECT }}
+      EE_SERVICE_ACCOUNT_JSON:  ${{ secrets.EE_SERVICE_ACCOUNT_JSON }}
+      CMEMS_USERNAME:           ${{ secrets.CMEMS_USERNAME }}
+      CMEMS_PASSWORD:           ${{ secrets.CMEMS_PASSWORD }}
+      SUPABASE_URL:             ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY:             ${{ secrets.SUPABASE_KEY }}
+      TELEGRAM_BOT_TOKEN:       ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      API_BASE_URL:             ${{ secrets.API_BASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Authenticate Earth Engine (service account)
+        # The EE_SERVICE_ACCOUNT_JSON secret must contain the raw JSON of the
+        # service-account key file.  We write it to a temp file and point the
+        # EE SDK at it via the standard application-default-credentials env var.
+        run: |
+          echo "$EE_SERVICE_ACCOUNT_JSON" > /tmp/ee_key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/ee_key.json" >> "$GITHUB_ENV"
+
+      - name: Run pipeline
+        run: python -m pipeline.run

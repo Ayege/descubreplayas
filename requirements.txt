@@ -1,0 +1,30 @@
+# Detection / geospatial
+earthengine-api
+geemap
+geopandas
+shapely
+numpy
+
+# Ocean data
+copernicusmarine
+
+# Database
+supabase
+
+# API
+fastapi
+uvicorn[standard]
+pydantic
+
+# Telegram bot
+python-telegram-bot
+httpx
+
+# Dashboard
+streamlit
+folium
+pydeck
+
+# Config
+python-dotenv
+streamlit-folium
