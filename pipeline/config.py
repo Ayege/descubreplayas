@@ -59,7 +59,8 @@ ZONES = [
 ]
 
 # Half-width (degrees) of the square box built around each zone center.
-ZONE_BOX_HALF_DEG = 0.1
+# 0.5° ≈ 55 km — large enough to catch incoming sargassum with realistic forecast uncertainty.
+ZONE_BOX_HALF_DEG = 0.5
 
 
 def zone_polygon_coords(center_lat: float, center_lon: float) -> list[list[float]]:

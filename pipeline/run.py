@@ -32,7 +32,11 @@ def main() -> int:  # noqa: C901
     t = time.perf_counter()
     try:
         from pipeline.detect import detect_sargassum  # heavy import, keep local
-        gdf = detect_sargassum()
+        end_date = dt.date.today()
+        start_date = end_date - dt.timedelta(days=7)
+        date_range = (start_date.isoformat(), end_date.isoformat())
+        logger.info("detect: querying %s → %s", *date_range)
+        gdf = detect_sargassum(date_range)
         if gdf is None or gdf.empty:
             logger.warning("detect: no patches found — pipeline will still store empty forecasts.")
         else:
@@ -51,30 +55,54 @@ def main() -> int:  # noqa: C901
         patches = []
 
     # ------------------------------------------------------------------
-    # Step 2: ocean forcing (only fetch for up to 20 centroids to stay
-    #         within free-tier CMEMS rate limits in a single pipeline run)
+    # Step 2: ocean forcing (only FETCH for up to 20 centroids to stay
+    #         within free-tier CMEMS rate limits in a single pipeline run).
+    #         The fetched forcing is then reused for ALL patches via a
+    #         nearest-sample lookup so the drift step can score every patch.
     # ------------------------------------------------------------------
     forcing: dict[int, dict] = {}
+    sample_points: list[tuple[float, float]] = []
     if patches:
         t = time.perf_counter()
         try:
             from pipeline.ocean import get_ocean_forcing
             sample = patches[:20]
-            points = [(p["centroid_lat"], p["centroid_lon"]) for p in sample]
-            forcing = get_ocean_forcing(points, forecast_hours=72)
+            sample_points = [(p["centroid_lat"], p["centroid_lon"]) for p in sample]
+            forcing = get_ocean_forcing(sample_points, forecast_hours=72)
             logger.info("ocean: forcing for %d point(s) in %s", len(forcing), _elapsed(t))
         except Exception:
             logger.exception("ocean step failed — drift will use zero forcing")
             forcing = {}
 
+    # Expand the sampled forcing to cover EVERY detected patch. Each patch
+    # reuses the forcing of the nearest sampled point. This lets the drift
+    # step consider all 1000s of patches (not just the 20 we fetched currents
+    # for), which is essential — otherwise masses already sitting inside a
+    # zone are never scored and every zone reads "none".
+    full_forcing: dict[int, dict] = {}
+    if patches and forcing and sample_points:
+        for i, p in enumerate(patches):
+            if i in forcing:
+                full_forcing[i] = forcing[i]
+                continue
+            plat, plon = p["centroid_lat"], p["centroid_lon"]
+            best_j = min(
+                range(len(sample_points)),
+                key=lambda j: (plat - sample_points[j][0]) ** 2
+                + (plon - sample_points[j][1]) ** 2,
+            )
+            nearest = forcing.get(best_j)
+            if nearest is not None:
+                full_forcing[i] = nearest
+
     # ------------------------------------------------------------------
-    # Step 3: drift / risk
+    # Step 3: drift / risk — score ALL patches, not just the sampled 20.
     # ------------------------------------------------------------------
     forecasts: list[dict] = []
     t = time.perf_counter()
     try:
         from pipeline.drift import project_drift
-        forecasts = project_drift(patches[:20], forcing)
+        forecasts = project_drift(patches, full_forcing)
         logger.info("drift: %d zone forecast(s) in %s", len(forecasts), _elapsed(t))
     except Exception:
         logger.exception("drift step failed — no forecasts will be stored")

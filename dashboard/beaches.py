@@ -23,11 +23,13 @@ from dashboard.beaches_data import (
     all_activities,
     all_provinces,
     all_regions,
+    beach_good_in_month,
     beaches_with_maps,
 )
 from dashboard.risk_overlay import (
     RISK_COLORS,
     RISK_EMOJI,
+    fetch_detections,
     fetch_live_risk,
     risk_for_beach,
 )
@@ -54,23 +56,38 @@ _T = {
         "region": "Región",
         "province": "Provincia",
         "activity": "Actividad",
-        "protected_only": "🐢 Solo áreas protegidas",
+        "protected_only": "Solo áreas protegidas",
         "free_only": "Solo entrada gratuita",
+        "month_filter": "🗓️ Fecha de visita",
+        "month_note": "Filtra por mejor época. El riesgo de sargazo refleja condiciones actuales (72 h).",
+        "show_zones": "🌊 Mostrar zonas de monitoreo de Sargazo",
+        "show_masses": "🟤 Mostrar masas de sargazo detectadas",
+        "masses_unavail": "Sin detecciones (ejecuta el pipeline)",
+        "horizon": "⏱️ Horizonte de pronóstico",
+        "horizon_note": "El pronóstico de sargazo es confiable solo ~72h. Más allá usa la temporada.",
+        "horizon_now": "Ahora",
+        "season_note": "📅 Temporada alta de sargazo en el Caribe: marzo–agosto.",
+        "prediction_info_title": "ℹ️ Métodos de predicción",
+        "prediction_physics": "Física (0-72h): Deriva lagrangiana + corrientes oceánicas. Preciso.",
+        "prediction_seasonal": "Temporada: Climatología histórica (mar-ago = alta). No predice eventos específicos.",
+        "prediction_date_note": "⚠️ La fecha de visita NO predice sargazo futuro — solo filtra playas por mejor temporada turística.",
+        "beach_legend": "Playas por región",
+        "zone_legend": "Riesgo de sargazo (zonas)",
         "results": "{n} de {total} playas",
         "select_beach": "📍 Selecciona una playa",
-        "best_time": "🗓️ Mejor época",
-        "access": "🚪 Acceso",
-        "entrance": "🎟️ Entrada",
-        "parking": "🅿️ Estacionamiento",
+        "best_time": "Mejor época",
+        "access": "Acceso",
+        "entrance": "Entrada",
+        "parking": "Estacionamiento",
         "yes": "Sí",
         "no_limited": "No / limitado",
-        "water": "🌊 Agua",
-        "activities": "🏄 Actividades",
-        "wildlife": "🐠 Fauna",
-        "facilities": "🏗️ Instalaciones",
-        "ecosystem": "🌿 Ecosistema",
-        "open_maps": "📍 Google Maps",
-        "risk_header": "🌊 Riesgo de Sargazo",
+        "water": "Agua",
+        "activities": "Actividades",
+        "wildlife": "Fauna",
+        "facilities": "Instalaciones",
+        "ecosystem": "Ecosistema",
+        "open_maps": "Google Maps",
+        "risk_header": "Riesgo de Sargazo",
         "risk_unavail": "Sin datos (API offline)",
         "nearest_zone": "zona más cercana",
         "away": "de distancia",
@@ -93,6 +110,21 @@ _T = {
         "activity": "Activity",
         "protected_only": "🐢 Protected areas only",
         "free_only": "Free entrance only",
+        "month_filter": "🗓️ Visit date",
+        "month_note": "Filters by best season. Sargassum risk reflects current conditions (72 h forecast).",
+        "show_zones": "🌊 Show monitoring zones",
+        "show_masses": "🟤 Show detected sargassum masses",
+        "masses_unavail": "No detections (run the pipeline)",
+        "horizon": "⏱️ Forecast horizon",
+        "horizon_note": "Sargassum forecast is reliable only ~72h. Beyond that, use the season.",
+        "horizon_now": "Now",
+        "season_note": "📅 Caribbean sargassum peak season: March–August.",
+        "prediction_info_title": "ℹ️ Prediction methods",
+        "prediction_physics": "Physics (0-72h): Lagrangian drift + ocean currents. Accurate.",
+        "prediction_seasonal": "Seasonal: Historical climatology (Mar-Aug = peak). Does not predict specific events.",
+        "prediction_date_note": "⚠️ Visit date does NOT predict future sargassum — it only filters beaches by best tourist season.",
+        "beach_legend": "Beaches by region",
+        "zone_legend": "Sargassum risk (zones)",
         "results": "{n} of {total} beaches",
         "select_beach": "📍 Select a beach",
         "best_time": "🗓️ Best time",
@@ -250,29 +282,25 @@ st.markdown("""
 .leaflet-popup-close-button { display: none !important; }
 .leaflet-popup-content { margin: 0 !important; }
 
-/* ── Right detail panel ── */
-.detail-panel {
-    background: linear-gradient(160deg,#00404a,#005f6e 50%,#007a8c);
-    border-radius: 14px;
-    padding: 16px 14px;
-    height: calc(100vh - 8px);
-    overflow-y: auto;
-    color: #e0f7fa;
-    font-family: 'Nunito', sans-serif;
+/* ── Floating beach detail panel (desktop: right rail) ── */
+.beach-detail {
+    position: fixed; right: 16px; top: 60px;
+    width: 295px; max-height: calc(100vh - 80px);
+    overflow-y: auto; overflow-x: hidden;
+    background: linear-gradient(160deg,#001f26 0%,#003540 30%,#005060 65%,#006878 100%);
+    border-radius: 22px; padding: 18px 16px 16px;
+    box-shadow: 0 12px 50px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.1);
+    font-family: 'Nunito', sans-serif; z-index: 99999; color: #e0f7fa;
 }
-.detail-panel h3 { color:#fff !important; font-size:1.05rem; margin:0 0 2px; }
-.detail-panel .sub { color:#9edde6; font-size:11px; margin:0 0 8px; }
-.detail-panel .label { color:#b2ebf2; font-size:11px; font-weight:700; margin:8px 0 1px; }
-.detail-panel .val { color:#e0f7fa; font-size:12px; margin:0 0 4px; line-height:1.4; }
-.detail-panel hr { border-color:rgba(255,255,255,.15); margin:10px 0; }
-.detail-panel .maps-btn {
-    display:block; text-align:center;
-    background:rgba(255,255,255,.18); color:#fff !important;
-    border:1px solid rgba(255,255,255,.3); border-radius:20px;
-    padding:6px; font-size:12px; font-weight:800; text-decoration:none;
-    margin-top:10px;
+
+/* ── Floating map legend (desktop: bottom-center) ── */
+.map-legend {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 99998; max-height: 35vh; overflow-y: auto;
+    background: rgba(255,255,255,.97); border-radius: 14px; padding: 10px 16px;
+    box-shadow: 0 4px 28px rgba(0,0,0,.3); font-family: 'Nunito', sans-serif;
+    border: 1px solid rgba(0,95,115,.14); min-width: 180px;
 }
-.detail-panel .maps-btn:hover { background:rgba(255,255,255,.3); }
 
 /* ── Tablet: compress sidebar padding ── */
 @media (max-width: 1024px) {
@@ -283,29 +311,50 @@ st.markdown("""
     .stIframe, [data-testid="stIFrame"] iframe {
         min-height: 350px !important;
     }
+    .beach-detail { width: 260px; }
 }
 
 /* ── Mobile: sidebar becomes a drawer (Streamlit handles collapse),
-      map fills remaining space and we ensure readable text ── */
+      map fills the top, detail panel becomes a bottom sheet ── */
 @media (max-width: 768px) {
     .block-container { padding: 0 !important; }
     [data-testid="stSidebar"] h1 { font-size: 1.1rem !important; }
     [data-testid="stSidebar"] label,
     [data-testid="stSidebar"] .stMarkdown p { font-size: 13px !important; }
     .stIframe, [data-testid="stIFrame"] iframe {
-        height: 60vh !important;
+        height: 58vh !important;
         min-height: 300px !important;
     }
     .risk-banner { font-size: 12px; padding: 7px 10px; }
+
+    /* Detail panel → full-width bottom sheet so the map stays usable above it */
+    .beach-detail {
+        right: 0 !important; left: 0 !important;
+        top: auto !important; bottom: 0 !important;
+        width: 100% !important; max-width: 100% !important;
+        max-height: 48vh !important;
+        border-radius: 20px 20px 0 0 !important;
+        padding: 14px 16px 18px !important;
+        box-shadow: 0 -8px 40px rgba(0,0,0,.55) !important;
+    }
+    /* Legend → top-left, compact, so it never collides with the bottom sheet */
+    .map-legend {
+        top: 54px !important; bottom: auto !important;
+        left: 8px !important; transform: none !important;
+        max-height: 26vh !important; padding: 7px 11px !important;
+        min-width: 0 !important; font-size: 11px;
+    }
 }
 
 /* ── Very small screens ── */
 @media (max-width: 480px) {
     [data-testid="stSidebar"] h1 { font-size: 1rem !important; }
     .stIframe, [data-testid="stIFrame"] iframe {
-        height: 50vh !important;
+        height: 52vh !important;
         min-height: 260px !important;
     }
+    .beach-detail { max-height: 52vh !important; padding: 12px 14px 16px !important; }
+    .map-legend { max-height: 22vh !important; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -332,13 +381,51 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 zones: list[dict] = []
 risk_by_zone_id: dict[int, str] = {}
-zones, risk_by_zone_id = fetch_live_risk(API_BASE_URL)
+zones, forecast_by_zone_id = fetch_live_risk(API_BASE_URL)
 
 
 def _beach_risk(beach: dict):
+    """Return (risk_level, nearest_zone, dist_km, forecast_dict) or (None,None,None,None).
+
+    The returned risk_level reflects the currently-selected forecast horizon.
+    """
     if not zones:
-        return None, None, None
-    return risk_for_beach(beach, zones, risk_by_zone_id)
+        return None, None, None, None
+    lvl, zone, dist, fc = risk_for_beach(beach, zones, forecast_by_zone_id)
+    # Override the summary risk with the risk at the selected horizon.
+    return _risk_at_horizon(fc), zone, dist, fc
+
+
+def _risk_at_horizon(fc: dict | None) -> str:
+    """Return the risk level for the globally-selected forecast horizon.
+
+    SEL_HORIZON is set in the sidebar: None = summary (worst across all
+    horizons), or an int (0/24/48/72) for a specific forecast checkpoint.
+    Falls back to the stored summary risk if horizon data is unavailable.
+    """
+    if not fc:
+        return "none"
+    horizon = globals().get("SEL_HORIZON")
+    if horizon is None:
+        return fc.get("risk_level", "none")
+    for h in (fc.get("horizons") or []):
+        if h.get("horizon_hours") == horizon:
+            return h.get("risk_level", "none")
+    return fc.get("risk_level", "none")
+
+
+def _fmt_arrival(fc: dict | None) -> str:
+    """Format a forecast's estimated arrival as 'DD Mon HH:MM AST' or '' if unknown."""
+    if not fc or not fc.get("eta_timestamp"):
+        return ""
+    try:
+        import datetime as __dt
+        _ts = __dt.datetime.fromisoformat(fc["eta_timestamp"].replace("Z", "+00:00"))
+        _ts_ast = _ts.astimezone(__dt.timezone(__dt.timedelta(hours=-4)))
+        return _ts_ast.strftime("%d %b %H:%M") + " AST"
+    except Exception:
+        return str(fc.get("eta_timestamp", ""))[:16]
+
 
 
 # ---------------------------------------------------------------------------
@@ -351,8 +438,64 @@ with st.sidebar:
     sel_activities = st.multiselect(L["activity"], all_activities(), default=[])
     protected_only = st.checkbox(L["protected_only"], value=False)
     free_only = st.checkbox(L["free_only"], value=False)
+
+    st.markdown("---")
+    show_zones = st.checkbox(L["show_zones"], value=bool(zones), key="show_zones")
+    show_masses = st.checkbox(L["show_masses"], value=False, key="show_masses")
     if not zones:
         st.caption(f"🌊 {L['risk_unavail']}")
+
+    # Forecast horizon — the physics-limited time dimension of the prediction.
+    # Sargassum drift is only reliable ~72h out, so we expose Now/+24/+48/+72h.
+    if zones:
+        _HORIZON_OPTS = {
+            L["horizon_now"]: 0,
+            "+24h": 24,
+            "+48h": 48,
+            "+72h": 72,
+        }
+        _h_label = st.radio(
+            L["horizon"],
+            options=list(_HORIZON_OPTS.keys()),
+            index=0,
+            horizontal=True,
+            key="forecast_horizon",
+            help=L["horizon_note"],
+        )
+        SEL_HORIZON: int | None = _HORIZON_OPTS[_h_label]
+    else:
+        SEL_HORIZON = None
+    st.caption(L["season_note"])
+
+    # Prediction methodology explainer
+    with st.expander(L["prediction_info_title"], expanded=False):
+        st.markdown(
+            f"<div style='font-size:11px;line-height:1.5;color:#b2ebf2'>"
+            f"<div style='margin-bottom:6px'><strong style='color:#4dd0e1'>🔬 {L['prediction_physics']}</strong></div>"
+            f"<div style='margin-bottom:6px'><strong style='color:#4dd0e1'>📊 {L['prediction_seasonal']}</strong></div>"
+            f"<div style='margin-top:8px;padding:6px;background:rgba(255,193,7,.15);border-left:3px solid #ffc107;color:#fff3cd'>"
+            f"{L['prediction_date_note']}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    
+    st.markdown("---")
+    # Date-of-visit picker — filters beaches by best visiting season (month).
+    # THIS IS NOT A SARGASSUM PREDICTOR. It's a tourist-season filter.
+    # Leaving blank shows all 56 beaches. Picking a date shows only beaches
+    # whose best season includes that month.
+    import datetime as _dt
+    _today = _dt.date.today()
+    sel_date = st.date_input(
+        L["month_filter"],
+        value=None,
+        min_value=_dt.date(_today.year, 1, 1),
+        max_value=_dt.date(_today.year, 12, 31),
+        key="visit_date",
+        help=L["month_note"] + " ⚠️ " + L["prediction_date_note"],
+    )
+    # None = no filter; otherwise filter by the month of the selected date
+    sel_month: int | None = sel_date.month if sel_date else None
 
 
 def _matches(beach: dict) -> bool:
@@ -365,6 +508,8 @@ def _matches(beach: dict) -> bool:
     if protected_only and not beach["protected_area"]:
         return False
     if free_only and "free" not in beach["entrance_fee"].lower():
+        return False
+    if sel_month is not None and not beach_good_in_month(beach, sel_month):
         return False
     return True
 
@@ -384,10 +529,10 @@ cluster = MarkerCluster(
 ).add_to(m)
 
 for b in filtered:
-    color = REGION_COLORS.get(b["region"], "#1f77b4")
-    risk_level, near_zone, dist_km_b = _beach_risk(b)
-    if risk_level is not None:
-        color = RISK_COLORS.get(risk_level, color)
+    # Beach markers are WHITE pins with a COLORED RING (region color).
+    # This visually separates beaches from risk zones (filled colored rectangles).
+    region_color = REGION_COLORS.get(b["region"], "#1f77b4")
+    risk_level, near_zone, dist_km_b, _fc_b = _beach_risk(b)
     turtle_icon = " 🐢" if b["protected_area"] else ""
     desc_short = (b["description"] or "")[:170].rstrip()
     if len(b["description"] or "") > 170:
@@ -397,11 +542,17 @@ for b in filtered:
     if risk_level is not None and near_zone:
         rc = RISK_COLORS.get(risk_level, "#6c757d")
         label_txt = RISK_LABEL.get(risk_level, risk_level.upper())
+        _arrival = _fmt_arrival(_fc_b)
+        _arrival_line = (
+            f"<div style='color:#b2ebf2;font-size:10.5px;margin-top:4px'>"
+            f"📅 Llegada estimada / ETA: {_arrival}</div>"
+            if _arrival else ""
+        )
         risk_badge = (
             f"<div style='background:{rc};color:#fff;display:inline-block;"
             f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
             f"🌊 Sargazo: {label_txt} · {near_zone['name']} (~{dist_km_b:.0f} km)"
-            f"</div>"
+            f"</div>{_arrival_line}"
         )
     else:
         risk_badge = (
@@ -425,143 +576,336 @@ for b in filtered:
         f"margin-top:8px;text-decoration:none'>📍 Google Maps ↗</a>"
         f"</div></div>"
     )
+    # Draw beach as a white pin with a colored ring (region color).
+    # This makes beaches visually distinct from risk zones (colored filled rectangles).
     folium.CircleMarker(
         location=[b["latitude"], b["longitude"]],
-        radius=10,
-        color=color,
+        radius=9,
+        color=region_color,
         fill=True,
-        fill_color=color,
-        fill_opacity=0.85,
-        weight=2,
+        fill_color="#ffffff",
+        fill_opacity=1.0,
+        weight=3,
         popup=folium.Popup(popup_html, max_width=340),
         tooltip=f"🏖️ {b['name']} — {b['province']}",
     ).add_to(cluster)
 
-# Floating legend (bottom-left inside map)
+# ---------------------------------------------------------------------------
+# Sargassum monitoring zones — drawn as translucent rectangles when toggled
+# ---------------------------------------------------------------------------
+_ZONE_BOX_DEG = 0.5  # half-width, must match pipeline/config.py ZONE_BOX_HALF_DEG (~55 km)
+
+if show_zones and zones:
+    for _z in zones:
+        _zid = _z["id"]
+        _fc_z = forecast_by_zone_id.get(_zid)
+        _z_risk = _risk_at_horizon(_fc_z) if _fc_z else "none"
+        _z_color = RISK_COLORS.get(_z_risk, "#6c757d")
+        _z_label = RISK_LABEL.get(_z_risk, _z_risk.upper())
+        _clat = _z["center_lat"]
+        _clon = _z["center_lon"]
+
+        # Draw bounding box rectangle
+        folium.Rectangle(
+            bounds=[
+                [_clat - _ZONE_BOX_DEG, _clon - _ZONE_BOX_DEG],
+                [_clat + _ZONE_BOX_DEG, _clon + _ZONE_BOX_DEG],
+            ],
+            color=_z_color,
+            fill=True,
+            fill_color=_z_color,
+            fill_opacity=0.18,
+            weight=2,
+            dash_array="6 4",
+            popup=folium.Popup(
+                f"<div style='font-family:Nunito,sans-serif;min-width:180px;"
+                f"background:linear-gradient(135deg,#003540,#005f6e);border-radius:12px;"
+                f"padding:12px 14px;color:#e0f7fa'>"
+                f"<div style='font-size:14px;font-weight:900;color:#fff;margin-bottom:4px'>"
+                f"🌊 {_z['name']}</div>"
+                f"<div style='background:{_z_color};border-radius:16px;display:inline-block;"
+                f"padding:3px 12px;font-size:11px;font-weight:800;color:#fff;margin-bottom:6px'>"
+                f"{_z_label}</div>"
+                + (
+                    f"<div style='color:#b2dfdb;font-size:11px'>⏱️ ETA ~{_fc_z['eta_hours']}h</div>"
+                    if _fc_z and _fc_z.get("eta_hours") is not None else ""
+                )
+                + (
+                    f"<div style='color:#b2dfdb;font-size:11px'>📅 {_fmt_arrival(_fc_z)}</div>"
+                    if _fmt_arrival(_fc_z) else ""
+                )
+                + (
+                    f"<div style='color:#80cbc4;font-size:10px;margin-top:4px'>"
+                    f"🔄 {_fc_z.get('run_at','')[:16].replace('T',' ')} UTC</div>"
+                    if _fc_z and _fc_z.get("run_at") else ""
+                )
+                + f"</div>",
+                max_width=220,
+            ),
+            tooltip=f"🌊 {_z['name']} — {_z_label}",
+        ).add_to(m)
+
+        # Zone centre pin
+        folium.CircleMarker(
+            location=[_clat, _clon],
+            radius=5,
+            color=_z_color,
+            fill=True,
+            fill_color=_z_color,
+            fill_opacity=1.0,
+            weight=2,
+        ).add_to(m)
+
+# ---------------------------------------------------------------------------
+# Detected sargassum masses — plotted as brown blobs sized by area.
+# ---------------------------------------------------------------------------
+if show_masses:
+    _masses = fetch_detections(API_BASE_URL)
+    if _masses:
+        _mass_group = folium.FeatureGroup(name="Sargazo", show=True)
+        for _d in _masses:
+            try:
+                _a = float(_d.get("area_km2", 0.0))
+            except (TypeError, ValueError):
+                _a = 0.0
+            # Radius scales with area (sqrt so big masses don't dominate); clamp 3–18 px.
+            _r = max(3.0, min(18.0, 3.0 + (_a ** 0.5) * 4.0))
+            folium.CircleMarker(
+                location=[_d["lat"], _d["lon"]],
+                radius=_r,
+                color="#5d4037",
+                fill=True,
+                fill_color="#795548",
+                fill_opacity=0.55,
+                weight=1,
+                tooltip=f"🟤 Sargazo · {_a:.2f} km²",
+            ).add_to(_mass_group)
+        _mass_group.add_to(m)
+    # If no masses came back we silently skip — sidebar caption explains why below.
+
+# Floating legend — split into two sections to avoid confusion:
+# 1) Beach pins (white + colored ring = region)
+# 2) Risk zones (filled colored rectangles = sargassum risk)
+beach_legend_rows = "".join(
+    f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
+    f"<div style='width:13px;height:13px;border-radius:50%;background:#fff;"
+    f"border:2.5px solid {c};flex-shrink:0'></div>"
+    f"<span style='font-size:11px;color:#37474f'>{r}</span></div>"
+    for r, c in REGION_COLORS.items()
+)
+
 if zones:
-    legend_rows = "".join(
-        f"<div style='display:flex;align-items:center;gap:7px;margin:3px 0'>"
-        f"<div style='width:13px;height:13px;border-radius:50%;background:{c};flex-shrink:0'></div>"
-        f"<span style='font-size:12px;color:#37474f'>{RISK_LABEL.get(lv, lv)}</span></div>"
+    risk_legend_rows = "".join(
+        f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>" 
+        f"<div style='width:16px;height:10px;background:{c};flex-shrink:0;border-radius:2px'></div>"
+        f"<span style='font-size:11px;color:#37474f'>{RISK_LABEL.get(lv, lv)}</span></div>"
         for lv, c in RISK_COLORS.items()
     )
-    legend_title = L["risk_legend"]
-else:
-    legend_rows = "".join(
-        f"<div style='display:flex;align-items:center;gap:7px;margin:3px 0'>"
-        f"<div style='width:13px;height:13px;border-radius:50%;background:{c};flex-shrink:0'></div>"
-        f"<span style='font-size:12px;color:#37474f'>{r}</span></div>"
-        for r, c in REGION_COLORS.items()
+    legend_html = (
+        f"<div style='font-weight:800;font-size:11.5px;color:#005f73;margin-bottom:3px'>"
+        f"{L['beach_legend']}</div>{beach_legend_rows}"
+        f"<div style='border-top:1px solid #ccc;margin:6px 0'></div>"
+        f"<div style='font-weight:800;font-size:11.5px;color:#005f73;margin-bottom:3px'>"
+        f"{L['zone_legend']}</div>{risk_legend_rows}"
     )
-    legend_title = "Regiones / Regions"
+else:
+    legend_html = (
+        f"<div style='font-weight:800;font-size:11.5px;color:#005f73;margin-bottom:3px'>"
+        f"{L['beach_legend']}</div>{beach_legend_rows}"
+    )
 
 m.get_root().html.add_child(folium.Element(
-    f"<div style='position:absolute;bottom:28px;left:10px;z-index:1000;"
-    f"background:rgba(255,255,255,.93);border-radius:12px;padding:10px 14px;"
-    f"box-shadow:0 2px 14px rgba(0,0,0,.18);backdrop-filter:blur(6px)'>"
-    f"<div style='font-weight:800;font-size:12px;color:#005f73;margin-bottom:5px'>{legend_title}</div>"
-    f"{legend_rows}</div>"
-))
-# Floating tip (top-right inside map)
-m.get_root().html.add_child(folium.Element(
-    f"<div style='position:absolute;top:10px;right:10px;z-index:1000;"
+    f"<div style='position:absolute;top:10px;left:60px;z-index:1000;"
     f"background:rgba(0,96,100,.88);color:#fff;border-radius:10px;"
     f"padding:8px 14px;font-size:12px;font-weight:700;backdrop-filter:blur(4px)'>"
     f"{L['tip']}</div>"
 ))
 
-# ---------------------------------------------------------------------------
-# Detail overlay panel — built as Folium HTML so it sits ON the map
-# ---------------------------------------------------------------------------
-if filtered:
-    names_sorted = sorted(filtered, key=lambda x: x["name"])
-    default_name = st.session_state.get("selected_beach")
-    if default_name not in {b["name"] for b in filtered}:
-        default_name = names_sorted[0]["name"]
-    panel_beach = next(b for b in filtered if b["name"] == default_name)
-    turtle_icon = " 🐢" if panel_beach["protected_area"] else ""
-    risk_level, near_zone, dist_km = _beach_risk(panel_beach)
-
-    if risk_level is not None and near_zone:
-        rc = RISK_COLORS.get(risk_level, "#607d8b")
-        lbl = RISK_LABEL.get(risk_level, risk_level.upper())
-        risk_html = (
-            f"<div style='background:{rc};border-radius:8px;padding:6px 10px;"
-            f"font-weight:700;font-size:11px;text-align:center;margin:7px 0;"
-            f"box-shadow:0 2px 6px rgba(0,0,0,.25)'>"
-            f"🌊 {lbl} · {near_zone['name']}<br>"
-            f"<span style='font-weight:400;font-size:10px'>~{dist_km:.0f} km {L['away']}</span></div>"
-        )
-    else:
-        risk_html = (
-            f"<div style='background:#546e7a;border-radius:8px;padding:6px 10px;"
-            f"font-weight:700;font-size:11px;text-align:center;margin:7px 0'>"
-            f"🌊 {L['risk_unavail']}</div>"
-        )
-
-    def _row(label: str, val: str) -> str:
-        return (
-            f"<div style='margin:5px 0'>"
-            f"<div style='color:#9edde6;font-size:10px;font-weight:700;text-transform:uppercase;"
-            f"letter-spacing:.4px'>{label}</div>"
-            f"<div style='color:#e0f7fa;font-size:11.5px;line-height:1.35'>{val}</div>"
-            f"</div>"
-        )
-
-    panel_html = (
-        # position:fixed in an iframe = fixed to the iframe viewport (always top-right)
-        f"<div id='beach-detail-panel' style='"
-        f"position:fixed;top:0;right:0;width:290px;height:100vh;z-index:9999;"
-        f"background:linear-gradient(180deg,#002b33 0%,#00404a 30%,#005f6e 65%,#007a8c 100%);"
-        f"overflow-y:auto;padding:14px 13px;box-sizing:border-box;"
-        f"box-shadow:-6px 0 28px rgba(0,0,0,.45);font-family:Nunito,sans-serif'>"
-        # header
-        f"<div style='font-size:15px;font-weight:900;color:#fff;line-height:1.2'>"
-        f"{panel_beach['name']}{turtle_icon}</div>"
-        f"<div style='font-size:11px;color:#9edde6;margin:2px 0 4px'>"
-        f"{panel_beach['province']} · {panel_beach['region']}</div>"
-        f"{risk_html}"
-        f"<div style='font-size:11px;color:#b2ebf2;margin:0 0 8px;line-height:1.4'>"
-        f"{panel_beach['description'][:180]}{'…' if len(panel_beach['description'])>180 else ''}</div>"
-        f"<hr style='border-color:rgba(255,255,255,.15);margin:8px 0'>"
-        + _row(L["best_time"], panel_beach["best_time_to_visit"])
-        + _row(L["entrance"], panel_beach["entrance_fee"])
-        + _row(L["parking"], ("✅ " + L["yes"]) if panel_beach["parking"] else ("⚠️ " + L["no_limited"]))
-        + _row(L["water"], panel_beach["water_conditions"])
-        + _row(L["access"], f"{panel_beach['access_type']} — {panel_beach['access_description']}")
-        + f"<hr style='border-color:rgba(255,255,255,.15);margin:8px 0'>"
-        + _row(L["activities"], ", ".join(panel_beach["activities"]))
-        + _row(L["wildlife"], ", ".join(panel_beach["wildlife"]) if panel_beach["wildlife"] else "N/A")
-        + _row(L["facilities"], ", ".join(panel_beach["facilities"]))
-        + _row(L["ecosystem"], panel_beach["ecosystem"])
-        + f"<a href='{panel_beach['google_maps_url']}' target='_blank' "
-        f"style='display:block;text-align:center;background:rgba(255,255,255,.18);"
-        f"color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:20px;"
-        f"padding:7px;font-size:12px;font-weight:800;text-decoration:none;margin-top:10px'>"
-        f"📍 {L['open_maps']} ↗</a>"
-        f"</div>"
-    )
-    m.get_root().html.add_child(folium.Element(panel_html))
-
-    # Center map on selected beach so it stays meaningful after rerun
-    m.location = [panel_beach["latitude"], panel_beach["longitude"]]
-    m.zoom_start = 10
-
-# Render full-width map — key forces re-render when selected beach changes
-_map_key = f"bmap_{st.session_state.get('selected_beach', '_none_')}"
+# Render map — stable key preserves pan/zoom between beach selections
 map_result = st_folium(
     m,
     width="100%",
     height=900,
     returned_objects=["last_object_clicked_tooltip"],
-    key=_map_key,
+    key="beach_map",
 )
 
-# Sync map click → session state
+# Sync map click → session state (skip rerun if already selected)
 if map_result and map_result.get("last_object_clicked_tooltip"):
     tooltip_text: str = map_result["last_object_clicked_tooltip"]
     clicked = tooltip_text.replace("🏖️ ", "").split(" — ")[0].strip()
-    if clicked in filtered_names:
+    if clicked in filtered_names and clicked != st.session_state.get("selected_beach"):
         st.session_state["selected_beach"] = clicked
         st.rerun()
+
+# ---------------------------------------------------------------------------
+# Legend — rendered in the Streamlit DOM (position:fixed) so it is NEVER
+# clipped by the Folium iframe viewport (bottom-left, always visible).
+# ---------------------------------------------------------------------------
+st.markdown(
+    f"<div class='map-legend'>{legend_html}</div>",
+    unsafe_allow_html=True,
+)
+
+# ---------------------------------------------------------------------------
+# Floating detail bubble — position:fixed in Streamlit DOM (hovers over map)
+# ---------------------------------------------------------------------------
+_sel_name = st.session_state.get("selected_beach")
+if filtered:
+    _sel_set = {b["name"] for b in filtered}
+    if _sel_name not in _sel_set:
+        _sel_name = sorted(filtered, key=lambda x: x["name"])[0]["name"]
+    _panel_beach: dict | None = next(b for b in filtered if b["name"] == _sel_name)
+else:
+    _panel_beach = None
+
+if _panel_beach:
+    _pb = _panel_beach
+    _risk_level, _near_zone, _dist_km, _fc = _beach_risk(_pb)
+    _turtle = " 🐢" if _pb["protected_area"] else ""
+
+    # ── Advisory text per risk level ──────────────────────────────────────
+    _ADVISORY = {
+        "none":   ("🟢", "Sin sargazo detectado en la zona más cercana.",
+                         "No sargassum detected in the nearest monitored zone."),
+        "low":    ("🟡", "Bajo riesgo. Posibles trazas en playa. Condiciones normales.",
+                         "Low risk. Possible traces on shore. Normal conditions."),
+        "medium": ("🟠", "Riesgo medio. Sargazo esperado. Puede afectar el agua.",
+                         "Medium risk. Sargassum incoming. Water may be affected."),
+        "high":   ("🔴", "ALTO RIESGO. Llegada inminente. Planifica con antelación.",
+                         "HIGH RISK. Arrival imminent. Plan your visit accordingly."),
+    }
+
+    # ── Build the sargassum section ───────────────────────────────────────
+    if _risk_level and _near_zone:
+        _rc = RISK_COLORS.get(_risk_level, "#607d8b")
+        _rlbl = RISK_LABEL.get(_risk_level, _risk_level.upper())
+        _emoji, _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("⚪", "", ""))
+        _advice = _advice_en if lang == "en" else _advice_es
+
+        # ETA line
+        _eta_line = ""
+        if _fc:
+            _eta_h = _fc.get("eta_hours")
+            _eta_ts = _fc.get("eta_timestamp")
+            _run_at = _fc.get("run_at", "")
+            if _eta_h is not None:
+                _eta_line += (
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"align-items:center;margin:5px 0'>"
+                    f"<span style='color:#80cbc4;font-size:10px;font-weight:700;"
+                    f"text-transform:uppercase;letter-spacing:.5px'>⏱️ ETA</span>"
+                    f"<span style='color:#e0f7fa;font-size:12px;font-weight:700'>"
+                    f"~{_eta_h}h</span></div>"
+                )
+            if _eta_ts:
+                # Format to readable local time (DR is UTC-4)
+                try:
+                    import datetime as _dt
+                    _ts = _dt.datetime.fromisoformat(_eta_ts.replace("Z", "+00:00"))
+                    _ts_dr = _ts.astimezone(_dt.timezone(
+                        _dt.timedelta(hours=-4)))
+                    _eta_fmt = _ts_dr.strftime("%d %b %H:%M")
+                except Exception:
+                    _eta_fmt = _eta_ts[:16]
+                _eta_line += (
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"align-items:center;margin:3px 0'>"
+                    f"<span style='color:#80cbc4;font-size:10px;font-weight:700;"
+                    f"text-transform:uppercase;letter-spacing:.5px'>📅 Llegada / Arrival</span>"
+                    f"<span style='color:#e0f7fa;font-size:12px'>{_eta_fmt} AST</span></div>"
+                )
+            if _run_at:
+                try:
+                    import datetime as _dt
+                    _ru = _dt.datetime.fromisoformat(_run_at.replace("Z", "+00:00"))
+                    _ru_dr = _ru.astimezone(_dt.timezone(_dt.timedelta(hours=-4)))
+                    _ru_fmt = _ru_dr.strftime("%d %b %H:%M")
+                except Exception:
+                    _ru_fmt = _run_at[:16]
+                _eta_line += (
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"align-items:center;margin:3px 0'>"
+                    f"<span style='color:#546e7a;font-size:10px;letter-spacing:.4px'>"
+                    f"🔄 Actualizado / Updated</span>"
+                    f"<span style='color:#78909c;font-size:10px'>{_ru_fmt} AST</span></div>"
+                )
+
+        _risk_section = (
+            f"<div style='background:rgba(0,0,0,.25);border-radius:12px;"
+            f"padding:10px 12px;margin:9px 0;border-left:4px solid {_rc}'>"
+            # Header row: badge + zone
+            f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px'>"
+            f"<span style='background:{_rc};color:#fff;border-radius:16px;"
+            f"padding:2px 10px;font-size:11px;font-weight:800'>{_emoji} {_rlbl}</span>"
+            f"<span style='color:#80cbc4;font-size:11px'>{_near_zone['name']}"
+            f" &nbsp;·&nbsp; ~{_dist_km:.0f} km</span></div>"
+            # Advisory
+            f"<div style='color:#cfd8dc;font-size:11.5px;line-height:1.45;"
+            f"margin-bottom:6px'>{_advice}</div>"
+            # ETA rows
+            + _eta_line +
+            f"</div>"
+        )
+    else:
+        _risk_section = (
+            f"<div style='background:rgba(0,0,0,.2);border-radius:12px;"
+            f"padding:10px 12px;margin:9px 0;border-left:4px solid #546e7a'>"
+            f"<div style='color:#90a4ae;font-size:11.5px'>🌊 {L['risk_unavail']}</div>"
+            f"</div>"
+        )
+
+
+    def _brow(icon_: str, label_: str, val_: str) -> str:
+        if not val_:
+            return ""
+        return (
+            f"<div style='margin:5px 0'>"
+            f"<div style='color:#80cbc4;font-size:10px;font-weight:700;"
+            f"text-transform:uppercase;letter-spacing:.5px'>{icon_} {label_}</div>"
+            f"<div style='color:#e0f7fa;font-size:12px;line-height:1.4'>{val_}</div>"
+            f"</div>"
+        )
+
+    _acts = ", ".join(_pb["activities"]) if _pb["activities"] else "N/A"
+    _wild = ", ".join(_pb["wildlife"]) if _pb["wildlife"] else "N/A"
+    _facs = ", ".join(_pb["facilities"]) if _pb["facilities"] else "N/A"
+    _park = ("✅ " + L["yes"]) if _pb["parking"] else ("⚠️ " + L["no_limited"])
+    _desc_raw = _pb.get("description") or ""
+    _desc = _desc_raw[:200] + ("…" if len(_desc_raw) > 200 else "")
+
+    _bubble = (
+        "<div class='beach-detail'>"
+        # Beach name + location
+        f"<div style='font-size:17px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:3px'>"
+        f"{_pb['name']}{_turtle}</div>"
+        f"<div style='font-size:11px;color:#80cbc4;margin-bottom:4px'>"
+        f"📍 {_pb['province']} · {_pb['region']}</div>"
+        # Sargassum risk section (rich card)
+        + _risk_section +
+        # Description
+        f"<div style='font-size:11.5px;color:#b2dfdb;line-height:1.5;margin-bottom:11px;"
+        f"border-left:3px solid rgba(0,255,180,.25);padding-left:9px'>{_desc}</div>"
+        f"<hr style='border:none;border-top:1px solid rgba(255,255,255,.13);margin:9px 0'>"
+        + _brow("🗓️", L["best_time"], _pb["best_time_to_visit"])
+        + _brow("🎟️", L["entrance"], _pb["entrance_fee"])
+        + _brow("🅿️", L["parking"], _park)
+        + _brow("🌊", L["water"], _pb["water_conditions"])
+        + _brow("🚪", L["access"], f"{_pb['access_type']} — {_pb['access_description']}")
+        + "<hr style='border:none;border-top:1px solid rgba(255,255,255,.13);margin:9px 0'>"
+        + _brow("🏄", L["activities"], _acts)
+        + _brow("🐠", L["wildlife"], _wild)
+        + _brow("🏗️", L["facilities"], _facs)
+        + _brow("🌿", L["ecosystem"], _pb["ecosystem"])
+        + f"<a href='{_pb['google_maps_url']}' target='_blank' style='"
+        "display:block;text-align:center;margin-top:14px;"
+        "background:linear-gradient(135deg,rgba(0,180,130,.4),rgba(0,120,100,.4));"
+        "color:#fff;"
+        "border:1px solid rgba(0,255,180,.3);border-radius:25px;"
+        "padding:9px;font-size:12px;font-weight:800;text-decoration:none'>"
+        f"📍 {L['open_maps']} ↗</a>"
+        "</div>"
+    )
+    st.markdown(_bubble, unsafe_allow_html=True)
+
 

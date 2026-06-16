@@ -1213,3 +1213,65 @@ def all_regions() -> list[str]:
     order = [REGION_EAST, REGION_NORTH, REGION_SAMANA, REGION_SOUTH, REGION_SOUTHWEST]
     present = {b["region"] for b in BEACHES}
     return [r for r in order if r in present]
+
+
+# ---------------------------------------------------------------------------
+# Month filter helper
+# ---------------------------------------------------------------------------
+_MONTH_NUM = {
+    "january": 1, "february": 2, "march": 3, "april": 4,
+    "may": 5, "june": 6, "july": 7, "august": 8,
+    "september": 9, "october": 10, "november": 11, "december": 12,
+}
+
+
+def _parse_month(word: str) -> int | None:
+    """Return 1–12 for a full or 3-letter English month name, else None."""
+    w = word.strip().lower().rstrip(".,;)")
+    if w in _MONTH_NUM:
+        return _MONTH_NUM[w]
+    for full, num in _MONTH_NUM.items():
+        if full.startswith(w[:3]):
+            return num
+    return None
+
+
+def _month_in_range(month: int, start: int, end: int) -> bool:
+    """True if *month* falls within [start, end] (wrapping across Dec→Jan)."""
+    if start <= end:
+        return start <= month <= end
+    # wrap-around, e.g. December–April
+    return month >= start or month <= end
+
+
+def beach_good_in_month(beach: dict, month: int) -> bool:
+    """Return True if *month* (1–12) falls within the beach's best visiting window.
+
+    Parses strings like:
+        "December–April (dry season)"
+        "October–April (best surf)"
+        "June–August & December–February (peak wind)"
+        "Year-round"
+    Returns True when the string cannot be parsed (fail-open).
+    """
+    text = (beach.get("best_time_to_visit") or "").lower()
+    if not text or "year" in text or "todo el año" in text:
+        return True  # year-round or unknown → always show
+
+    # Split on '&' or 'and' to handle multiple windows
+    segments = [s.strip() for s in text.replace(" and ", " & ").split("&")]
+    for seg in segments:
+        # Drop parenthetical notes like "(dry season)"
+        seg = seg.split("(")[0].strip()
+        # Split on en-dash variants and whitespace
+        import re as _re
+        parts = _re.split(r"[–\-—/to]+", seg)
+        month_nums = [_parse_month(p) for p in parts if _parse_month(p)]
+        if len(month_nums) >= 2:
+            if _month_in_range(month, month_nums[0], month_nums[1]):
+                return True
+        elif len(month_nums) == 1:
+            if month_nums[0] == month:
+                return True
+
+    return False  # no matching window found

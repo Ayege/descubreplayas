@@ -96,6 +96,7 @@ def upsert_forecasts(forecasts: list[dict]) -> list[dict]:
                 "risk_level": f["risk_level"],
                 "eta_hours": f.get("eta_hours"),
                 "eta_timestamp": f.get("eta_timestamp"),
+                "horizons": f.get("horizons"),
             }
         )
 

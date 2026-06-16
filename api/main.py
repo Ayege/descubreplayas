@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 from api import db
 from api.models import (
     BeachResponse,
+    DetectionResponse,
     ForecastResponse,
     HealthResponse,
     SubscribeRequest,
@@ -60,6 +61,7 @@ def _format_forecast(row: dict) -> ForecastResponse:
         eta_hours=row.get("eta_hours"),
         eta_timestamp=row.get("eta_timestamp"),
         run_at=str(row["run_at"]),
+        horizons=row.get("horizons"),
     )
 
 
@@ -86,6 +88,17 @@ def list_beaches(province: str | None = None, region: str | None = None) -> list
     """List tourism beaches, optionally filtered by ?province= or ?region=."""
     rows = db.list_beaches(province=province, region=region)
     return [BeachResponse(**r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Detections (sargassum masses)
+# ---------------------------------------------------------------------------
+
+@app.get("/detections", response_model=list[DetectionResponse], tags=["data"])
+def list_detections(limit: int = 2000) -> list[DetectionResponse]:
+    """Return the latest pipeline run's detected sargassum masses (lat/lon + area)."""
+    rows = db.list_detections(limit=limit)
+    return [DetectionResponse(**r) for r in rows]
 
 
 # ---------------------------------------------------------------------------

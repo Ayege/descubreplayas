@@ -42,7 +42,7 @@ def latest_forecasts() -> list[dict[str, Any]]:
     result = (
         get_client()
         .table("forecasts")
-        .select("id, run_at, zone_id, risk_level, eta_hours, eta_timestamp, zones(name)")
+        .select("id, run_at, zone_id, risk_level, eta_hours, eta_timestamp, horizons, zones(name)")
         .order("run_at", desc=True)
         .limit(200)
         .execute()
@@ -62,7 +62,7 @@ def latest_forecast_for_zone(zone_id: int) -> dict[str, Any] | None:
     result = (
         get_client()
         .table("forecasts")
-        .select("id, run_at, zone_id, risk_level, eta_hours, eta_timestamp, zones(name)")
+        .select("id, run_at, zone_id, risk_level, eta_hours, eta_timestamp, horizons, zones(name)")
         .eq("zone_id", zone_id)
         .order("run_at", desc=True)
         .limit(1)
@@ -97,4 +97,17 @@ def list_beaches(province: str | None = None, region: str | None = None) -> list
     if region:
         query = query.eq("region", region)
     result = query.order("name").execute()
+    return result.data or []
+
+
+def list_detections(limit: int = 2000) -> list[dict[str, Any]]:
+    """Return the latest pipeline run's detected sargassum masses (lat/lon + area)."""
+    result = (
+        get_client()
+        .table("detections_latest")
+        .select("id, run_at, lat, lon, area_km2, source")
+        .order("area_km2", desc=True)
+        .limit(limit)
+        .execute()
+    )
     return result.data or []

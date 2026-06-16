@@ -47,24 +47,25 @@ def nearest_zone(lat: float, lon: float, zones: list[dict]) -> Optional[dict]:
 def risk_for_beach(
     beach: dict,
     zones: list[dict],
-    risk_by_zone_id: dict[int, str],
-) -> tuple[str, Optional[dict], float]:
-    """Return (risk_level, nearest_zone, distance_km) for one beach.
+    forecast_by_zone_id: dict[int, dict],
+) -> tuple[str, "Optional[dict]", float, "Optional[dict]"]:
+    """Return (risk_level, nearest_zone, distance_km, forecast) for one beach.
 
     Falls back to risk 'none' when no forecast exists for the nearest zone.
     """
     zone = nearest_zone(beach["latitude"], beach["longitude"], zones)
     if zone is None:
-        return "none", None, math.inf
+        return "none", None, math.inf, None
     dist = haversine_km(beach["latitude"], beach["longitude"], zone["center_lat"], zone["center_lon"])
-    risk = risk_by_zone_id.get(zone["id"], "none")
-    return risk, zone, dist
+    fc = forecast_by_zone_id.get(zone["id"])
+    risk = fc.get("risk_level", "none") if fc else "none"
+    return risk, zone, dist, fc
 
 
-def fetch_live_risk(api_base_url: str, timeout: int = 8) -> tuple[list[dict], dict[int, str]]:
+def fetch_live_risk(api_base_url: str, timeout: int = 8) -> tuple[list[dict], dict[int, dict]]:
     """Fetch zones and latest forecasts from the API.
 
-    Returns (zones, {zone_id: risk_level}). Returns ([], {}) on any failure so
+    Returns (zones, {zone_id: full_forecast_dict}). Returns ([], {}) on any failure so
     the caller can degrade gracefully to region colouring.
     """
     if not api_base_url or not api_base_url.startswith(("http://", "https://")):
@@ -86,7 +87,35 @@ def fetch_live_risk(api_base_url: str, timeout: int = 8) -> tuple[list[dict], di
         logger.warning("Live risk fetch failed for %s.", api_base_url, exc_info=True)
         return [], {}
 
-    risk_by_zone_id: dict[int, str] = {
-        f["zone_id"]: f.get("risk_level", "none") for f in (forecasts or [])
+    forecast_by_zone_id: dict[int, dict] = {
+        f["zone_id"]: f for f in (forecasts or [])
     }
-    return zones or [], risk_by_zone_id
+    return zones or [], forecast_by_zone_id
+
+
+def fetch_detections(api_base_url: str, limit: int = 2000, timeout: int = 8) -> list[dict]:
+    """Fetch the latest run's sargassum masses from the API.
+
+    Returns a list of {id, run_at, lat, lon, area_km2, source} dicts, or [] on
+    any failure so the dashboard can degrade gracefully.
+    """
+    if not api_base_url or not api_base_url.startswith(("http://", "https://")):
+        return []
+    try:
+        import certifi
+        import requests
+    except Exception:
+        logger.warning("requests/certifi unavailable; cannot fetch detections.")
+        return []
+    try:
+        verify = certifi.where()
+        resp = requests.get(
+            f"{api_base_url}/detections",
+            params={"limit": limit},
+            timeout=timeout,
+            verify=verify,
+        )
+        return resp.json() or []
+    except Exception:
+        logger.warning("Detection fetch failed for %s.", api_base_url, exc_info=True)
+        return []

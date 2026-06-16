@@ -31,6 +31,16 @@ class ForecastResponse(BaseModel):
     eta_hours: Optional[int] = None
     eta_timestamp: Optional[str] = None
     run_at: str
+    horizons: Optional[list[dict]] = None
+
+
+class DetectionResponse(BaseModel):
+    id: int
+    run_at: str
+    lat: float
+    lon: float
+    area_km2: float
+    source: Optional[str] = None
 
 
 class BeachResponse(BaseModel):

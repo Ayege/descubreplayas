@@ -47,6 +47,25 @@ def _in_zone(lon: float, lat: float, box: tuple[float, float, float, float]) -> 
     return min_lon <= lon <= max_lon and min_lat <= lat <= max_lat
 
 
+def _classify_risk(area_km2: float, eta_hours: Optional[int], horizon_hours: int) -> str:
+    """Classify sargassum risk from projected area and arrival time.
+
+    Args:
+        area_km2:      total patch area projected inside the zone by this horizon.
+        eta_hours:     earliest arrival hour (None if nothing reaches the zone).
+        horizon_hours: the forecast horizon being evaluated.
+
+    Risk only applies if something actually arrives within the horizon.
+    """
+    if eta_hours is None or eta_hours > horizon_hours or area_km2 <= 0:
+        return "none"
+    if area_km2 > config.RISK_AREA_MEDIUM_MAX_KM2 or eta_hours <= config.RISK_HIGH_ETA_HOURS:
+        return "high"
+    if area_km2 > config.RISK_AREA_LOW_MAX_KM2:
+        return "medium"
+    return "low"
+
+
 def _effective_velocity(
     step: int,
     u_current: list[float],
@@ -110,9 +129,10 @@ def project_drift(
         }
     """
     if hours is None:
-        hours = [24, 48, 72]
+        hours = [0, 24, 48, 72]
 
-    max_hours = max(hours)
+    horizons = sorted(set(hours))
+    max_hours = max(horizons)
     alpha = config.WIND_DRIFT_FACTOR
     run_at = dt.datetime.now(dt.timezone.utc)
 
@@ -120,14 +140,20 @@ def project_drift(
     zones = config.ZONES
     zone_boxes = [_zone_box(z) for z in zones]
 
-    # zone_state[i] -> {"eta_hours": int|None, "area_km2": float}
-    zone_state: list[dict] = [{"eta_hours": None, "area_km2": 0.0} for _ in zones]
+    # zone_state[i] -> {"eta_hours": int|None, "arrivals": [(hour, area_km2), ...]}
+    # We record the hour each patch first enters the zone plus its area, so we
+    # can later compute the cumulative area present by ANY forecast horizon.
+    zone_state: list[dict] = [
+        {"eta_hours": None, "arrivals": []} for _ in zones
+    ]
 
     for patch_idx, patch in enumerate(patches):
         f = forcing.get(patch_idx)
         if f is None:
-            logger.warning("No forcing entry for patch %d; skipping.", patch_idx)
-            continue
+            # No ocean forcing for this patch — fall back to zero drift.
+            # The patch stays put, but the hour-0 immediate-presence check
+            # below still correctly flags any mass already inside a zone.
+            f = {"u_current": [0.0], "v_current": [0.0], "u_wind": [0.0], "v_wind": [0.0]}
 
         u_current: list[float] = f["u_current"]
         v_current: list[float] = f["v_current"]
@@ -138,36 +164,69 @@ def project_drift(
         lon = float(patch["centroid_lon"])
         lat = float(patch["centroid_lat"])
 
+        # Track which zones this patch has already been counted for, so its
+        # area is added exactly once per zone (a patch may sit inside a zone
+        # box for several consecutive hours).
+        counted_zones: set[int] = set()
+
+        # Hour 0 — a patch already inside a zone box is an IMMEDIATE risk.
+        # Without this check the loop only registers patches that *enter* a
+        # zone after drifting, missing biomass that is already present.
+        for zi, box in enumerate(zone_boxes):
+            if _in_zone(lon, lat, box):
+                counted_zones.add(zi)
+                st = zone_state[zi]
+                st["arrivals"].append((0, area_km2))
+                st["eta_hours"] = 0  # already in the zone now
+
         for step in range(max_hours):
+            if len(counted_zones) == len(zone_boxes):
+                break
             u_eff, v_eff = _effective_velocity(step, u_current, v_current, u_wind, v_wind, alpha)
             lon, lat = _step_position(lon, lat, u_eff, v_eff)
 
             hour = step + 1
             for zi, box in enumerate(zone_boxes):
+                if zi in counted_zones:
+                    continue
                 if _in_zone(lon, lat, box):
-                    prev = zone_state[zi]
-                    if prev["eta_hours"] is None or hour < prev["eta_hours"]:
-                        prev["eta_hours"] = hour
-                        prev["area_km2"] += area_km2
-                    elif prev["eta_hours"] == hour:
-                        # Same earliest hour, accumulate area from other patches.
-                        prev["area_km2"] += area_km2
+                    counted_zones.add(zi)
+                    st = zone_state[zi]
+                    # Record arrival hour + area so cumulative area by any
+                    # horizon can be derived afterwards.
+                    st["arrivals"].append((hour, area_km2))
+                    if st["eta_hours"] is None or hour < st["eta_hours"]:
+                        st["eta_hours"] = hour
+
 
     # Build result list.
     results: list[dict] = []
     for zi, zone in enumerate(zones):
         state = zone_state[zi]
         eta_h = state["eta_hours"]
-        area = state["area_km2"]
+        arrivals: list[tuple[int, float]] = state["arrivals"]
 
-        if eta_h is None:
-            risk = "none"
-        elif area > config.RISK_AREA_MEDIUM_MAX_KM2 or eta_h <= config.RISK_HIGH_ETA_HOURS:
-            risk = "high"
-        elif area > config.RISK_AREA_LOW_MAX_KM2:
-            risk = "medium"
-        else:
-            risk = "low"
+        # Total area projected to be present within the full forecast window.
+        total_area = sum(a for _, a in arrivals)
+
+        # Per-horizon breakdown: cumulative area + risk classification at each
+        # forecast checkpoint (e.g. 24h, 48h, 72h). This is the honest,
+        # physics-limited forecast — risk evolving over the next 3 days.
+        horizon_breakdown: list[dict] = []
+        for h in horizons:
+            area_h = sum(a for hr, a in arrivals if hr <= h)
+            horizon_breakdown.append(
+                {
+                    "horizon_hours": h,
+                    "risk_level": _classify_risk(area_h, eta_h, h),
+                    "area_km2": round(area_h, 3),
+                    "valid_at": (run_at + dt.timedelta(hours=h)).isoformat(),
+                }
+            )
+
+        # Summary risk = worst risk across all horizons (so a zone that turns
+        # high at +72h is still surfaced as high in the headline number).
+        summary_risk = _classify_risk(total_area, eta_h, max_hours)
 
         eta_ts: Optional[str] = None
         if eta_h is not None:
@@ -177,17 +236,19 @@ def project_drift(
             {
                 "zone_id": zi + 1,
                 "zone_name": zone["name"],
-                "risk_level": risk,
+                "risk_level": summary_risk,
                 "eta_hours": eta_h,
                 "eta_timestamp": eta_ts,
+                "horizons": horizon_breakdown,
             }
         )
         logger.info(
-            "Zone %s: risk=%s eta=%sh area=%.2fkm2",
+            "Zone %s: risk=%s eta=%sh area=%.2fkm2 horizons=%s",
             zone["name"],
-            risk,
+            summary_risk,
             eta_h,
-            area,
+            total_area,
+            [(h["horizon_hours"], h["risk_level"]) for h in horizon_breakdown],
         )
 
     return results

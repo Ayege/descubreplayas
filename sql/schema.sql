@@ -34,8 +34,12 @@ create table if not exists forecasts (
     zone_id         int not null references zones(id) on delete cascade,
     risk_level      text not null check (risk_level in ('none', 'low', 'medium', 'high')),
     eta_hours       int,
-    eta_timestamp   timestamptz
+    eta_timestamp   timestamptz,
+    horizons        jsonb
 );
+
+-- Forecast horizon breakdown (added after initial release; safe to re-run).
+alter table forecasts add column if not exists horizons jsonb;
 
 create table if not exists subscribers (
     id              bigserial primary key,
@@ -85,6 +89,43 @@ create index if not exists beaches_province_idx    on beaches    (province);
 create index if not exists beaches_region_idx      on beaches    (region);
 
 -- -------------------------------------------------------------------------
+-- Row Level Security
+-- All tables are readable by the public anon role.
+-- Write operations (INSERT/UPDATE/DELETE) require the service_role key,
+-- which bypasses RLS entirely — no extra policy needed for writes.
+-- -------------------------------------------------------------------------
+alter table zones        enable row level security;
+alter table detections   enable row level security;
+alter table forecasts    enable row level security;
+alter table subscribers  enable row level security;
+alter table beaches      enable row level security;
+
+-- Public read policies (anon key can read everything → dashboard & API work)
+do $$ begin
+  if not exists (
+    select 1 from pg_policies where tablename = 'zones' and policyname = 'zones_public_read'
+  ) then
+    create policy zones_public_read        on zones       for select using (true);
+  end if;
+  if not exists (
+    select 1 from pg_policies where tablename = 'detections' and policyname = 'detections_public_read'
+  ) then
+    create policy detections_public_read   on detections  for select using (true);
+  end if;
+  if not exists (
+    select 1 from pg_policies where tablename = 'forecasts' and policyname = 'forecasts_public_read'
+  ) then
+    create policy forecasts_public_read    on forecasts   for select using (true);
+  end if;
+  if not exists (
+    select 1 from pg_policies where tablename = 'beaches' and policyname = 'beaches_public_read'
+  ) then
+    create policy beaches_public_read      on beaches     for select using (true);
+  end if;
+  -- subscribers: only readable by service_role (no public read policy)
+end $$;
+
+-- -------------------------------------------------------------------------
 -- Seed zones (5 coastal zones as small boxes ± 0.1° around each centre)
 -- -------------------------------------------------------------------------
 insert into zones (name, center_lat, center_lon, geom) values
@@ -124,3 +165,21 @@ insert into zones (name, center_lat, center_lon, geom) values
     )
   )
 on conflict (name) do nothing;
+
+-- -------------------------------------------------------------------------
+-- View: detections_latest
+-- Exposes the most-recent pipeline run's sargassum patches as plain
+-- lat/lon + area so the dashboard can plot the detected masses without
+-- needing PostGIS geometry parsing on the client.
+-- -------------------------------------------------------------------------
+create or replace view detections_latest as
+select
+    id,
+    run_at,
+    st_y(centroid) as lat,
+    st_x(centroid) as lon,
+    area_km2,
+    source
+from detections
+where run_at = (select max(run_at) from detections);
+
