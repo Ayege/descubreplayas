@@ -126,7 +126,7 @@ do $$ begin
 end $$;
 
 -- -------------------------------------------------------------------------
--- Seed zones (7 coastal zones as small boxes ± 0.1° around each centre)
+-- Seed zones (10 coastal zones covering the full DR coastline)
 -- -------------------------------------------------------------------------
 insert into zones (name, center_lat, center_lon, geom) values
   (
@@ -175,6 +175,27 @@ insert into zones (name, center_lat, center_lon, geom) values
     'Pedernales', 17.90, -71.65,
     st_geomfromtext(
       'POLYGON((-71.75 17.80, -71.55 17.80, -71.55 18.00, -71.75 18.00, -71.75 17.80))',
+      4326
+    )
+  ),
+  (
+    'Monte Cristi', 19.86, -71.65,
+    st_geomfromtext(
+      'POLYGON((-71.75 19.76, -71.55 19.76, -71.55 19.96, -71.75 19.96, -71.75 19.76))',
+      4326
+    )
+  ),
+  (
+    'Rio San Juan', 19.62, -70.08,
+    st_geomfromtext(
+      'POLYGON((-70.18 19.52, -69.98 19.52, -69.98 19.72, -70.18 19.72, -70.18 19.52))',
+      4326
+    )
+  ),
+  (
+    'Azua', 18.22, -70.45,
+    st_geomfromtext(
+      'POLYGON((-70.55 18.12, -70.35 18.12, -70.35 18.32, -70.55 18.32, -70.55 18.12))',
       4326
     )
   )

@@ -124,3 +124,47 @@ def fetch_zone_id_map() -> dict[str, int]:
     except Exception:
         logger.exception("fetch_zone_id_map failed.")
         raise
+
+
+def upsert_zones(zones: list[dict]) -> dict[str, int]:
+    """Ensure all zones from config exist in the DB; insert any that are missing.
+
+    Args:
+        zones: list of {name, center_lat, center_lon} from config.ZONES.
+
+    Returns:
+        {zone_name -> id} map (all zones, including newly created ones).
+    """
+    sb = _client()
+    existing = fetch_zone_id_map()
+    missing = [z for z in zones if z["name"] not in existing]
+
+    if missing:
+        rows = []
+        for z in missing:
+            d = config.ZONE_BOX_HALF_DEG
+            lat, lon = z["center_lat"], z["center_lon"]
+            # Build a closed polygon ring: SW -> SE -> NE -> NW -> SW
+            wkt = (
+                f"POLYGON(({lon-d} {lat-d}, {lon+d} {lat-d}, "
+                f"{lon+d} {lat+d}, {lon-d} {lat+d}, {lon-d} {lat-d}))"
+            )
+            rows.append({
+                "name": z["name"],
+                "center_lat": lat,
+                "center_lon": lon,
+                "geom": f"SRID=4326;{wkt}",
+            })
+        try:
+            result = sb.table("zones").insert(rows).execute()
+            for row in (result.data or []):
+                existing[row["name"]] = row["id"]
+            logger.info("upsert_zones: created %d new zone(s): %s",
+                        len(missing), [z["name"] for z in missing])
+        except Exception:
+            logger.exception("upsert_zones: failed to insert missing zones.")
+            raise
+    else:
+        logger.debug("upsert_zones: all %d zones already in DB.", len(zones))
+
+    return existing

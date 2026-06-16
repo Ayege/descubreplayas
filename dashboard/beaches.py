@@ -175,10 +175,9 @@ _RISK_LABELS = {
 
 # A beach only inherits a zone's risk if it lies within this radius of the
 # zone centre. Zone boxes are 0.5° half-width (~55 km to the edge, ~76 km to a
-# corner), so 80 km keeps in-box beaches covered while excluding distant ones.
-# Beyond this, the beach is outside the monitored area and shows 'out of range'
-# instead of falsely inheriting a far zone's (possibly high) risk.
-COVERAGE_KM = 80.0
+# corner), so 85 km keeps all in-zone beaches covered while excluding distant
+# ones. Beyond this, the beach is outside the monitored area.
+COVERAGE_KM = 85.0
 
 # ---------------------------------------------------------------------------
 # CSS — responsive full-viewport map, tropical palette, clean sidebar

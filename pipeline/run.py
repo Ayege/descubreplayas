@@ -123,13 +123,23 @@ def main() -> int:  # noqa: C901
     if forecasts:
         t = time.perf_counter()
         try:
-            from pipeline.store import upsert_forecasts, fetch_zone_id_map
-            # Ensure zone_ids match the DB (DB is source-of-truth).
-            zone_map = fetch_zone_id_map()  # {name -> id}
+            from pipeline.store import upsert_forecasts, upsert_zones
+            # Auto-seed any new zones that are in config but not yet in the DB.
+            zone_map = upsert_zones(config.ZONES)  # {name -> id}
+            # Map forecast zone_ids to actual DB ids; drop any that are still missing.
+            unmapped = []
             for fc in forecasts:
                 db_id = zone_map.get(fc["zone_name"])
                 if db_id is not None:
                     fc["zone_id"] = db_id
+                else:
+                    unmapped.append(fc["zone_name"])
+            if unmapped:
+                logger.warning(
+                    "store forecasts: skipping %d forecast(s) for zones not in DB: %s",
+                    len(unmapped), unmapped,
+                )
+                forecasts = [fc for fc in forecasts if zone_map.get(fc["zone_name"]) is not None]
             upsert_forecasts(forecasts)
             logger.info("store forecasts: done in %s", _elapsed(t))
         except Exception:

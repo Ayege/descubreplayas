@@ -60,6 +60,15 @@ ZONES = [
     # Cabo Rojo and Playa Blanca, which were previously >200 km from any zone.
     {"name": "Barahona", "center_lat": 18.10, "center_lon": -71.10},
     {"name": "Pedernales", "center_lat": 17.90, "center_lon": -71.65},
+    # Northwest coast (Monte Cristi) — covers Playa Juan de Bolaños, which is
+    # ~100 km from Puerto Plata and otherwise out of the monitoring network.
+    {"name": "Monte Cristi", "center_lat": 19.86, "center_lon": -71.65},
+    # North-central coast (Río San Juan) — fills the visual gap between Puerto
+    # Plata and Samáná zones; covers Playa Grande, Caletón, El Bretón, Diamante.
+    {"name": "Rio San Juan", "center_lat": 19.62, "center_lon": -70.08},
+    # South-central coast (Azua / Baní) — fills the visual gap between Juan
+    # Dolio and Barahona zones; covers Playa Najayo, Palenque, Palmar de Ocoa.
+    {"name": "Azua", "center_lat": 18.22, "center_lon": -70.45},
 ]
 
 # Half-width (degrees) of the square box built around each zone center.
