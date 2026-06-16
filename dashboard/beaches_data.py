@@ -1201,6 +1201,21 @@ def all_provinces() -> list[str]:
     return sorted({b["province"] for b in BEACHES})
 
 
+def provinces_for_regions(regions: list[str]) -> list[str]:
+    """Return sorted list of provinces that have at least one beach in *regions*."""
+    if not regions:
+        return all_provinces()
+    return sorted({b["province"] for b in BEACHES if b["region"] in regions})
+
+
+def region_for_province(province: str) -> str | None:
+    """Return the region that contains *province*, or None if not found."""
+    for b in BEACHES:
+        if b["province"] == province:
+            return b["region"]
+    return None
+
+
 def all_activities() -> list[str]:
     acts: set[str] = set()
     for b in BEACHES:

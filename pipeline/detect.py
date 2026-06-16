@@ -113,28 +113,46 @@ def detect_sargassum(
     aoi = ee.Geometry(aoi_geojson)
     start, end = date_range
 
+    # Subtract the Hispaniola land mass (DR + Haiti) from the detection area so
+    # that inland water bodies (reservoirs, rivers, lakes) cannot produce false
+    # positives.  Floating-algae indices (FAI/NDVI) fire on any inland algae;
+    # restricting to ocean pixels ensures we only detect marine sargassum.
+    try:
+        _land = (
+            ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017")
+            .filter(ee.Filter.inList("country_na", ["Dominican Republic", "Haiti"]))
+            .geometry()
+            .simplify(maxError=1000)  # reduce vertex count for performance
+        )
+        ocean_aoi = aoi.difference(_land, maxError=500)
+        logger.info("detect_sargassum: using ocean-only AOI (land subtracted).")
+    except Exception:
+        logger.warning("detect_sargassum: could not build ocean AOI; falling back to full EEZ.",
+                       exc_info=True)
+        ocean_aoi = aoi
+
     logger.info("Detecting sargassum %s..%s over EEZ.", start, end)
 
     collection = (
         ee.ImageCollection(_S2_COLLECTION)
-        .filterBounds(aoi)
+        .filterBounds(aoi)  # broad filter for image selection
         .filterDate(start, end)
         .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", config.MAX_CLOUD_COVER_PCT))
         .map(_mask_clouds)
         .map(_add_indices)
     )
 
-    # Median composite over the period reduces residual cloud/noise.
-    composite = collection.select(["FAI", "NDVI"]).median().clip(aoi)
+    # Composite clipped to ocean-only area — eliminates inland detections.
+    composite = collection.select(["FAI", "NDVI"]).median().clip(ocean_aoi)
 
     algae = (
         composite.select("FAI").gt(config.FAI_THRESHOLD)
         .And(composite.select("NDVI").gt(config.NDVI_MIN))
     ).selfMask().rename("algae")
 
-    # Vectorize the binary mask into polygons.
+    # Vectorize the binary mask into polygons (ocean area only).
     vectors = algae.reduceToVectors(
-        geometry=aoi,
+        geometry=ocean_aoi,
         scale=config.DETECT_SCALE_M,
         geometryType="polygon",
         eightConnected=True,

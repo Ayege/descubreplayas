@@ -25,6 +25,8 @@ from dashboard.beaches_data import (
     all_regions,
     beach_good_in_month,
     beaches_with_maps,
+    provinces_for_regions,
+    region_for_province,
 )
 from dashboard.risk_overlay import (
     RISK_COLORS,
@@ -488,7 +490,17 @@ def _fmt_arrival(fc: dict | None) -> str:
 with st.sidebar:
     st.markdown(f"### {L['filters_header']}")
     sel_regions = st.multiselect(L["region"], all_regions(), default=all_regions())
-    sel_provinces = st.multiselect(L["province"], all_provinces(), default=[])
+
+    # Province options are restricted to provinces that exist within the
+    # selected regions so the two filters stay in sync. Any previously-selected
+    # province that no longer belongs to the current regions is silently dropped.
+    _available_provinces = provinces_for_regions(sel_regions)
+    _prev_provinces = st.session_state.get("sel_provinces_prev", [])
+    _valid_prev = [p for p in _prev_provinces if p in _available_provinces]
+    sel_provinces = st.multiselect(
+        L["province"], _available_provinces, default=_valid_prev, key="province_filter"
+    )
+    st.session_state["sel_provinces_prev"] = sel_provinces
     sel_activities = st.multiselect(L["activity"], all_activities(), default=[])
     protected_only = st.checkbox(L["protected_only"], value=False)
     free_only = st.checkbox(L["free_only"], value=False)
@@ -565,7 +577,7 @@ def _matches(beach: dict) -> bool:
         return False
     if sel_provinces and beach["province"] not in sel_provinces:
         return False
-    if sel_activities and not set(sel_activities).issubset(set(beach["activities"])):
+    if sel_activities and not set(sel_activities).intersection(set(beach["activities"])):
         return False
     if protected_only and not beach["protected_area"]:
         return False
