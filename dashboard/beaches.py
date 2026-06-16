@@ -507,7 +507,7 @@ with st.sidebar:
 
     st.markdown("---")
     show_zones = st.checkbox(L["show_zones"], value=bool(zones), key="show_zones")
-    show_masses = st.checkbox(L["show_masses"], value=False, key="show_masses")
+    show_masses = st.checkbox(L["show_masses"], value=True, key="show_masses")
     if not zones:
         st.caption(f"🌊 {L['risk_unavail']}")
 
