@@ -190,16 +190,41 @@ st.markdown("""
 
 *, html, body, [class*="css"] { font-family: 'Nunito', sans-serif; box-sizing: border-box; }
 
-/* ── Hide Streamlit chrome ── */
-#MainMenu, footer, header { visibility: hidden; height: 0 !important; }
+/* ── Hide Streamlit chrome completely (display:none removes layout space) ── */
+#MainMenu, footer { display: none !important; }
+[data-testid="stDecoration"],
+[data-testid="stToolbar"],
+[data-testid="stStatusWidget"],
+.stDeployButton { display: none !important; height: 0 !important; }
+/* Hide header bar but keep its height at 0 so nothing shifts */
+[data-testid="stHeader"] { visibility: hidden !important; height: 0 !important;
+    min-height: 0 !important; overflow: hidden !important; }
+
+/* ── Sidebar collapse/open button — MUST stay visible ── */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarNavItems"],
+button[kind="header"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 100001 !important;
+}
 
 /* ── Zero-out default padding so map reaches edges ── */
-.block-container {
+.block-container,
+[data-testid="stMainBlockContainer"],
+[data-testid="stMain"] > div:first-child,
+.main .block-container {
     padding-top: 0 !important;
     padding-bottom: 0 !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
     max-width: 100% !important;
+}
+
+/* ── Remove any gap Streamlit injects above the main content ── */
+[data-testid="stAppViewContainer"] > section:first-of-type {
+    padding-top: 0 !important;
 }
 
 /* ── App BG ── */
@@ -338,7 +363,23 @@ st.markdown("""
 /* ── Mobile: sidebar becomes a drawer (Streamlit handles collapse),
       map fills the top, detail panel becomes a bottom sheet ── */
 @media (max-width: 768px) {
-    .block-container { padding: 0 !important; }
+    .block-container,
+    [data-testid="stMainBlockContainer"] { padding: 0 !important; }
+
+    /* Make the sidebar open button bigger and always accessible on mobile */
+    [data-testid="stSidebarCollapsedControl"] {
+        top: 8px !important;
+        left: 8px !important;
+        width: 44px !important;
+        height: 44px !important;
+        background: rgba(0,64,74,.92) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,.4) !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] svg {
+        fill: #ffffff !important;
+        color: #ffffff !important;
+    }
     [data-testid="stSidebar"] h1 { font-size: 1.1rem !important; }
     [data-testid="stSidebar"] label,
     [data-testid="stSidebar"] .stMarkdown p { font-size: 13px !important; }
@@ -399,11 +440,24 @@ with st.sidebar:
     )
 
 # ---------------------------------------------------------------------------
+# Cached API helpers — TTL 5 min so beach-click reruns don't re-hit the API.
+# ---------------------------------------------------------------------------
+@st.cache_data(ttl=300)
+def _cached_fetch_live_risk(url: str):
+    return fetch_live_risk(url)
+
+
+@st.cache_data(ttl=300)
+def _cached_fetch_detections(url: str):
+    return fetch_detections(url)
+
+
+# ---------------------------------------------------------------------------
 # Live risk fetch
 # ---------------------------------------------------------------------------
 zones: list[dict] = []
 risk_by_zone_id: dict[int, str] = {}
-zones, forecast_by_zone_id = fetch_live_risk(API_BASE_URL)
+zones, forecast_by_zone_id = _cached_fetch_live_risk(API_BASE_URL)
 
 
 def _beach_risk(beach: dict):
@@ -593,6 +647,16 @@ filtered_names = {b["name"] for b in filtered}
 
 with st.sidebar:
     st.caption(L["results"].format(n=len(filtered), total=len(BEACHES)))
+    st.markdown(
+        "<div style='position:absolute;bottom:14px;left:0;right:0;text-align:center;"
+        "padding:10px 16px 6px;border-top:1px solid rgba(255,255,255,.12)'>"
+        "<span style='font-size:10.5px;color:#9edde6'>Made with 🌊 by </span>"
+        "<a href='https://www.linkedin.com/in/ayesha-yege/' target='_blank' "
+        "style='font-size:10.5px;font-weight:800;color:#4dd0e1;text-decoration:none'>"
+        "Ayesha Yege ↗</a>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
 # ---------------------------------------------------------------------------
 # Build Folium map
@@ -745,7 +809,7 @@ if show_zones and zones:
 # Detected sargassum masses — plotted as brown blobs sized by area.
 # ---------------------------------------------------------------------------
 if show_masses:
-    _masses = fetch_detections(API_BASE_URL)
+    _masses = _cached_fetch_detections(API_BASE_URL)
     if _masses:
         _mass_group = folium.FeatureGroup(name="Sargazo", show=True)
         for _d in _masses:
