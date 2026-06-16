@@ -48,6 +48,30 @@ create table if not exists subscribers (
     unique (channel, chat_id, zone_id)
 );
 
+create table if not exists beaches (
+    id                  bigserial primary key,
+    name                text not null unique,
+    province            text not null,
+    region              text not null,
+    latitude            double precision not null,
+    longitude           double precision not null,
+    geom                geometry(point, 4326),
+    access_type         text,
+    access_description   text,
+    entrance_fee        text,
+    parking             boolean default true,
+    beach_type          text[] default '{}',
+    activities          text[] default '{}',
+    wildlife            text[] default '{}',
+    ecosystem           text,
+    protected_area      boolean default false,
+    facilities          text[] default '{}',
+    water_conditions    text,
+    best_time_to_visit  text,
+    description         text,
+    google_maps_url     text
+);
+
 -- -------------------------------------------------------------------------
 -- Indexes
 -- -------------------------------------------------------------------------
@@ -56,6 +80,9 @@ create index if not exists forecasts_run_at_idx   on forecasts  (run_at desc);
 create index if not exists forecasts_zone_id_idx  on forecasts  (zone_id);
 create index if not exists detections_geom_idx    on detections using gist (geom);
 create index if not exists zones_geom_idx         on zones      using gist (geom);
+create index if not exists beaches_geom_idx        on beaches    using gist (geom);
+create index if not exists beaches_province_idx    on beaches    (province);
+create index if not exists beaches_region_idx      on beaches    (region);
 
 -- -------------------------------------------------------------------------
 -- Seed zones (5 coastal zones as small boxes ± 0.1° around each centre)

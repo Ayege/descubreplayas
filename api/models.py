@@ -33,6 +33,29 @@ class ForecastResponse(BaseModel):
     run_at: str
 
 
+class BeachResponse(BaseModel):
+    id: Optional[int] = None
+    name: str
+    province: str
+    region: str
+    latitude: float
+    longitude: float
+    access_type: Optional[str] = None
+    access_description: Optional[str] = None
+    entrance_fee: Optional[str] = None
+    parking: bool = True
+    beach_type: list[str] = Field(default_factory=list)
+    activities: list[str] = Field(default_factory=list)
+    wildlife: list[str] = Field(default_factory=list)
+    ecosystem: Optional[str] = None
+    protected_area: bool = False
+    facilities: list[str] = Field(default_factory=list)
+    water_conditions: Optional[str] = None
+    best_time_to_visit: Optional[str] = None
+    description: Optional[str] = None
+    google_maps_url: Optional[str] = None
+
+
 # ---------------------------------------------------------------------------
 # Request models
 # ---------------------------------------------------------------------------

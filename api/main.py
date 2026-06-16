@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 
 from api import db
 from api.models import (
+    BeachResponse,
     ForecastResponse,
     HealthResponse,
     SubscribeRequest,
@@ -74,6 +75,17 @@ def get_forecast(zone_id: int) -> ForecastResponse:
     if not row:
         raise HTTPException(status_code=404, detail=f"No forecast found for zone_id={zone_id}")
     return _format_forecast(row)
+
+
+# ---------------------------------------------------------------------------
+# Beaches
+# ---------------------------------------------------------------------------
+
+@app.get("/beaches", response_model=list[BeachResponse], tags=["data"])
+def list_beaches(province: str | None = None, region: str | None = None) -> list[BeachResponse]:
+    """List tourism beaches, optionally filtered by ?province= or ?region=."""
+    rows = db.list_beaches(province=province, region=region)
+    return [BeachResponse(**r) for r in rows]
 
 
 # ---------------------------------------------------------------------------

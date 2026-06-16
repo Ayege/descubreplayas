@@ -83,3 +83,18 @@ def insert_subscriber(channel: str, chat_id: str, zone_id: int, role: str) -> di
         .execute()
     )
     return (result.data or [{}])[0]
+
+
+def list_beaches(province: str | None = None, region: str | None = None) -> list[dict[str, Any]]:
+    """Return beaches, optionally filtered by province or region."""
+    query = get_client().table("beaches").select(
+        "id, name, province, region, latitude, longitude, access_type, access_description, "
+        "entrance_fee, parking, beach_type, activities, wildlife, ecosystem, protected_area, "
+        "facilities, water_conditions, best_time_to_visit, description, google_maps_url"
+    )
+    if province:
+        query = query.eq("province", province)
+    if region:
+        query = query.eq("region", region)
+    result = query.order("name").execute()
+    return result.data or []
