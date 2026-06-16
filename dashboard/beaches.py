@@ -632,11 +632,11 @@ filtered_names = {b["name"] for b in filtered}
 with st.sidebar:
     st.caption(L["results"].format(n=len(filtered), total=len(BEACHES)))
     st.markdown(
-        "<div style='position:absolute;bottom:14px;left:0;right:0;text-align:center;"
-        "padding:10px 16px 6px;border-top:1px solid rgba(255,255,255,.12)'>"
-        "<span style='font-size:10.5px;color:#9edde6'>Made with 🌊 by </span>"
+        "<div style='margin-top:18px;padding:10px 16px 8px;"
+        "border-top:1px solid rgba(255,255,255,.18);text-align:center'>"
+        "<span style='font-size:13px;color:#9edde6'>Made with 🌊 by </span>"
         "<a href='https://www.linkedin.com/in/ayesha-yege/' target='_blank' "
-        "style='font-size:10.5px;font-weight:800;color:#4dd0e1;text-decoration:none'>"
+        "style='font-size:13px;font-weight:800;color:#4dd0e1;text-decoration:none'>"
         "Ayesha Yege ↗</a>"
         "</div>",
         unsafe_allow_html=True,
