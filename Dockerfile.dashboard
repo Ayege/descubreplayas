@@ -20,15 +20,10 @@ COPY pipeline/__init__.py pipeline/__init__.py
 COPY pipeline/config.py   pipeline/config.py
 
 # Streamlit config: disable telemetry, enable headless mode for Cloud Run
-RUN mkdir -p .streamlit && cat > .streamlit/config.toml << 'EOF'
-[server]
-headless = true
-enableCORS = false
-enableXsrfProtection = true
-
-[browser]
-gatherUsageStats = false
-EOF
+# Written with printf to avoid Docker heredoc parser misreading [section] headers.
+RUN mkdir -p .streamlit && printf \
+    '[server]\nheadless = true\nenableCORS = false\nenableXsrfProtection = true\n\n[browser]\ngatherUsageStats = false\n' \
+    > .streamlit/config.toml
 
 ENV PORT=8501
 EXPOSE ${PORT}
