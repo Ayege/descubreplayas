@@ -33,6 +33,7 @@ from dashboard.risk_overlay import (
     fetch_live_risk,
     risk_for_beach,
 )
+from dashboard.climatology import seasonal_index, seasonal_risk
 
 load_dotenv()
 
@@ -70,9 +71,14 @@ _T = {
         "prediction_info_title": "ℹ️ Métodos de predicción",
         "prediction_physics": "Física (0-72h): Deriva lagrangiana + corrientes oceánicas. Preciso.",
         "prediction_seasonal": "Temporada: Climatología histórica (mar-ago = alta). No predice eventos específicos.",
-        "prediction_date_note": "⚠️ La fecha de visita NO predice sargazo futuro — solo filtra playas por mejor temporada turística.",
+        "prediction_date_note": "⚠️ Hasta 3 días: pronóstico físico (deriva). Más lejos: estimación estacional (climatología), no un pronóstico exacto.",
         "beach_legend": "Playas por región",
         "zone_legend": "Riesgo de sargazo (zonas)",
+        "seasonal_badge": "Estimación estacional",
+        "physics_badge": "Pronóstico (deriva)",
+        "method_physics": "Método: deriva física · Confianza alta",
+        "method_seasonal": "Método: climatología estacional · Confianza: estimación",
+        "seasonal_advisory": "Estimación basada en el ciclo anual típico del Caribe para este mes y costa. No es un pronóstico exacto.",
         "results": "{n} de {total} playas",
         "select_beach": "📍 Selecciona una playa",
         "best_time": "Mejor época",
@@ -122,9 +128,14 @@ _T = {
         "prediction_info_title": "ℹ️ Prediction methods",
         "prediction_physics": "Physics (0-72h): Lagrangian drift + ocean currents. Accurate.",
         "prediction_seasonal": "Seasonal: Historical climatology (Mar-Aug = peak). Does not predict specific events.",
-        "prediction_date_note": "⚠️ Visit date does NOT predict future sargassum — it only filters beaches by best tourist season.",
+        "prediction_date_note": "⚠️ Within 3 days: physics (drift) forecast. Further out: seasonal estimate (climatology), not an exact forecast.",
         "beach_legend": "Beaches by region",
         "zone_legend": "Sargassum risk (zones)",
+        "seasonal_badge": "Seasonal estimate",
+        "physics_badge": "Forecast (drift)",
+        "method_physics": "Method: physics drift · High confidence",
+        "method_seasonal": "Method: seasonal climatology · Confidence: estimate",
+        "seasonal_advisory": "Estimate based on the Caribbean's typical annual cycle for this month and coast. Not an exact forecast.",
         "results": "{n} of {total} beaches",
         "select_beach": "📍 Select a beach",
         "best_time": "🗓️ Best time",
@@ -156,9 +167,18 @@ _T = {
 }
 
 _RISK_LABELS = {
-    "es": {"none": "Sin riesgo", "low": "Bajo", "medium": "Medio", "high": "Alto"},
-    "en": {"none": "None", "low": "Low", "medium": "Medium", "high": "High"},
+    "es": {"none": "Sin riesgo", "low": "Bajo", "medium": "Medio", "high": "Alto",
+           "out": "Fuera de cobertura"},
+    "en": {"none": "None", "low": "Low", "medium": "Medium", "high": "High",
+           "out": "Out of range"},
 }
+
+# A beach only inherits a zone's risk if it lies within this radius of the
+# zone centre. Zone boxes are 0.5° half-width (~55 km to the edge, ~76 km to a
+# corner), so 80 km keeps in-box beaches covered while excluding distant ones.
+# Beyond this, the beach is outside the monitored area and shows 'out of range'
+# instead of falsely inheriting a far zone's (possibly high) risk.
+COVERAGE_KM = 80.0
 
 # ---------------------------------------------------------------------------
 # CSS — responsive full-viewport map, tropical palette, clean sidebar
@@ -322,17 +342,18 @@ st.markdown("""
     [data-testid="stSidebar"] label,
     [data-testid="stSidebar"] .stMarkdown p { font-size: 13px !important; }
     .stIframe, [data-testid="stIFrame"] iframe {
-        height: 58vh !important;
-        min-height: 300px !important;
+        height: 62vh !important;
+        min-height: 320px !important;
     }
     .risk-banner { font-size: 12px; padding: 7px 10px; }
 
-    /* Detail panel → full-width bottom sheet so the map stays usable above it */
+    /* Detail panel → full-width bottom sheet, kept SMALLER than the map so the
+       map remains the dominant, usable area on phones. */
     .beach-detail {
         right: 0 !important; left: 0 !important;
         top: auto !important; bottom: 0 !important;
         width: 100% !important; max-width: 100% !important;
-        max-height: 48vh !important;
+        max-height: 36vh !important;
         border-radius: 20px 20px 0 0 !important;
         padding: 14px 16px 18px !important;
         box-shadow: 0 -8px 40px rgba(0,0,0,.55) !important;
@@ -350,11 +371,11 @@ st.markdown("""
 @media (max-width: 480px) {
     [data-testid="stSidebar"] h1 { font-size: 1rem !important; }
     .stIframe, [data-testid="stIFrame"] iframe {
-        height: 52vh !important;
-        min-height: 260px !important;
+        height: 60vh !important;
+        min-height: 300px !important;
     }
-    .beach-detail { max-height: 52vh !important; padding: 12px 14px 16px !important; }
-    .map-legend { max-height: 22vh !important; }
+    .beach-detail { max-height: 36vh !important; padding: 12px 14px 16px !important; }
+    .map-legend { max-height: 20vh !important; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -392,6 +413,10 @@ def _beach_risk(beach: dict):
     if not zones:
         return None, None, None, None
     lvl, zone, dist, fc = risk_for_beach(beach, zones, forecast_by_zone_id)
+    # Distance gate: a beach far from every monitored zone must NOT inherit that
+    # zone's risk (e.g. a Southwest beach 239 km from Puerto Plata is not 'high').
+    if zone is not None and dist is not None and dist > COVERAGE_KM:
+        return "out", zone, dist, None
     # Override the summary risk with the risk at the selected horizon.
     return _risk_at_horizon(fc), zone, dist, fc
 
@@ -412,6 +437,36 @@ def _risk_at_horizon(fc: dict | None) -> str:
         if h.get("horizon_hours") == horizon:
             return h.get("risk_level", "none")
     return fc.get("risk_level", "none")
+
+
+def _beach_risk_dated(beach: dict):
+    """Date-aware risk that blends the physics forecast with seasonal climatology.
+
+    Returns (risk_level, near_zone, dist_km, forecast, mode) where mode is:
+      'physics'  — deterministic drift forecast (visit date within 3 days)
+      'seasonal' — seasonal climatology estimate (date further out)
+      'out'      — beach outside the monitored area (no physics coverage)
+      None       — no zones / no data available
+
+    The split point is the ~72h skill limit of the drift model: within that
+    window we trust the physics forecast; beyond it we fall back to the
+    Caribbean monthly climatology for the beach's coast.
+    """
+    import datetime as _d
+
+    visit = globals().get("sel_date")
+    days_ahead = (visit - _d.date.today()).days if visit is not None else 0
+
+    # No date, or a near-term date → use the live drift forecast (existing path).
+    if visit is None or 0 <= days_ahead <= 3:
+        lvl, zone, dist, fc = _beach_risk(beach)
+        if lvl is None:
+            return None, None, None, None, None
+        return lvl, zone, dist, fc, ("out" if lvl == "out" else "physics")
+
+    # Far-future (or past) date → seasonal climatology for that month + coast.
+    risk = seasonal_risk(visit.month, beach.get("region"))
+    return risk, None, None, None, "seasonal"
 
 
 def _fmt_arrival(fc: dict | None) -> str:
@@ -480,10 +535,11 @@ with st.sidebar:
         )
     
     st.markdown("---")
-    # Date-of-visit picker — filters beaches by best visiting season (month).
-    # THIS IS NOT A SARGASSUM PREDICTOR. It's a tourist-season filter.
-    # Leaving blank shows all 56 beaches. Picking a date shows only beaches
-    # whose best season includes that month.
+    # Date-of-visit picker — drives the time dimension of the sargassum
+    # prediction AND filters beaches by best visiting season.
+    #   • within 3 days  → physics drift forecast (high confidence)
+    #   • further out    → seasonal climatology estimate (labelled clearly)
+    # Leaving blank shows the live 'now' view for all 56 beaches.
     import datetime as _dt
     _today = _dt.date.today()
     sel_date = st.date_input(
@@ -492,10 +548,17 @@ with st.sidebar:
         min_value=_dt.date(_today.year, 1, 1),
         max_value=_dt.date(_today.year, 12, 31),
         key="visit_date",
-        help=L["month_note"] + " ⚠️ " + L["prediction_date_note"],
+        help=L["month_note"] + " " + L["prediction_date_note"],
     )
     # None = no filter; otherwise filter by the month of the selected date
     sel_month: int | None = sel_date.month if sel_date else None
+    # Tell the user which prediction method applies to the chosen date.
+    if sel_date is not None:
+        _days_ahead = (sel_date - _today).days
+        if 0 <= _days_ahead <= 3:
+            st.caption("🔬 " + L["method_physics"])
+        else:
+            st.caption("📊 " + L["method_seasonal"])
 
 
 def _matches(beach: dict) -> bool:
@@ -532,14 +595,25 @@ for b in filtered:
     # Beach markers are WHITE pins with a COLORED RING (region color).
     # This visually separates beaches from risk zones (filled colored rectangles).
     region_color = REGION_COLORS.get(b["region"], "#1f77b4")
-    risk_level, near_zone, dist_km_b, _fc_b = _beach_risk(b)
+    risk_level, near_zone, dist_km_b, _fc_b, _mode_b = _beach_risk_dated(b)
     turtle_icon = " 🐢" if b["protected_area"] else ""
     desc_short = (b["description"] or "")[:170].rstrip()
     if len(b["description"] or "") > 170:
         desc_short += "…"
 
     # Risk badge — always present
-    if risk_level is not None and near_zone:
+    if _mode_b == "seasonal" and risk_level is not None:
+        rc = RISK_COLORS.get(risk_level, "#6c757d")
+        label_txt = RISK_LABEL.get(risk_level, risk_level.upper())
+        risk_badge = (
+            f"<div style='background:{rc};color:#fff;display:inline-block;"
+            f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
+            f"🌊 Sargazo: {label_txt}"
+            f"</div>"
+            f"<div style='color:#b2ebf2;font-size:10.5px;margin-top:4px'>"
+            f"📊 {L['seasonal_badge']}</div>"
+        )
+    elif risk_level is not None and near_zone:
         rc = RISK_COLORS.get(risk_level, "#6c757d")
         label_txt = RISK_LABEL.get(risk_level, risk_level.upper())
         _arrival = _fmt_arrival(_fc_b)
@@ -761,7 +835,7 @@ else:
 
 if _panel_beach:
     _pb = _panel_beach
-    _risk_level, _near_zone, _dist_km, _fc = _beach_risk(_pb)
+    _risk_level, _near_zone, _dist_km, _fc, _mode = _beach_risk_dated(_pb)
     _turtle = " 🐢" if _pb["protected_area"] else ""
 
     # ── Advisory text per risk level ──────────────────────────────────────
@@ -774,10 +848,38 @@ if _panel_beach:
                          "Medium risk. Sargassum incoming. Water may be affected."),
         "high":   ("🔴", "ALTO RIESGO. Llegada inminente. Planifica con antelación.",
                          "HIGH RISK. Arrival imminent. Plan your visit accordingly."),
+        "out":    ("⚪", "Fuera del área de monitoreo. Sin datos de sargazo para esta playa.",
+                         "Outside the monitored area. No sargassum data for this beach."),
     }
 
     # ── Build the sargassum section ───────────────────────────────────────
-    if _risk_level and _near_zone:
+    if _mode == "seasonal" and _risk_level:
+        # Seasonal climatology estimate (far-future date). No zone/ETA — this is
+        # a statistical expectation for the month, not a deterministic forecast.
+        _rc = RISK_COLORS.get(_risk_level, "#607d8b")
+        _rlbl = RISK_LABEL.get(_risk_level, _risk_level.upper())
+        _emoji, _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("⚪", "", ""))
+        _advice = _advice_en if lang == "en" else _advice_es
+        _seasonal_note = L["seasonal_advisory"]
+        _risk_section = (
+            f"<div style='background:rgba(0,0,0,.25);border-radius:12px;"
+            f"padding:10px 12px;margin:9px 0;border-left:4px solid {_rc}'>"
+            f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px'>"
+            f"<span style='background:{_rc};color:#fff;border-radius:16px;"
+            f"padding:2px 10px;font-size:11px;font-weight:800'>{_emoji} {_rlbl}</span>"
+            f"<span style='background:rgba(255,193,7,.22);color:#ffe082;border-radius:16px;"
+            f"padding:2px 10px;font-size:10px;font-weight:700'>📊 {L['seasonal_badge']}</span>"
+            f"</div>"
+            f"<div style='color:#cfd8dc;font-size:11.5px;line-height:1.45;"
+            f"margin-bottom:6px'>{_advice}</div>"
+            f"<div style='color:#ffcc80;font-size:10.5px;line-height:1.4;"
+            f"margin-bottom:4px'>⚠️ {_seasonal_note}</div>"
+            f"<div style='color:#80cbc4;font-size:10px;border-top:1px solid "
+            f"rgba(255,255,255,.1);padding-top:5px;margin-top:5px'>"
+            f"{L['method_seasonal']}</div>"
+            f"</div>"
+        )
+    elif _risk_level and _near_zone:
         _rc = RISK_COLORS.get(_risk_level, "#607d8b")
         _rlbl = RISK_LABEL.get(_risk_level, _risk_level.upper())
         _emoji, _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("⚪", "", ""))
@@ -845,6 +947,9 @@ if _panel_beach:
             f"margin-bottom:6px'>{_advice}</div>"
             # ETA rows
             + _eta_line +
+            f"<div style='color:#80cbc4;font-size:10px;border-top:1px solid "
+            f"rgba(255,255,255,.1);padding-top:5px;margin-top:5px'>"
+            f"{L['method_physics']}</div>"
             f"</div>"
         )
     else:

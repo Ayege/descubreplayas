@@ -56,6 +56,10 @@ ZONES = [
     {"name": "Samana", "center_lat": 19.20, "center_lon": -69.33},
     {"name": "Puerto Plata", "center_lat": 19.80, "center_lon": -70.69},
     {"name": "Juan Dolio", "center_lat": 18.43, "center_lon": -69.42},
+    # Southwest coast (Barahona / Pedernales) — covers Bahía de las Águilas,
+    # Cabo Rojo and Playa Blanca, which were previously >200 km from any zone.
+    {"name": "Barahona", "center_lat": 18.10, "center_lon": -71.10},
+    {"name": "Pedernales", "center_lat": 17.90, "center_lon": -71.65},
 ]
 
 # Half-width (degrees) of the square box built around each zone center.
