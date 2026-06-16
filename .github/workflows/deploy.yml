@@ -90,6 +90,7 @@ jobs:
           region:  ${{ env.REGION }}
           flags: >-
             --port=8000
+            --allow-unauthenticated
             --min-instances=0
             --max-instances=5
             --memory=512Mi
@@ -119,20 +120,6 @@ jobs:
             SUPABASE_URL=sargapp-supabase-url:latest
             SUPABASE_KEY=sargapp-supabase-key:latest
             API_BASE_URL=sargapp-api-base-url:latest
-
-      # Allow only the dashboard service account to invoke the API.
-      # Provide `DASHBOARD_SA_EMAIL` as a repository secret (e.g.
-      # sargapp-dashboard@PROJECT_ID.iam.gserviceaccount.com). If the secret
-      # is empty this step is skipped and the API remains private (no public
-      # invokers).
-      - name: Allow dashboard to invoke API
-        if: ${{ secrets.DASHBOARD_SA_EMAIL != '' }}
-        run: |
-          gcloud run services add-iam-policy-binding sargapp-api \
-            --member="serviceAccount:${{ secrets.DASHBOARD_SA_EMAIL }}" \
-            --role="roles/run.invoker" \
-            --region=${{ env.REGION }} \
-            --project=${{ env.PROJECT_ID }}
 
       # ── 7. Summary ────────────────────────────────────────────────────────
       - name: Deployment summary

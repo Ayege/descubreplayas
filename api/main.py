@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import logging
+import os
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from api import db
 from api.models import (
@@ -22,6 +24,25 @@ app = FastAPI(
     title="Sargassum Early Warning API",
     description="Coastal sargassum arrival risk forecasts for the Dominican Republic.",
     version="0.1.0",
+)
+
+# CORS — allow the frontend domain (and localhost for local dev).
+# Extend _ALLOWED_ORIGINS via the CORS_ORIGINS env var (comma-separated).
+_DEFAULT_ORIGINS = [
+    "https://descubreplayas.com.do",
+    "https://www.descubreplayas.com.do",
+    "http://localhost:8501",   # local Streamlit
+    "http://localhost:3000",   # local React/Next if used later
+]
+_extra = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+_ALLOWED_ORIGINS = _DEFAULT_ORIGINS + _extra
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
 )
 
 

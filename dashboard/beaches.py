@@ -39,7 +39,7 @@ from dashboard.climatology import seasonal_index, seasonal_risk
 
 load_dotenv()
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.descubreplayas.com.do")
 
 st.set_page_config(
     page_title="Descubre Playas RD",
