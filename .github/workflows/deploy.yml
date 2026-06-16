@@ -116,10 +116,11 @@ jobs:
             --max-instances=3
             --memory=1Gi
             --cpu=1
+          env_vars: |
+            API_BASE_URL=https://api.descubreplayas.com.do
           secrets: |
             SUPABASE_URL=sargapp-supabase-url:latest
             SUPABASE_KEY=sargapp-supabase-key:latest
-            API_BASE_URL=sargapp-api-base-url:latest
 
       # ── 7. Summary ────────────────────────────────────────────────────────
       - name: Deployment summary
