@@ -42,7 +42,7 @@ load_dotenv()
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
 st.set_page_config(
-    page_title="Descubre Playas RD 🌴",
+    page_title="Descubre Playas RD",
     page_icon="🌴",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -53,9 +53,9 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 _T = {
     "es": {
-        "title": "🌴 Descubre Playas RD",
+        "title": "🌴 Descubre Playas RD 🇩🇴",
         "subtitle": "Tu guía completa de playas de la República Dominicana — 56 playas con acceso, actividades, fauna, sargazo en tiempo real y más",
-        "filters_header": "🔎 Filtrar Playas",
+        "filters_header": "Filtrar Playas",
         "region": "Región",
         "province": "Provincia",
         "activity": "Actividad",

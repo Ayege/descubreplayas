@@ -1,0 +1,42 @@
+# ── Streamlit Dashboard — Cloud Run ──────────────────────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install \
+        streamlit streamlit-folium folium \
+        requests httpx certifi python-dotenv
+
+# ── Runtime ──────────────────────────────────────────────────────────────────
+FROM python:3.11-slim
+WORKDIR /app
+COPY --from=builder /install /usr/local
+
+COPY dashboard/ dashboard/
+COPY pipeline/__init__.py pipeline/__init__.py
+COPY pipeline/config.py   pipeline/config.py
+
+# Streamlit config: disable telemetry, enable headless mode for Cloud Run
+RUN mkdir -p .streamlit && cat > .streamlit/config.toml << 'EOF'
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+EOF
+
+ENV PORT=8501
+EXPOSE ${PORT}
+
+RUN useradd -m appuser && chown -R appuser /app
+USER appuser
+
+CMD ["sh", "-c", "streamlit run dashboard/beaches.py \
+        --server.port=${PORT} \
+        --server.address=0.0.0.0 \
+        --server.headless=true"]

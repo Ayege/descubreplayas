@@ -1,0 +1,130 @@
+# ── Deploy to GCP Cloud Run — GitHub Actions ──────────────────────────────────
+# Triggered on every push to main. Builds two Docker images (API + Dashboard),
+# pushes them to Google Container Registry, and deploys to Cloud Run.
+#
+# Required GitHub Secrets  (Settings → Secrets and variables → Actions):
+#   GCP_PROJECT_ID        — your GCP project id, e.g. sargapp-123456
+#   GCP_REGION            — Cloud Run region, e.g. us-central1
+#   GCP_SA_KEY            — JSON key of the deploy service account (see gcp-setup.sh)
+#   SUPABASE_URL          — Supabase project URL
+#   SUPABASE_KEY          — Supabase service-role key
+#   TELEGRAM_BOT_TOKEN    — Telegram bot token
+#   API_BASE_URL          — public URL of the API, e.g. https://api.yourdomain.com
+#
+# The pipeline cron (pipeline.yml) is NOT changed — it still runs on GitHub
+# Actions with no GCP dependency.
+
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths:                      # only deploy when app code actually changes
+      - "api/**"
+      - "dashboard/**"
+      - "pipeline/**"
+      - "Dockerfile.*"
+      - "requirements.txt"
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION:     ${{ secrets.GCP_REGION }}
+  # Container image names in Google Container Registry
+  API_IMAGE:       gcr.io/${{ secrets.GCP_PROJECT_ID }}/sargapp-api
+  DASH_IMAGE:      gcr.io/${{ secrets.GCP_PROJECT_ID }}/sargapp-dashboard
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ── 1. Code ──────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. GCP auth ───────────────────────────────────────────────────────
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker --quiet
+
+      # ── 3. Build images (parallel) ────────────────────────────────────────
+      - name: Build API image
+        run: |
+          docker build \
+            -f Dockerfile.api \
+            -t ${{ env.API_IMAGE }}:${{ github.sha }} \
+            -t ${{ env.API_IMAGE }}:latest \
+            .
+
+      - name: Build Dashboard image
+        run: |
+          docker build \
+            -f Dockerfile.dashboard \
+            -t ${{ env.DASH_IMAGE }}:${{ github.sha }} \
+            -t ${{ env.DASH_IMAGE }}:latest \
+            .
+
+      # ── 4. Push images ────────────────────────────────────────────────────
+      - name: Push API image
+        run: |
+          docker push ${{ env.API_IMAGE }}:${{ github.sha }}
+          docker push ${{ env.API_IMAGE }}:latest
+
+      - name: Push Dashboard image
+        run: |
+          docker push ${{ env.DASH_IMAGE }}:${{ github.sha }}
+          docker push ${{ env.DASH_IMAGE }}:latest
+
+      # ── 5. Deploy API to Cloud Run ────────────────────────────────────────
+      - name: Deploy API
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: sargapp-api
+          image:   ${{ env.API_IMAGE }}:${{ github.sha }}
+          region:  ${{ env.REGION }}
+          flags: >-
+            --port=8000
+            --allow-unauthenticated
+            --min-instances=0
+            --max-instances=5
+            --memory=512Mi
+            --cpu=1
+          env_vars: |
+            API_BASE_URL=${{ secrets.API_BASE_URL }}
+          secrets: |
+            SUPABASE_URL=sargapp-supabase-url:latest
+            SUPABASE_KEY=sargapp-supabase-key:latest
+            TELEGRAM_BOT_TOKEN=sargapp-telegram-bot-token:latest
+
+      # ── 6. Deploy Dashboard to Cloud Run ──────────────────────────────────
+      - name: Deploy Dashboard
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: sargapp-dashboard
+          image:   ${{ env.DASH_IMAGE }}:${{ github.sha }}
+          region:  ${{ env.REGION }}
+          flags: >-
+            --port=8501
+            --allow-unauthenticated
+            --min-instances=0
+            --max-instances=3
+            --memory=1Gi
+            --cpu=1
+          secrets: |
+            SUPABASE_URL=sargapp-supabase-url:latest
+            SUPABASE_KEY=sargapp-supabase-key:latest
+            API_BASE_URL=sargapp-api-base-url:latest
+
+      # ── 7. Summary ────────────────────────────────────────────────────────
+      - name: Deployment summary
+        run: |
+          echo "### Deployment complete ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- **API**: https://api.${{ secrets.CUSTOM_DOMAIN }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dashboard**: https://${{ secrets.CUSTOM_DOMAIN }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY

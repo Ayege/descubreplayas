@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+
+# Dev / test
+.env
+.env.*
+!.env.example
+tests/
+*.test.py
+
+# Git
+.git/
+.github/
+
+# Editor
+.vscode/
+.idea/
+
+# Build artefacts
+dist/
+build/
+*.log
+
+# Large data / runtime files
+*.json
+!.streamlit/
+.ee-key.runtime.json
+
+# Docs / info
+info/
+CLAUDE.md
+README.md

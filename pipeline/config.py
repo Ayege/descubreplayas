@@ -116,9 +116,17 @@ DETECTION_SOURCE = "sentinel-2"
 WIND_DRIFT_FACTOR = float(os.environ.get("WIND_DRIFT_FACTOR", "0.02"))
 
 # Risk thresholds on projected patch area within a zone (km^2).
-RISK_AREA_LOW_MAX_KM2 = 1.0
-RISK_AREA_MEDIUM_MAX_KM2 = 10.0
-RISK_HIGH_ETA_HOURS = 24
+# These represent the TOTAL marine sargassum area drifting toward a zone:
+#   low    : 1-5 km²  — visible traces likely on shore
+#   medium : 5-25 km² — noticeable accumulation expected
+#   high   : >25 km²  — significant beach impact
+# The minimum *significant* area to register ANY risk at all. Below this the
+# mass is too small to produce meaningful beach impact even if it arrives.
+RISK_AREA_MIN_KM2 = float(os.environ.get("RISK_AREA_MIN_KM2", "0.5"))   # ~700m × 700m
+RISK_AREA_LOW_MAX_KM2 = float(os.environ.get("RISK_AREA_LOW_MAX_KM2", "5.0"))
+RISK_AREA_MEDIUM_MAX_KM2 = float(os.environ.get("RISK_AREA_MEDIUM_MAX_KM2", "25.0"))
+# ETA threshold that upgrades medium→high when a LARGE mass is imminent.
+RISK_HIGH_ETA_HOURS = int(os.environ.get("RISK_HIGH_ETA_HOURS", "24"))
 
 
 def open_meteo_params(lat: float, lon: float, start: dt.date, end: dt.date) -> dict[str, str]:

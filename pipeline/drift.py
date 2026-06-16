@@ -50,20 +50,29 @@ def _in_zone(lon: float, lat: float, box: tuple[float, float, float, float]) -> 
 def _classify_risk(area_km2: float, eta_hours: Optional[int], horizon_hours: int) -> str:
     """Classify sargassum risk from projected area and arrival time.
 
-    Args:
-        area_km2:      total patch area projected inside the zone by this horizon.
-        eta_hours:     earliest arrival hour (None if nothing reaches the zone).
-        horizon_hours: the forecast horizon being evaluated.
+    Both the *amount* of sargassum AND its proximity matter:
 
-    Risk only applies if something actually arrives within the horizon.
+    * area_km2 < RISK_AREA_MIN_KM2  → none  (too small to impact a beach)
+    * area_km2 in [min, low_max)    → low   (visible traces likely)
+    * area_km2 in [low_max, med_max)→ medium (noticeable accumulation)
+    * area_km2 >= med_max           → high  (significant beach impact)
+    * large mass arriving very soon (eta <= HIGH_ETA_HOURS) → high
+
+    A tiny speck (e.g. 0.1 km²) arriving in 2 hours is still only 'low',
+    not 'high', because there is not enough biomass to matter.
     """
-    if eta_hours is None or eta_hours > horizon_hours or area_km2 <= 0:
+    if eta_hours is None or eta_hours > horizon_hours:
         return "none"
-    if area_km2 > config.RISK_AREA_MEDIUM_MAX_KM2 or eta_hours <= config.RISK_HIGH_ETA_HOURS:
+    if area_km2 < config.RISK_AREA_MIN_KM2:
+        return "none"  # mass too small to produce meaningful beach impact
+    # Large mass that's imminent → high regardless of exact area bracket
+    if area_km2 >= config.RISK_AREA_LOW_MAX_KM2 and eta_hours <= config.RISK_HIGH_ETA_HOURS:
         return "high"
-    if area_km2 > config.RISK_AREA_LOW_MAX_KM2:
+    if area_km2 >= config.RISK_AREA_MEDIUM_MAX_KM2:
+        return "high"
+    if area_km2 >= config.RISK_AREA_LOW_MAX_KM2:
         return "medium"
-    return "low"
+    return "low"  # area >= min but < low_max
 
 
 def _effective_velocity(
