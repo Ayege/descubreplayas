@@ -54,7 +54,7 @@ st.set_page_config(
 _T = {
     "es": {
         "title": "🌴 Descubre Playas RD 🇩🇴",
-        "subtitle": "Tu guía completa de playas de la República Dominicana — 56 playas con acceso, actividades, fauna, sargazo en tiempo real y más",
+        "subtitle": "Tu guía completa de playas de la República Dominicana — 56 playas con acceso, actividades, fauna, sargazo en tiempo real y más. Impulsando el ecoturismo responsable mediante un algoritmo propio que cruza datos geoespaciales de acceso y registros de biodiversidad para proteger las costas dominicanas.",
         "filters_header": "Filtrar Playas",
         "region": "Región",
         "province": "Provincia",
