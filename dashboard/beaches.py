@@ -190,16 +190,41 @@ st.markdown("""
 
 *, html, body, [class*="css"] { font-family: 'Nunito', sans-serif; box-sizing: border-box; }
 
-/* ── Hide Streamlit chrome ── */
-#MainMenu, footer, header { visibility: hidden; height: 0 !important; }
+/* ── Hide ALL Streamlit chrome (header toolbar, deploy button, menu) ── */
+#MainMenu,
+footer,
+header,
+[data-testid="stHeader"],
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stDeployButton"],
+[data-testid="stStatusWidget"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
 
-/* ── Zero-out default padding so map reaches edges ── */
-.block-container {
+/* ── Zero-out ALL wrappers so map reaches the very top ── */
+.block-container,
+[data-testid="stMainBlockContainer"],
+section.main > div:first-child,
+section[data-testid="stMain"],
+.stMainBlockContainer {
     padding-top: 0 !important;
     padding-bottom: 0 !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
     max-width: 100% !important;
+    margin-top: 0 !important;
+}
+
+/* ── Nuke any residual top margin on the first Streamlit vertical block ── */
+[data-testid="stVerticalBlock"] > div:first-child,
+[data-testid="stVerticalBlockBorderWrapper"] {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
 }
 
 /* ── App BG ── */
