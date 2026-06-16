@@ -8,6 +8,11 @@ Run from repo root:
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
+
+if __package__ is None:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import folium
 import streamlit as st
@@ -67,28 +72,20 @@ with st.sidebar:
     free_only = st.checkbox("Free entrance only", value=False)
 
     st.divider()
-    show_risk = st.checkbox("🌊 Show live sargassum risk", value=False)
-    st.caption(
-        "When on, each beach is coloured by the current sargassum risk of its "
-        "nearest monitored zone (live from the API)."
-    )
-
-    st.divider()
-    st.caption("Tip: click a marker on the map for a quick summary, or pick a beach below for full details.")
+    st.caption("Tip: click a beach marker on the map to load its full details on the right.")
 
 
-# Fetch live risk only when requested (keeps the app fast/offline by default).
+# Always attempt live risk — fails silently when API is unreachable or not configured.
 zones: list[dict] = []
 risk_by_zone_id: dict[int, str] = {}
-if show_risk:
-    zones, risk_by_zone_id = fetch_live_risk(API_BASE_URL)
-    if not zones:
-        st.sidebar.warning("Could not reach the risk API — showing region colours instead.")
+zones, risk_by_zone_id = fetch_live_risk(API_BASE_URL)
+if not zones:
+    st.sidebar.caption("🌊 Sargassum risk unavailable (API offline or not configured)")
 
 
 def _beach_risk(beach: dict):
-    """Return (risk_level, zone, distance_km) or (None, None, None) if disabled."""
-    if not (show_risk and zones):
+    """Return (risk_level, zone, distance_km), or ('none', None, inf) when no data."""
+    if not zones:
         return None, None, None
     return risk_for_beach(beach, zones, risk_by_zone_id)
 
@@ -108,141 +105,209 @@ def _matches(beach: dict) -> bool:
 
 
 filtered = [b for b in BEACHES if _matches(b)]
+filtered_names = {b["name"] for b in filtered}
 
 st.markdown(f"**{len(filtered)}** of **{len(BEACHES)}** beaches match your filters.")
 
 
 # ---------------------------------------------------------------------------
-# Map
+# Map (full-width)
 # ---------------------------------------------------------------------------
 
-col_map, col_detail = st.columns([3, 2], gap="large")
+m = folium.Map(location=[19.0, -69.8], zoom_start=7, tiles="CartoDB positron")
+cluster = MarkerCluster().add_to(m)
 
-with col_map:
-    m = folium.Map(location=[19.0, -69.8], zoom_start=7, tiles="CartoDB positron")
-    cluster = MarkerCluster().add_to(m)
-
-    for b in filtered:
-        color = REGION_COLORS.get(b["region"], "#1f77b4")
-        risk_level, near_zone, _dist = _beach_risk(b)
-        if risk_level is not None:
-            color = RISK_COLORS.get(risk_level, color)
-        turtle = " 🐢" if b["protected_area"] else ""
-        risk_line = (
-            f"<b>Sargassum risk:</b> {RISK_EMOJI.get(risk_level, '')} {risk_level.upper()}"
-            f" (nearest: {near_zone['name']})<br>"
-            if risk_level is not None and near_zone
-            else ""
+for b in filtered:
+    color = REGION_COLORS.get(b["region"], "#1f77b4")
+    risk_level, near_zone, dist_km_b = _beach_risk(b)
+    if risk_level is not None:
+        color = RISK_COLORS.get(risk_level, color)
+    turtle = " 🐢" if b["protected_area"] else ""
+    desc_short = (b["description"] or "")[:140].rstrip()
+    if len(b["description"] or "") > 140:
+        desc_short += "…"
+    if risk_level is not None and near_zone:
+        risk_badge_color = RISK_COLORS.get(risk_level, "#6c757d")
+        risk_html = (
+            f"<div style='background:{risk_badge_color};color:#fff;display:inline-block;"
+            f"padding:2px 8px;border-radius:4px;font-size:11px;margin:4px 0'>"
+            f"🌊 Sargazo: {risk_level.upper()} · {near_zone['name']} (~{dist_km_b:.0f} km)"
+            f"</div><br>"
         )
-        popup_html = (
-            f"<div style='font-family:sans-serif; min-width:200px'>"
-            f"<b style='font-size:14px'>{b['name']}{turtle}</b><br>"
-            f"<span style='color:#666'>{b['province']}</span><br>"
-            f"{risk_line}"
-            f"<b>Best time:</b> {b['best_time_to_visit']}<br>"
-            f"<b>Access:</b> {b['access_type']} · {b['entrance_fee']}<br>"
-            f"<b>Top activities:</b> {', '.join(b['activities'][:3])}<br>"
-            f"<a href='{b['google_maps_url']}' target='_blank'>Open in Google Maps ↗</a>"
-            f"</div>"
+    else:
+        risk_html = (
+            "<div style='background:#6c757d;color:#fff;display:inline-block;"
+            "padding:2px 8px;border-radius:4px;font-size:11px;margin:4px 0'>"
+            "🌊 Sargazo: sin datos"
+            "</div><br>"
         )
-        folium.CircleMarker(
-            location=[b["latitude"], b["longitude"]],
-            radius=8,
-            color=color,
-            fill=True,
-            fill_color=color,
-            fill_opacity=0.85,
-            weight=2,
-            popup=folium.Popup(popup_html, max_width=260),
-            tooltip=f"{b['name']} — {b['province']}",
-        ).add_to(cluster)
+    popup_html = (
+        f"<div style='font-family:sans-serif;min-width:240px;max-width:300px'>"
+        f"<b style='font-size:15px'>{b['name']}{turtle}</b><br>"
+        f"<span style='color:#555;font-size:12px'>{b['province']} · {b['region']}</span><br>"
+        f"{risk_html}"
+        f"<p style='font-size:12px;margin:4px 0'>{desc_short}</p>"
+        f"<hr style='margin:4px 0'>"
+        f"<span style='font-size:12px'>"
+        f"🗓️ <b>Best time:</b> {b['best_time_to_visit']}<br>"
+        f"🎟️ <b>Entrance:</b> {b['entrance_fee']}<br>"
+        f"🌊 <b>Water:</b> {b['water_conditions']}<br>"
+        f"🏄 <b>Activities:</b> {', '.join(b['activities'][:4])}<br>"
+        f"🐠 <b>Wildlife:</b> {', '.join(b['wildlife'][:3]) if b['wildlife'] else 'N/A'}<br>"
+        f"🏗️ <b>Facilities:</b> {', '.join(b['facilities'][:3])}<br>"
+        f"</span>"
+        f"<a href='{b['google_maps_url']}' target='_blank' style='font-size:12px'>📍 Open in Google Maps ↗</a>"
+        f"</div>"
+    )
+    folium.CircleMarker(
+        location=[b["latitude"], b["longitude"]],
+        radius=9,
+        color=color,
+        fill=True,
+        fill_color=color,
+        fill_opacity=0.85,
+        weight=2,
+        popup=folium.Popup(popup_html, max_width=310),
+        tooltip=f"{b['name']} — {b['province']}",
+    ).add_to(cluster)
 
-    st_folium(m, width="100%", height=560, returned_objects=[])
+map_result = st_folium(m, width="100%", height=620, returned_objects=["last_object_clicked_tooltip"])
 
-    # Legend switches between risk and region depending on the toggle.
-    if show_risk and zones:
-        legend_items = " &nbsp; ".join(
-            f"<span style='color:{color}'>●</span> {level.capitalize()}"
-            for level, color in RISK_COLORS.items()
-        )
+# Sync map click -> detail section via session state.
+if map_result and map_result.get("last_object_clicked_tooltip"):
+    tooltip_text: str = map_result["last_object_clicked_tooltip"]
+    clicked_name = tooltip_text.split(" — ")[0] if " — " in tooltip_text else tooltip_text
+    if clicked_name in filtered_names:
+        st.session_state["selected_beach"] = clicked_name
+
+# Legend
+if zones:
+    legend_items = " &nbsp; ".join(
+        f"<span style='color:{color}'>●</span> {level.capitalize()}"
+        for level, color in RISK_COLORS.items()
+    )
+    st.markdown(
+        f"<div style='font-size:12px'><b>Sargassum risk:</b> {legend_items}</div>",
+        unsafe_allow_html=True,
+    )
+else:
+    legend_items = " &nbsp; ".join(
+        f"<span style='color:{color}'>●</span> {region}"
+        for region, color in REGION_COLORS.items()
+    )
+    st.markdown(f"<div style='font-size:12px'>{legend_items}</div>", unsafe_allow_html=True)
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# Detail panel (below full-width map)
+# ---------------------------------------------------------------------------
+
+if not filtered:
+    st.info("No beaches match the current filters. Try widening them.")
+else:
+    names = [b["name"] for b in sorted(filtered, key=lambda x: x["name"])]
+    default_name = st.session_state.get("selected_beach")
+    if default_name not in names:
+        default_name = names[0]
+    default_idx = names.index(default_name)
+    chosen = st.selectbox("📍 Select a beach for full details", names, index=default_idx)
+    st.session_state["selected_beach"] = chosen
+    beach = next(b for b in filtered if b["name"] == chosen)
+
+    turtle = " 🐢" if beach["protected_area"] else ""
+    risk_level, near_zone, dist_km = _beach_risk(beach)
+
+    # Risk banner
+    if risk_level is not None and near_zone:
+        banner_color = RISK_COLORS.get(risk_level, "#6c757d")
         st.markdown(
-            f"<div style='font-size:12px'><b>Sargassum risk:</b> {legend_items}</div>",
+            f"<div style='background:{banner_color};color:#fff;padding:8px 14px;"
+            f"border-radius:6px;font-size:14px;margin-bottom:8px'>"
+            f"🌊 <b>Sargassum risk:</b> {RISK_EMOJI.get(risk_level, '')} {risk_level.upper()} "
+            f"— nearest zone <b>{near_zone['name']}</b> (~{dist_km:.0f} km away)"
+            f"</div>",
             unsafe_allow_html=True,
         )
-    else:
-        legend_items = " &nbsp; ".join(
-            f"<span style='color:{color}'>●</span> {region}"
-            for region, color in REGION_COLORS.items()
-        )
-        st.markdown(f"<div style='font-size:12px'>{legend_items}</div>", unsafe_allow_html=True)
 
-
-# ---------------------------------------------------------------------------
-# Detail panel
-# ---------------------------------------------------------------------------
-
-with col_detail:
-    if not filtered:
-        st.info("No beaches match the current filters. Try widening them.")
-    else:
-        names = [b["name"] for b in sorted(filtered, key=lambda x: x["name"])]
-        chosen = st.selectbox("📍 Beach details", names)
-        beach = next(b for b in filtered if b["name"] == chosen)
-
-        turtle = " 🐢" if beach["protected_area"] else ""
+    col_title, col_btn = st.columns([5, 1])
+    with col_title:
         st.subheader(f"{beach['name']}{turtle}")
         st.caption(f"{beach['province']} · {beach['region']}")
-        st.write(beach["description"])
+    with col_btn:
+        st.link_button("📍 Maps", beach["google_maps_url"])
 
-        risk_level, near_zone, dist_km = _beach_risk(beach)
-        if risk_level is not None and near_zone:
+    st.write(beach["description"])
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("**🗓️ Best time**")
+        st.write(beach["best_time_to_visit"])
+        st.markdown("**🚪 Access**")
+        st.write(beach["access_type"])
+        st.caption(beach["access_description"])
+    with c2:
+        st.markdown("**🎟️ Entrance**")
+        st.write(beach["entrance_fee"])
+        st.markdown("**🅿️ Parking**")
+        st.write("Yes" if beach["parking"] else "No / limited")
+        st.markdown("**🌊 Water**")
+        st.write(beach["water_conditions"])
+    with c3:
+        st.markdown("**🏄 Activities**")
+        st.write(", ".join(beach["activities"]))
+        st.markdown("**🐠 Wildlife**")
+        st.write(", ".join(beach["wildlife"]) if beach["wildlife"] else "N/A")
+        st.markdown("**🏗️ Facilities**")
+        st.write(", ".join(beach["facilities"]))
+
+    st.markdown(f"**🌿 Ecosystem:** {beach['ecosystem']}")
+
+    # -----------------------------------------------------------------------
+    # Recommendations
+    # -----------------------------------------------------------------------
+    st.divider()
+    st.subheader("✨ You might also like")
+
+    def _score(candidate: dict) -> int:
+        """Higher = more similar to the selected beach."""
+        score = 0
+        if candidate["region"] == beach["region"]:
+            score += 3
+        if candidate["province"] == beach["province"]:
+            score += 2
+        shared_activities = set(candidate["activities"]) & set(beach["activities"])
+        score += len(shared_activities)
+        if candidate["protected_area"] == beach["protected_area"]:
+            score += 1
+        return score
+
+    recs = sorted(
+        [b for b in BEACHES if b["name"] != beach["name"]],
+        key=_score,
+        reverse=True,
+    )[:3]
+
+    rec_cols = st.columns(3)
+    for col, rec in zip(rec_cols, recs):
+        rec_risk_level, rec_zone, _d = _beach_risk(rec)
+        rec_color = RISK_COLORS.get(rec_risk_level, "#6c757d") if rec_risk_level else "#6c757d"
+        rec_turtle = " 🐢" if rec["protected_area"] else ""
+        with col:
             st.markdown(
-                f"**🌊 Live sargassum risk:** {RISK_EMOJI.get(risk_level, '')} "
-                f"`{risk_level.upper()}` — nearest zone **{near_zone['name']}** "
-                f"(~{dist_km:.0f} km)"
+                f"<div style='border:1px solid #ddd;border-radius:8px;padding:12px'>"
+                f"<b style='font-size:14px'>{rec['name']}{rec_turtle}</b><br>"
+                f"<span style='color:#666;font-size:12px'>{rec['province']}</span><br>"
+                + (
+                    f"<span style='background:{rec_color};color:#fff;border-radius:4px;"
+                    f"padding:1px 6px;font-size:11px'>🌊 {rec_risk_level.upper()}</span><br>"
+                    if rec_risk_level else ""
+                )
+                + f"<span style='font-size:12px'>🗓️ {rec['best_time_to_visit']}<br>"
+                f"🏄 {', '.join(rec['activities'][:3])}</span><br>"
+                f"</div>",
+                unsafe_allow_html=True,
             )
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("**🗓️ Best time**")
-            st.write(beach["best_time_to_visit"])
-            st.markdown("**🚪 Access**")
-            st.write(f"{beach['access_type']}")
-            st.caption(beach["access_description"])
-            st.markdown("**🎟️ Entrance**")
-            st.write(beach["entrance_fee"])
-            st.markdown("**🅿️ Parking**")
-            st.write("Yes" if beach["parking"] else "No / limited")
-        with c2:
-            st.markdown("**🏄 Activities**")
-            st.write(", ".join(beach["activities"]))
-            st.markdown("**🌊 Water**")
-            st.write(beach["water_conditions"])
-            st.markdown("**🐠 Wildlife**")
-            st.write(", ".join(beach["wildlife"]))
-            st.markdown("**🏗️ Facilities**")
-            st.write(", ".join(beach["facilities"]))
-
-        st.markdown("**🌿 Ecosystem**")
-        st.write(beach["ecosystem"])
-        st.link_button("Open in Google Maps ↗", beach["google_maps_url"])
-
-
-# ---------------------------------------------------------------------------
-# Full table (expandable)
-# ---------------------------------------------------------------------------
-
-with st.expander("📋 Browse all beaches as a table"):
-    table_rows = [
-        {
-            "Beach": b["name"],
-            "Province": b["province"],
-            "Region": b["region"],
-            "Best time": b["best_time_to_visit"],
-            "Access": b["access_type"],
-            "Entrance": b["entrance_fee"],
-            "Protected": "🐢" if b["protected_area"] else "",
-        }
-        for b in sorted(filtered, key=lambda x: (x["region"], x["name"]))
-    ]
-    st.dataframe(table_rows, use_container_width=True, hide_index=True)
+            if st.button("View details", key=f"rec_{rec['name']}"):
+                st.session_state["selected_beach"] = rec["name"]
+                st.rerun()

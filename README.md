@@ -2,9 +2,10 @@
 
 A proof-of-concept that detects floating sargassum from satellite imagery over
 the Dominican Republic Exclusive Economic Zone (EEZ), models its drift using
-ocean currents and wind, computes an arrival ETA for a handful of coastal
-zones, stores the results, and pushes lightweight Telegram alerts to fishermen
-and hotels. Designed to run end-to-end on free tiers (~$0/month).
+ocean currents and wind, computes an arrival ETA for coastal zones, stores the
+results in Supabase, and sends lightweight Telegram alerts to fishermen and
+hotels. This repo also includes a tourist-focused beach explorer with live
+sargassum risk overlay.
 
 ## Architecture
 
@@ -13,11 +14,12 @@ detect  -> ocean   -> drift   -> store    -> dispatch
 (GEE)      (CMEMS)    (advect)   (Supabase)  (Telegram)
 ```
 
-- **pipeline/** — detection, ocean data, drift modelling, storage, alert dispatch, orchestrator
-- **api/** — FastAPI service (forecast/zone endpoints + Telegram webhook)
-- **dashboard/** — Streamlit risk map
-- **sql/** — PostGIS schema and seed zones
-- **.github/workflows/** — scheduled pipeline (cron) + keep-alive ping
+- **pipeline/** — detection, ocean data fetch, drift modelling, storage, alert dispatch, orchestrator
+- **api/** — FastAPI service for health, zones, forecasts, beaches, subscriptions, and Telegram webhook
+- **dashboard/** — Streamlit risk map and DR beach explorer with live risk overlay
+- **sql/** — PostGIS schema + seed zones + beach table definition
+- **scripts/** — Supabase beach seeder
+- **.github/workflows/** — scheduled pipeline cron and keep-alive ping
 
 ## Tech stack
 
@@ -27,7 +29,7 @@ detect  -> ocean   -> drift   -> store    -> dispatch
 - Database: Supabase (Postgres + PostGIS) via supabase-py
 - API: FastAPI + uvicorn + pydantic
 - Bot: python-telegram-bot / httpx
-- Dashboard: streamlit + folium/pydeck
+- Dashboard: streamlit + folium + streamlit-folium
 - Scheduling: GitHub Actions (cron)
 - Hosting: Render (API) + Streamlit Community Cloud (dashboard)
 
@@ -66,27 +68,60 @@ detect  -> ocean   -> drift   -> store    -> dispatch
 
    Secrets are **never** hardcoded — everything is read from environment variables.
 
-4. **Provision the database** — run `sql/schema.sql` against your Supabase
-   project (Postgres + PostGIS) to create tables and seed the coastal zones.
+4. **Provision the database** — run `sql/schema.sql` in Supabase to create tables and seed the coastal zones.
+
+5. **Seed the beach catalog** — after schema creation, run:
+
+   ```bash
+   python -m scripts.seed_beaches
+   ```
 
 ## Running locally
 
-> Logic is not implemented yet — this is the scaffold.
-
 - Pipeline: `python -m pipeline.run`
 - API: `uvicorn api.main:app --reload`
-- Dashboard: `streamlit run dashboard/app.py`
+- Dashboard risk map: `streamlit run dashboard/app.py`
+- Beach explorer: `streamlit run dashboard/beaches.py`
 
-## Coastal zones (seed)
+## API endpoints
 
-| Zone | Lat | Lon |
-| --- | --- | --- |
-| Punta Cana | 18.58 | -68.37 |
-| Bavaro | 18.68 | -68.43 |
-| Samana | 19.20 | -69.33 |
-| Puerto Plata | 19.80 | -70.69 |
-| Juan Dolio | 18.43 | -69.42 |
+- `GET /health` — liveness check + DB connectivity
+- `GET /zones` — all monitored coastal zones
+- `GET /forecast` — latest forecast for each zone
+- `GET /forecast/{zone_id}` — latest forecast for one zone
+- `GET /beaches` — DR beach catalog, optional `?province=` / `?region=` filters
+- `POST /subscribe` — subscribe a chat to a zone
+- `POST /telegram/webhook` — Telegram update handler
 
-## Status
+## Database schema highlights
 
-Scaffolding complete. Module logic to be implemented in subsequent steps.
+Tables currently managed by `sql/schema.sql`:
+
+- `zones` — coastal monitoring zones with seed geometry and centre points
+- `detections` — detected sargassum polygons from satellite imagery
+- `forecasts` — zone-level risk forecasts and estimated arrival times
+- `subscribers` — Telegram subscribers for zone alerts
+- `beaches` — DR tourism beaches with metadata, coordinates, and PostGIS point geometry
+
+## Features implemented
+
+- end-to-end pipeline scaffold for sargassum detection, ocean forcing, drift, storage, and dispatch
+- FastAPI backend serving health, zones, forecasts, beaches, and subscription APIs
+- Streamlit coastal risk map with live zone forecast overlay
+- Streamlit beach explorer with 50+ Dominican Republic beaches
+- live sargassum risk overlay for beaches using nearest monitored zone
+- idempotent Supabase beach seeder (`scripts/seed_beaches.py`)
+- expanded `sql/schema.sql` with `beaches` table and spatial indexes
+
+## Current status
+
+- Pipeline modules exist and can be run locally
+- API is ready to serve zone, forecast, and beach data
+- Beach explorer is implemented and can render offline data plus live risk
+- The project now includes both coastal monitoring and tourist beach discovery
+
+## Notes
+
+- Live dashboard risk overlay requires a running API and a configured `API_BASE_URL`
+- Use `.env` for credentials, and never check secrets into Git
+- The beach explorer is intentionally offline by default; live sargassum risk is optional

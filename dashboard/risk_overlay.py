@@ -67,6 +67,10 @@ def fetch_live_risk(api_base_url: str, timeout: int = 8) -> tuple[list[dict], di
     Returns (zones, {zone_id: risk_level}). Returns ([], {}) on any failure so
     the caller can degrade gracefully to region colouring.
     """
+    if not api_base_url or not api_base_url.startswith(("http://", "https://")):
+        logger.debug("API_BASE_URL not configured; skipping live risk fetch.")
+        return [], {}
+
     try:
         import certifi
         import requests
