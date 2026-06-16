@@ -30,9 +30,9 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION:     ${{ secrets.GCP_REGION }}
-  # Container image names in Google Container Registry
-  API_IMAGE:       gcr.io/${{ secrets.GCP_PROJECT_ID }}/sargapp-api
-  DASH_IMAGE:      gcr.io/${{ secrets.GCP_PROJECT_ID }}/sargapp-dashboard
+  # Container image names in Artifact Registry (us-east4)
+  API_IMAGE:       us-east4-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sargapprepo/sargapp-api
+  DASH_IMAGE:      us-east4-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sargapprepo/sargapp-dashboard
 
 jobs:
   build-and-deploy:
@@ -50,8 +50,8 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Configure Docker for GCR
-        run: gcloud auth configure-docker --quiet
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-east4-docker.pkg.dev --quiet
 
       # ── 3. Build images (parallel) ────────────────────────────────────────
       - name: Build API image
