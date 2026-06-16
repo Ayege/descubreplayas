@@ -66,6 +66,7 @@ gcloud iam service-accounts create "$SA_NAME" \
 for ROLE in \
   roles/run.admin \
   roles/storage.admin \
+  roles/artifactregistry.writer \
   roles/secretmanager.secretAccessor \
   roles/iam.serviceAccountUser; do
   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
