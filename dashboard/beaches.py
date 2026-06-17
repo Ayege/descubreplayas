@@ -190,11 +190,14 @@ st.markdown("""
 
 *, html, body, [class*="css"] { font-family: 'Nunito', sans-serif; box-sizing: border-box; }
 
-/* ── Hide ALL Streamlit chrome (header toolbar, deploy button, menu) ── */
+/* ── Hide Streamlit chrome WITHOUT killing the sidebar toggle ──
+   NOTE: we must NOT `display:none` the whole header / stHeader, because the
+   button that re-opens a collapsed sidebar lives inside it. Hiding the header
+   outright means that once the sidebar is closed (esp. on mobile) it can never
+   be reopened. So we only hide the menu/toolbar/deploy/status widgets and make
+   the header itself transparent + non-blocking. */
 #MainMenu,
 footer,
-header,
-[data-testid="stHeader"],
 [data-testid="stToolbar"],
 [data-testid="stDecoration"],
 [data-testid="stDeployButton"],
@@ -204,6 +207,48 @@ header,
     height: 0 !important;
     min-height: 0 !important;
     overflow: hidden !important;
+}
+
+/* Header: keep in the DOM (for the sidebar toggle) but visually collapsed and
+   click-through so it doesn't block the map underneath. */
+header,
+[data-testid="stHeader"] {
+    background: transparent !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+}
+
+/* …but the sidebar open/collapse controls MUST stay visible and clickable. */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stExpandSidebarButton"],
+[data-testid="baseButton-headerNoPadding"] {
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    z-index: 1000000 !important;
+}
+
+/* The floating "reopen sidebar" button (shown when collapsed): make it an
+   obvious, tappable pill that sits above the map on every screen size. */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"] {
+    position: fixed !important;
+    top: 10px !important;
+    left: 10px !important;
+    background: rgba(0,96,100,.92) !important;
+    border-radius: 10px !important;
+    padding: 4px 6px !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,.3) !important;
+}
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="collapsedControl"] svg {
+    color: #fff !important;
+    fill: #fff !important;
 }
 
 /* ── Zero-out ALL wrappers so map reaches the very top ── */
@@ -384,10 +429,11 @@ section[data-testid="stMain"],
         padding: 14px 16px 18px !important;
         box-shadow: 0 -8px 40px rgba(0,0,0,.55) !important;
     }
-    /* Legend → top-left, compact, so it never collides with the bottom sheet */
+    /* Legend → top-RIGHT on mobile so it never collides with the sidebar
+       reopen button (top-left) or the bottom sheet. */
     .map-legend {
         top: 54px !important; bottom: auto !important;
-        left: 8px !important; transform: none !important;
+        left: auto !important; right: 8px !important; transform: none !important;
         max-height: 26vh !important; padding: 7px 11px !important;
         min-width: 0 !important; font-size: 11px;
     }
@@ -402,11 +448,19 @@ section[data-testid="stMain"],
     }
     .beach-detail { max-height: 36vh !important; padding: 12px 14px 16px !important; }
     .map-legend { max-height: 20vh !important; }
-}
-</style>
+}</style>
 """, unsafe_allow_html=True)
 
-BEACHES = beaches_with_maps()
+# ---------------------------------------------------------------------------
+# Static beach dataset — cached so the 56-beach list (with Google Maps URLs)
+# is built once per session instead of on every rerun / beach click.
+# ---------------------------------------------------------------------------
+@st.cache_data
+def _load_beaches() -> list[dict]:
+    return beaches_with_maps()
+
+
+BEACHES = _load_beaches()
 
 # ---------------------------------------------------------------------------
 # Language selector (top of sidebar)
@@ -433,7 +487,9 @@ def _cached_fetch_live_risk(url: str):
 
 @st.cache_data(ttl=300)
 def _cached_fetch_detections(url: str):
-    return fetch_detections(url)
+    # Fetch a bounded number of masses; the map only needs the significant
+    # ones, and a smaller payload means faster JSON transfer + render.
+    return fetch_detections(url, limit=800)
 
 
 # ---------------------------------------------------------------------------
@@ -795,6 +851,16 @@ if show_zones and zones:
 if show_masses:
     _masses = _cached_fetch_detections(API_BASE_URL)
     if _masses:
+        # Cap to the largest masses by area. Rendering thousands of individual
+        # markers bloats the page HTML and slows the map; the biggest masses
+        # are what matter visually, so we keep only the top N by area.
+        _MAX_MASS_MARKERS = 350
+        if len(_masses) > _MAX_MASS_MARKERS:
+            _masses = sorted(
+                _masses,
+                key=lambda d: float(d.get("area_km2", 0.0) or 0.0),
+                reverse=True,
+            )[:_MAX_MASS_MARKERS]
         _mass_group = folium.FeatureGroup(name="Sargazo", show=True)
         for _d in _masses:
             try:
