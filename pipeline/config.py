@@ -76,8 +76,12 @@ ZONES = [
 ]
 
 # Half-width (degrees) of the square box built around each zone center.
-# 0.5° ≈ 55 km — large enough to catch incoming sargassum with realistic forecast uncertainty.
-ZONE_BOX_HALF_DEG = 0.5
+# 0.35° ≈ 39 km half-width (box ≈ 78 km × 74 km, corner ≈ 54 km). This is the
+# "monitored area" around each coastal zone: a patch must drift INTO this box
+# to count toward the zone's risk. Bigger boxes (e.g. the old 0.5°/111 km box)
+# sum far too many scattered patches together and inflate every zone to 'high';
+# smaller boxes risk missing genuine incoming masses. Tune via env var.
+ZONE_BOX_HALF_DEG = float(os.environ.get("ZONE_BOX_HALF_DEG", "0.35"))
 
 
 def zone_polygon_coords(center_lat: float, center_lon: float) -> list[list[float]]:
@@ -121,9 +125,9 @@ WIND_DRIFT_FACTOR = float(os.environ.get("WIND_DRIFT_FACTOR", "0.02"))
 
 # Risk thresholds on projected patch area within a zone (km^2).
 # These represent the TOTAL marine sargassum area drifting toward a zone:
-#   low    : 1-5 km²  — visible traces likely on shore
-#   medium : 5-25 km² — noticeable accumulation expected
-#   high   : >25 km²  — significant beach impact
+#   low    : 0.5-5 km²  — visible traces likely on shore
+#   medium : 5-25 km²   — noticeable accumulation expected
+#   high   : >25 km²    — significant beach impact
 # The minimum *significant* area to register ANY risk at all. Below this the
 # mass is too small to produce meaningful beach impact even if it arrives.
 RISK_AREA_MIN_KM2 = float(os.environ.get("RISK_AREA_MIN_KM2", "0.5"))   # ~700m × 700m

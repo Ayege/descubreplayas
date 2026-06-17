@@ -34,6 +34,7 @@ from dashboard.risk_overlay import (
     fetch_detections,
     fetch_live_risk,
     risk_for_beach,
+    risk_from_detections,
 )
 from dashboard.climatology import seasonal_index, seasonal_risk
 
@@ -61,6 +62,7 @@ _T = {
         "activity": "Actividad",
         "protected_only": "Solo áreas protegidas",
         "free_only": "Solo entrada gratuita",
+        "risk_filter": "🌊 Filtrar por riesgo de sargazo",
         "month_filter": "🗓️ Fecha de visita",
         "month_note": "Filtra por mejor época. El riesgo de sargazo refleja condiciones actuales (72 h).",
         "show_zones": "🌊 Mostrar zonas de monitoreo de Sargazo",
@@ -118,6 +120,7 @@ _T = {
         "activity": "Activity",
         "protected_only": "🐢 Protected areas only",
         "free_only": "Free entrance only",
+        "risk_filter": "🌊 Filter by sargassum risk",
         "month_filter": "🗓️ Visit date",
         "month_note": "Filters by best season. Sargassum risk reflects current conditions (72 h forecast).",
         "show_zones": "🌊 Show monitoring zones",
@@ -176,10 +179,19 @@ _RISK_LABELS = {
 }
 
 # A beach only inherits a zone's risk if it lies within this radius of the
-# zone centre. Zone boxes are 0.5° half-width (~55 km to the edge, ~76 km to a
-# corner), so 85 km keeps all in-zone beaches covered while excluding distant
-# ones. Beyond this, the beach is outside the monitored area.
-COVERAGE_KM = 85.0
+# zone centre. We tie it to the pipeline's actual monitored box so the two can
+# never drift apart: the coverage radius is the box's corner distance (the
+# farthest a point can be and still sit inside the box). Beyond this the beach
+# is genuinely outside the monitored area and must NOT inherit the zone's risk.
+from pipeline import config as _pcfg  # noqa: E402  (sys.path set above)
+
+_ZONE_HALF_DEG = _pcfg.ZONE_BOX_HALF_DEG
+# Corner distance of the square box (deg → km), latitude-corrected at ~19°N (DR).
+import math as _math  # noqa: E402
+
+_COVERAGE_NS_KM = _ZONE_HALF_DEG * 111.32
+_COVERAGE_EW_KM = _ZONE_HALF_DEG * 111.32 * _math.cos(_math.radians(19.0))
+COVERAGE_KM = _math.hypot(_COVERAGE_NS_KM, _COVERAGE_EW_KM)  # ≈ 54 km at 0.35°
 
 # ---------------------------------------------------------------------------
 # CSS — responsive full-viewport map, tropical palette, clean sidebar
@@ -191,11 +203,10 @@ st.markdown("""
 *, html, body, [class*="css"] { font-family: 'Nunito', sans-serif; box-sizing: border-box; }
 
 /* ── Hide Streamlit chrome WITHOUT killing the sidebar toggle ──
-   NOTE: we must NOT `display:none` the whole header / stHeader, because the
-   button that re-opens a collapsed sidebar lives inside it. Hiding the header
-   outright means that once the sidebar is closed (esp. on mobile) it can never
-   be reopened. So we only hide the menu/toolbar/deploy/status widgets and make
-   the header itself transparent + non-blocking. */
+   We hide the menu/toolbar/deploy/status widgets entirely, and turn the header
+   bar into a transparent, zero-footprint strip that floats OVER the map (so
+   there is no ugly grey bar and no white gap), while the sidebar open/close
+   controls inside it stay fully visible and tappable on every screen. */
 #MainMenu,
 footer,
 [data-testid="stToolbar"],
@@ -209,15 +220,21 @@ footer,
     overflow: hidden !important;
 }
 
-/* Header: keep in the DOM (for the sidebar toggle) but visually collapsed and
-   click-through so it doesn't block the map underneath. */
+/* Header bar: transparent + floating so it never shows the default grey
+   Streamlit chrome and never pushes a white gap above the map. We keep it in
+   the DOM (NOT display:none) because the sidebar-reopen button lives inside it. */
 header,
 [data-testid="stHeader"] {
     background: transparent !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
     height: 0 !important;
     min-height: 0 !important;
     box-shadow: none !important;
-    pointer-events: none !important;
+    pointer-events: none !important;   /* the thin strip is click-through to the map… */
+    z-index: 999990 !important;
 }
 
 /* …but the sidebar open/collapse controls MUST stay visible and clickable. */
@@ -225,7 +242,9 @@ header,
 [data-testid="collapsedControl"],
 [data-testid="stSidebarCollapseButton"],
 [data-testid="stExpandSidebarButton"],
-[data-testid="baseButton-headerNoPadding"] {
+[data-testid="stBaseButton-headerNoPadding"],
+[data-testid="baseButton-headerNoPadding"],
+header button {
     display: flex !important;
     visibility: visible !important;
     pointer-events: auto !important;
@@ -233,8 +252,8 @@ header,
     z-index: 1000000 !important;
 }
 
-/* The floating "reopen sidebar" button (shown when collapsed): make it an
-   obvious, tappable pill that sits above the map on every screen size. */
+/* The floating "reopen sidebar" button (shown when the drawer is collapsed):
+   make it an obvious, tappable teal pill above the map on every screen size. */
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"] {
     position: fixed !important;
@@ -246,9 +265,12 @@ header,
     box-shadow: 0 2px 10px rgba(0,0,0,.3) !important;
 }
 [data-testid="stSidebarCollapsedControl"] svg,
-[data-testid="collapsedControl"] svg {
+[data-testid="collapsedControl"] svg,
+[data-testid="stSidebarCollapsedControl"] button,
+[data-testid="collapsedControl"] button {
     color: #fff !important;
     fill: #fff !important;
+    pointer-events: auto !important;
 }
 
 /* ── Zero-out ALL wrappers so map reaches the very top ── */
@@ -418,6 +440,30 @@ section[data-testid="stMain"],
     }
     .risk-banner { font-size: 12px; padding: 7px 10px; }
 
+    /* Filter drawer: when open on mobile, overlay it ON TOP of the map as a
+       near-full-width sheet so the filters are readable and never squished
+       into a thin left column. Streamlit toggles its open/closed state; we
+       only control how it looks while open. */
+    [data-testid="stSidebar"][aria-expanded="true"],
+    [data-testid="stSidebar"]:not([aria-hidden="true"]) {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        height: 100vh !important;
+        width: min(86vw, 360px) !important;
+        min-width: min(86vw, 360px) !important;
+        z-index: 999995 !important;
+        box-shadow: 6px 0 32px rgba(0,0,0,.45) !important;
+    }
+    /* Keep the sidebar's own collapse (×) button visible & tappable on mobile. */
+    [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebar"] button[kind="header"] {
+        display: flex !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        opacity: 1 !important;
+    }
+
     /* Detail panel → full-width bottom sheet, kept SMALLER than the map so the
        map remains the dominant, usable area on phones. */
     .beach-detail {
@@ -503,17 +549,31 @@ zones, forecast_by_zone_id = _cached_fetch_live_risk(API_BASE_URL)
 def _beach_risk(beach: dict):
     """Return (risk_level, nearest_zone, dist_km, forecast_dict) or (None,None,None,None).
 
-    The returned risk_level reflects the currently-selected forecast horizon.
+    Risk is computed from the ACTUAL nearest detected sargassum mass to this
+    beach (beach-specific distance + biomass), falling back to the coarse
+    zone-box forecast only when no detections are available. `dist_km` is the
+    great-circle distance to the nearest detected mass (None when none is near).
+    The zone is still returned for coastal naming + ETA context.
     """
     if not zones:
         return None, None, None, None
-    lvl, zone, dist, fc = risk_for_beach(beach, zones, forecast_by_zone_id)
-    # Distance gate: a beach far from every monitored zone must NOT inherit that
-    # zone's risk (e.g. a Southwest beach 239 km from Puerto Plata is not 'high').
-    if zone is not None and dist is not None and dist > COVERAGE_KM:
-        return "out", zone, dist, None
-    # Override the summary risk with the risk at the selected horizon.
-    return _risk_at_horizon(fc), zone, dist, fc
+
+    _lvl, zone, zdist, fc = risk_for_beach(beach, zones, forecast_by_zone_id)
+
+    # Primary signal: per-beach risk from real detected masses.
+    masses = _cached_fetch_detections(API_BASE_URL)
+    if masses:
+        d_risk, d_mass, d_km, _d_area = risk_from_detections(beach, masses)
+        if d_mass is not None:
+            # Real sargassum near THIS beach → risk + distance are beach-specific.
+            return d_risk, zone, d_km, fc
+        # Detections exist but none within the beach radius → no nearby sargassum.
+        return "none", zone, None, fc
+
+    # No detections available → fall back to the zone-box forecast + distance gate.
+    if zone is not None and zdist is not None and zdist > COVERAGE_KM:
+        return "out", zone, zdist, None
+    return _risk_at_horizon(fc), zone, zdist, fc
 
 
 def _risk_at_horizon(fc: dict | None) -> str:
@@ -599,6 +659,16 @@ with st.sidebar:
     protected_only = st.checkbox(L["protected_only"], value=False)
     free_only = st.checkbox(L["free_only"], value=False)
 
+    # Filter by current sargassum risk level. Options are localized labels but
+    # map back to the canonical risk keys. Empty = show all risk levels.
+    sel_risks = st.multiselect(
+        L["risk_filter"],
+        options=["high", "medium", "low", "none"],
+        default=[],
+        format_func=lambda k: f"{RISK_EMOJI.get(k, '')} {RISK_LABEL.get(k, k)}".strip(),
+        key="risk_filter",
+    )
+
     st.markdown("---")
     show_zones = st.checkbox(L["show_zones"], value=bool(zones), key="show_zones")
     show_masses = st.checkbox(L["show_masses"], value=True, key="show_masses")
@@ -679,6 +749,16 @@ def _matches(beach: dict) -> bool:
         return False
     if sel_month is not None and not beach_good_in_month(beach, sel_month):
         return False
+    # Risk filter — compute this beach's current risk level and keep it only if
+    # it matches one of the selected levels. A beach with no risk data (None)
+    # is treated as 'none' so the filter behaves intuitively.
+    if sel_risks:
+        _beach_lvl = _beach_risk_dated(beach)[0] or "none"
+        # 'out' (outside monitored area) counts as 'none' for filtering.
+        if _beach_lvl == "out":
+            _beach_lvl = "none"
+        if _beach_lvl not in sel_risks:
+            return False
     return True
 
 
@@ -737,10 +817,16 @@ for b in filtered:
             f"📅 Llegada estimada / ETA: {_arrival}</div>"
             if _arrival else ""
         )
+        # Distance refers to the NEAREST DETECTED MASS (beach-specific), shown
+        # only when a mass is actually near this beach.
+        _dist_txt = (
+            f" · sargazo a ~{dist_km_b:.0f} km"
+            if dist_km_b is not None else ""
+        )
         risk_badge = (
             f"<div style='background:{rc};color:#fff;display:inline-block;"
             f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            f"🌊 Sargazo: {label_txt} · {near_zone['name']} (~{dist_km_b:.0f} km)"
+            f"🌊 Sargazo: {label_txt}{_dist_txt}"
             f"</div>{_arrival_line}"
         )
     else:
@@ -782,7 +868,7 @@ for b in filtered:
 # ---------------------------------------------------------------------------
 # Sargassum monitoring zones — drawn as translucent rectangles when toggled
 # ---------------------------------------------------------------------------
-_ZONE_BOX_DEG = 0.5  # half-width, must match pipeline/config.py ZONE_BOX_HALF_DEG (~55 km)
+_ZONE_BOX_DEG = _ZONE_HALF_DEG  # half-width, kept in sync with pipeline/config.py ZONE_BOX_HALF_DEG
 
 if show_zones and zones:
     for _z in zones:
@@ -1058,6 +1144,13 @@ if _panel_beach:
                     f"<span style='color:#78909c;font-size:10px'>{_ru_fmt} AST</span></div>"
                 )
 
+        # Coastal zone name for context + nearest DETECTED MASS distance
+        # (beach-specific). The km is to the actual sargassum, not the zone.
+        _zone_name = _near_zone["name"] if _near_zone else ""
+        _mass_dist_txt = (
+            f" &nbsp;·&nbsp; sargazo ~{_dist_km:.0f} km"
+            if _dist_km is not None else ""
+        )
         _risk_section = (
             f"<div style='background:rgba(0,0,0,.25);border-radius:12px;"
             f"padding:10px 12px;margin:9px 0;border-left:4px solid {_rc}'>"
@@ -1065,8 +1158,8 @@ if _panel_beach:
             f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px'>"
             f"<span style='background:{_rc};color:#fff;border-radius:16px;"
             f"padding:2px 10px;font-size:11px;font-weight:800'>{_emoji} {_rlbl}</span>"
-            f"<span style='color:#80cbc4;font-size:11px'>{_near_zone['name']}"
-            f" &nbsp;·&nbsp; ~{_dist_km:.0f} km</span></div>"
+            f"<span style='color:#80cbc4;font-size:11px'>{_zone_name}"
+            f"{_mass_dist_txt}</span></div>"
             # Advisory
             f"<div style='color:#cfd8dc;font-size:11.5px;line-height:1.45;"
             f"margin-bottom:6px'>{_advice}</div>"
