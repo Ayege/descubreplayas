@@ -59,16 +59,16 @@ python -m pipeline.run
 Copy `.env.example` to `.env` and fill in every variable.
 **Secrets are never hardcoded** — all config comes from the environment.
 
-| Variable | Required for | Description |
-|---|---|---|
-| `EE_PROJECT` | Pipeline | Google Cloud project with Earth Engine enabled |
-| `EE_SERVICE_ACCOUNT_JSON` | Pipeline | Path to service-account key file **or** the JSON string |
-| `CMEMS_USERNAME` | Pipeline | Copernicus Marine username |
-| `CMEMS_PASSWORD` | Pipeline | Copernicus Marine password |
-| `SUPABASE_URL` | All | Supabase project URL |
-| `SUPABASE_KEY` | All | Service-role key (pipeline/API) or anon key (read-only) |
-| `TELEGRAM_BOT_TOKEN` | Alerts | Bot token from @BotFather |
-| `API_BASE_URL` | Dashboard risk overlay | Public Render URL — leave blank to skip live risk |
+| Variable                    | Required for           | Description                                                  |
+| --------------------------- | ---------------------- | ------------------------------------------------------------ |
+| `EE_PROJECT`              | Pipeline               | Google Cloud project with Earth Engine enabled               |
+| `EE_SERVICE_ACCOUNT_JSON` | Pipeline               | Path to service-account key file**or** the JSON string |
+| `CMEMS_USERNAME`          | Pipeline               | Copernicus Marine username                                   |
+| `CMEMS_PASSWORD`          | Pipeline               | Copernicus Marine password                                   |
+| `SUPABASE_URL`            | All                    | Supabase project URL                                         |
+| `SUPABASE_KEY`            | All                    | Service-role key (pipeline/API) or anon key (read-only)      |
+| `TELEGRAM_BOT_TOKEN`      | Alerts                 | Bot token from @BotFather                                    |
+| `API_BASE_URL`            | Dashboard risk overlay | Public Render URL — leave blank to skip live risk           |
 
 > **Beach explorer with no credentials** — leave `API_BASE_URL` blank.
 > The map loads from the built-in dataset; the sargassum risk badges show "no data".
@@ -94,31 +94,31 @@ Copy `.env.example` to `.env` and fill in every variable.
 
 ### Repo layout
 
-| Path | Purpose |
-|---|---|
-| `pipeline/` | detect → ocean → drift → store → dispatch → run |
-| `api/` | FastAPI: health, zones, forecasts, beaches, subscriptions, Telegram webhook |
-| `dashboard/app.py` | Streamlit coastal risk map |
-| `dashboard/beaches.py` | Streamlit beach explorer (tropical UI, bilingual ES/EN) |
-| `dashboard/beaches_data.py` | 56-beach offline dataset |
-| `dashboard/risk_overlay.py` | Live risk fetch + nearest-zone mapping |
-| `sql/schema.sql` | PostGIS tables + seed zones + indexes |
-| `scripts/seed_beaches.py` | Idempotent Supabase beach seeder |
-| `.github/workflows/` | `pipeline.yml` (cron every 6 h) + `keepalive.yml` (daily ping) |
+| Path                          | Purpose                                                                     |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| `pipeline/`                 | detect → ocean → drift → store → dispatch → run                        |
+| `api/`                      | FastAPI: health, zones, forecasts, beaches, subscriptions, Telegram webhook |
+| `dashboard/app.py`          | Streamlit coastal risk map                                                  |
+| `dashboard/beaches.py`      | Streamlit beach explorer (tropical UI, bilingual ES/EN)                     |
+| `dashboard/beaches_data.py` | 56-beach offline dataset                                                    |
+| `dashboard/risk_overlay.py` | Live risk fetch + nearest-zone mapping                                      |
+| `sql/schema.sql`            | PostGIS tables + seed zones + indexes                                       |
+| `scripts/seed_beaches.py`   | Idempotent Supabase beach seeder                                            |
+| `.github/workflows/`        | `pipeline.yml` (cron every 6 h) + `keepalive.yml` (daily ping)          |
 
 ---
 
 ## API reference
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/health` | Liveness + DB connectivity |
-| `GET` | `/zones` | All monitored coastal zones |
-| `GET` | `/forecast` | Latest forecast for every zone |
-| `GET` | `/forecast/{zone_id}` | Latest forecast for one zone |
-| `GET` | `/beaches` | Beach catalog (`?province=` / `?region=` filters) |
-| `POST` | `/subscribe` | Subscribe a Telegram chat to a zone |
-| `POST` | `/telegram/webhook` | Telegram update handler |
+| Method   | Endpoint                | Description                                           |
+| -------- | ----------------------- | ----------------------------------------------------- |
+| `GET`  | `/health`             | Liveness + DB connectivity                            |
+| `GET`  | `/zones`              | All monitored coastal zones                           |
+| `GET`  | `/forecast`           | Latest forecast for every zone                        |
+| `GET`  | `/forecast/{zone_id}` | Latest forecast for one zone                          |
+| `GET`  | `/beaches`            | Beach catalog (`?province=` / `?region=` filters) |
+| `POST` | `/subscribe`          | Subscribe a Telegram chat to a zone                   |
+| `POST` | `/telegram/webhook`   | Telegram update handler                               |
 
 Interactive docs at `/docs` when the API is running.
 
@@ -126,13 +126,13 @@ Interactive docs at `/docs` when the API is running.
 
 ## Database schema
 
-| Table | Description |
-|---|---|
-| `zones` | Coastal monitoring zones (PostGIS polygons + centre points) |
-| `detections` | Sargassum patches detected from satellite imagery |
-| `forecasts` | Zone-level risk level + ETA per pipeline run |
-| `subscribers` | Telegram subscribers per zone |
-| `beaches` | 56 DR beaches with metadata + PostGIS point geometry |
+| Table           | Description                                                 |
+| --------------- | ----------------------------------------------------------- |
+| `zones`       | Coastal monitoring zones (PostGIS polygons + centre points) |
+| `detections`  | Sargassum patches detected from satellite imagery           |
+| `forecasts`   | Zone-level risk level + ETA per pipeline run                |
+| `subscribers` | Telegram subscribers per zone                               |
+| `beaches`     | 56 DR beaches with metadata + PostGIS point geometry        |
 
 Risk levels: `none` · `low` · `medium` · `high`
 
@@ -142,23 +142,23 @@ Risk levels: `none` · `low` · `medium` · `high`
 
 Once deployed and webhook registered:
 
-| Command | Action |
-|---|---|
-| `/start` | Welcome message + usage |
-| `/subscribe <zone>` | Subscribe to alerts for a zone (e.g. `/subscribe Punta Cana`) |
-| `/status` | Show current risk for all zones |
-| `/stop` | Unsubscribe from all alerts |
+| Command               | Action                                                         |
+| --------------------- | -------------------------------------------------------------- |
+| `/start`            | Welcome message + usage                                        |
+| `/subscribe <zone>` | Subscribe to alerts for a zone (e.g.`/subscribe Punta Cana`) |
+| `/status`           | Show current risk for all zones                                |
+| `/stop`             | Unsubscribe from all alerts                                    |
 
 ---
 
 ## Deployment
 
-| Service | What runs there | Free tier |
-|---|---|---|
-| **Render** | FastAPI (`api/`) | 750 h/month free web service |
-| **Streamlit Community Cloud** | `dashboard/beaches.py` or `dashboard/app.py` | Free |
-| **Supabase** | Postgres + PostGIS | 500 MB free |
-| **GitHub Actions** | Pipeline cron + keep-alive | 2 000 min/month free |
+| Service                             | What runs there                                  | Free tier                    |
+| ----------------------------------- | ------------------------------------------------ | ---------------------------- |
+| **Render**                    | FastAPI (`api/`)                               | 750 h/month free web service |
+| **Streamlit Community Cloud** | `dashboard/beaches.py` or `dashboard/app.py` | Free                         |
+| **Supabase**                  | Postgres + PostGIS                               | 500 MB free                  |
+| **GitHub Actions**            | Pipeline cron + keep-alive                       | 2 000 min/month free         |
 
 See `render.yaml` for the Render service definition.
 
@@ -199,10 +199,10 @@ Contiguous flagged pixels are vectorised into patch polygons. Patches smaller th
 
 For up to 20 patch centroids the pipeline fetches:
 
-| Source | Variable | Horizon |
-|---|---|---|
-| **Copernicus Marine** (`GLOBAL_ANALYSISFORECAST_PHY`) | Eastward current `uo`, northward current `vo` (m/s) | 72 h |
-| **Open-Meteo** (free tier) | 10 m zonal wind `u`, meridional wind `v` (m/s) | 72 h |
+| Source                                                        | Variable                                                | Horizon |
+| ------------------------------------------------------------- | ------------------------------------------------------- | ------- |
+| **Copernicus Marine** (`GLOBAL_ANALYSISFORECAST_PHY`) | Eastward current `uo`, northward current `vo` (m/s) | 72 h    |
+| **Open-Meteo** (free tier)                              | 10 m zonal wind `u`, meridional wind `v` (m/s)      | 72 h    |
 
 ### Step 3 — Drift model (Lagrangian advection)
 
@@ -228,12 +228,12 @@ When a patch centroid enters a **zone bounding box** (0.1 ° half-width square a
 
 For each coastal zone the pipeline accumulates the total patch area projected to arrive within 72 hours and the earliest arrival time (ETA):
 
-| Risk level | Condition |
-|---|---|
-| `none` | No patch projected to reach the zone within 72 h |
-| `low` | Projected area < **1 km²** |
-| `medium` | Projected area **1–10 km²** |
-| `high` | Projected area > **10 km²** OR ETA ≤ **24 h** |
+| Risk level | Condition                                                  |
+| ---------- | ---------------------------------------------------------- |
+| `none`   | No patch projected to reach the zone within 72 h           |
+| `low`    | Projected area <**1 km²**                           |
+| `medium` | Projected area**1–10 km²**                         |
+| `high`   | Projected area >**10 km²** OR ETA ≤ **24 h** |
 
 Thresholds are tunable via `RISK_AREA_LOW_MAX_KM2`, `RISK_AREA_MEDIUM_MAX_KM2`, and `RISK_HIGH_ETA_HOURS` in `pipeline/config.py`.
 
@@ -247,7 +247,6 @@ Forecasts are refreshed every 6 hours when the pipeline runs.
 
 ## Development notes
 
-- Secrets live in `.env` — never commit them to Git (`.gitignore` covers `.env`)
 - The beach explorer runs fully offline; live risk badges require `API_BASE_URL`
 - One failed pipeline step logs an error but does not crash the whole run
 - All times stored as UTC; Telegram alerts display local DR time (UTC−4)
