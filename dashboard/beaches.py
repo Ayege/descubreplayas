@@ -968,36 +968,20 @@ if show_masses:
         _mass_group.add_to(m)
     # If no masses came back we silently skip — sidebar caption explains why below.
 
-# Floating legend — split into two sections to avoid confusion:
-# 1) Beach pins (white + colored ring = region)
-# 2) Risk zones (filled colored rectangles = sargassum risk)
-beach_legend_rows = "".join(
-    f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
-    f"<div style='width:13px;height:13px;border-radius:50%;background:#fff;"
-    f"border:2.5px solid {c};flex-shrink:0'></div>"
-    f"<span style='font-size:11px;color:#37474f'>{r}</span></div>"
-    for r, c in REGION_COLORS.items()
-)
-
+# Floating legend — only show Sargassum risk (zones).
 if zones:
     risk_legend_rows = "".join(
-        f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>" 
+        f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
         f"<div style='width:16px;height:10px;background:{c};flex-shrink:0;border-radius:2px'></div>"
         f"<span style='font-size:11px;color:#37474f'>{RISK_LABEL.get(lv, lv)}</span></div>"
         for lv, c in RISK_COLORS.items()
     )
     legend_html = (
         f"<div style='font-weight:800;font-size:11.5px;color:#005f73;margin-bottom:3px'>"
-        f"{L['beach_legend']}</div>{beach_legend_rows}"
-        f"<div style='border-top:1px solid #ccc;margin:6px 0'></div>"
-        f"<div style='font-weight:800;font-size:11.5px;color:#005f73;margin-bottom:3px'>"
         f"{L['zone_legend']}</div>{risk_legend_rows}"
     )
 else:
-    legend_html = (
-        f"<div style='font-weight:800;font-size:11.5px;color:#005f73;margin-bottom:3px'>"
-        f"{L['beach_legend']}</div>{beach_legend_rows}"
-    )
+    legend_html = ""
 
 m.get_root().html.add_child(folium.Element(
     f"<div style='position:absolute;top:10px;left:60px;z-index:1000;"
@@ -1027,10 +1011,11 @@ if map_result and map_result.get("last_object_clicked_tooltip"):
 # Legend — rendered in the Streamlit DOM (position:fixed) so it is NEVER
 # clipped by the Folium iframe viewport (bottom-left, always visible).
 # ---------------------------------------------------------------------------
-st.markdown(
-    f"<div class='map-legend'>{legend_html}</div>",
-    unsafe_allow_html=True,
-)
+if legend_html:
+    st.markdown(
+        f"<div class='map-legend'>{legend_html}</div>",
+        unsafe_allow_html=True,
+    )
 
 # ---------------------------------------------------------------------------
 # Floating detail bubble — position:fixed in Streamlit DOM (hovers over map)
