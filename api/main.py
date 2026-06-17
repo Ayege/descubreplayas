@@ -1,10 +1,11 @@
 """FastAPI application and route definitions."""
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from api import db
@@ -17,6 +18,7 @@ from api.models import (
     SubscribeResponse,
     ZoneResponse,
 )
+from pipeline import config
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +118,7 @@ def list_beaches(province: str | None = None, region: str | None = None) -> list
 # ---------------------------------------------------------------------------
 
 @app.get("/detections", response_model=list[DetectionResponse], tags=["data"])
-def list_detections(limit: int = 2000) -> list[DetectionResponse]:
+def list_detections(limit: int = Query(default=2000, ge=1, le=5000)) -> list[DetectionResponse]:
     """Return the latest pipeline run's detected sargassum masses (lat/lon + area)."""
     rows = db.list_detections(limit=limit)
     return [DetectionResponse(**r) for r in rows]
@@ -142,8 +144,25 @@ def subscribe(body: SubscribeRequest) -> SubscribeResponse:
 # ---------------------------------------------------------------------------
 
 @app.post("/telegram/webhook", tags=["telegram"])
-async def telegram_webhook(update: dict) -> dict:
-    """Receive Telegram Bot API update objects."""
+async def telegram_webhook(update: dict, request: Request) -> dict:
+    """Receive Telegram Bot API update objects.
+
+    The endpoint is public, so we authenticate the caller via the shared
+    secret Telegram echoes in the X-Telegram-Bot-Api-Secret-Token header
+    (configured when the webhook is registered). Requests without the correct
+    secret are rejected to prevent spoofed updates from triggering the bot.
+    """
+    expected = config.TELEGRAM_WEBHOOK_SECRET
+    if expected:
+        provided = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+        if not hmac.compare_digest(provided, expected):
+            logger.warning("Rejected Telegram webhook with invalid secret token.")
+            raise HTTPException(status_code=403, detail="Forbidden")
+    else:
+        logger.warning(
+            "TELEGRAM_WEBHOOK_SECRET not set — webhook is unauthenticated. "
+            "Set it and re-register the webhook to prevent spoofed updates."
+        )
     try:
         from api.telegram import handle_update
         await handle_update(update)

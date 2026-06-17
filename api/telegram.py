@@ -56,12 +56,21 @@ send_alert = send_message
 # ---------------------------------------------------------------------------
 
 def register_webhook(webhook_url: str) -> bool:
-    """Register webhook_url with the Telegram Bot API."""
+    """Register webhook_url with the Telegram Bot API.
+
+    When TELEGRAM_WEBHOOK_SECRET is configured it is sent as the webhook
+    secret_token; Telegram then echoes it back in the
+    X-Telegram-Bot-Api-Secret-Token header on every update so the receiver
+    can authenticate the caller.
+    """
     token = config.TELEGRAM_BOT_TOKEN
     if not token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN not set.")
     url = _TG_BASE.format(token=token, method="setWebhook")
-    resp = http.post(url, json={"url": webhook_url}, timeout=10, verify=certifi.where())
+    payload: dict[str, Any] = {"url": webhook_url}
+    if config.TELEGRAM_WEBHOOK_SECRET:
+        payload["secret_token"] = config.TELEGRAM_WEBHOOK_SECRET
+    resp = http.post(url, json=payload, timeout=10, verify=certifi.where())
     resp.raise_for_status()
     data = resp.json()
     logger.info("setWebhook response: %s", data)

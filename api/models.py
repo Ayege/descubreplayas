@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -71,10 +71,10 @@ class BeachResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class SubscribeRequest(BaseModel):
-    channel: str = "telegram"
-    chat_id: str
-    zone_id: int
-    role: str = "subscriber"
+    channel: Literal["telegram"] = "telegram"
+    chat_id: str = Field(min_length=1, max_length=64, pattern=r"^-?\d+$")
+    zone_id: int = Field(ge=1)
+    role: Literal["subscriber", "fisherman", "hotel"] = "subscriber"
 
 
 class SubscribeResponse(BaseModel):

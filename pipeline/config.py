@@ -16,6 +16,10 @@ CMEMS_PASSWORD = os.environ.get("CMEMS_PASSWORD", "")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+# Shared secret echoed by Telegram in the X-Telegram-Bot-Api-Secret-Token header.
+# Set this (and register the webhook with it) so the public /telegram/webhook
+# endpoint rejects spoofed update payloads from anyone but Telegram.
+TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
 API_BASE_URL = os.environ.get("API_BASE_URL", "")
 
 # Open-Meteo atmospheric wind forecasting for future windage.
