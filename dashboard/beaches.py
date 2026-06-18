@@ -617,28 +617,40 @@ zones, forecast_by_zone_id = _cached_fetch_live_risk(API_BASE_URL)
 def _beach_risk(beach: dict):
     """Return (risk_level, nearest_zone, dist_km, forecast_dict) or (None,None,None,None).
 
-    Risk is computed from the ACTUAL nearest detected sargassum mass to this
-    beach (beach-specific distance + biomass), falling back to the coarse
-    zone-box forecast only when no detections are available. `dist_km` is the
-    great-circle distance to the nearest detected mass (None when none is near).
-    The zone is still returned for coastal naming + ETA context.
+    When SEL_HORIZON > 0 masses are shifted to their predicted positions first,
+    so the returned risk level reflects WHERE sargassum will be at that horizon.
+    Falls back to the coarse zone-box forecast when no detections are available.
     """
     if not zones:
         return None, None, None, None
 
     _lvl, zone, zdist, fc = risk_for_beach(beach, zones, forecast_by_zone_id)
 
-    # Primary signal: per-beach risk from real detected masses.
     masses = _cached_fetch_detections(API_BASE_URL)
     if masses:
-        d_risk, d_mass, d_km, _d_area = risk_from_detections(beach, masses)
+        horizon = globals().get("SEL_HORIZON") or 0
+        if horizon > 0:
+            # Shift every mass to its predicted position at this horizon so the
+            # per-beach risk reflects the forecast, not just current observations.
+            shifted: list[dict] = []
+            for _m in masses:
+                try:
+                    _plat, _plon = _predict_position(
+                        float(_m["lat"]), float(_m["lon"]), horizon
+                    )
+                    shifted.append({**_m, "lat": _plat, "lon": _plon})
+                except Exception:
+                    shifted.append(_m)
+            working_masses = shifted
+        else:
+            working_masses = masses
+
+        d_risk, d_mass, d_km, _ = risk_from_detections(beach, working_masses)
         if d_mass is not None:
-            # Real sargassum near THIS beach → risk + distance are beach-specific.
             return d_risk, zone, d_km, fc
-        # Detections exist but none within the beach radius → no nearby sargassum.
         return "none", zone, None, fc
 
-    # No detections available → fall back to the zone-box forecast + distance gate.
+    # No detections available → fall back to zone-box forecast + distance gate.
     if zone is not None and zdist is not None and zdist > COVERAGE_KM:
         return "out", zone, zdist, None
     return _risk_at_horizon(fc), zone, zdist, fc
@@ -665,15 +677,10 @@ def _risk_at_horizon(fc: dict | None) -> str:
 def _beach_risk_dated(beach: dict):
     """Date-aware risk that blends the physics forecast with seasonal climatology.
 
-    Returns (risk_level, near_zone, dist_km, forecast, mode) where mode is:
-      'physics'  — deterministic drift forecast (visit date within 3 days)
-      'seasonal' — seasonal climatology estimate (date further out)
-      'out'      — beach outside the monitored area (no physics coverage)
-      None       — no zones / no data available
-
-    The split point is the ~72h skill limit of the drift model: within that
-    window we trust the physics forecast; beyond it we fall back to the
-    Caribbean monthly climatology for the beach's coast.
+    Returns (risk_level, near_zone, dist_km, forecast, mode, beach_eta_h) where:
+      mode       — 'physics' | 'seasonal' | 'out' | None
+      beach_eta_h — hours until sargassum arrives ≤15 km of THIS beach (drift
+                    estimate), or None when nothing is heading this way in 72 h.
     """
     import datetime as _d
 
@@ -684,12 +691,14 @@ def _beach_risk_dated(beach: dict):
     if visit is None or 0 <= days_ahead <= 3:
         lvl, zone, dist, fc = _beach_risk(beach)
         if lvl is None:
-            return None, None, None, None, None
-        return lvl, zone, dist, fc, ("out" if lvl == "out" else "physics")
+            return None, None, None, None, None, None
+        masses = _cached_fetch_detections(API_BASE_URL)
+        eta_h = _beach_eta_quick(beach, masses) if masses else None
+        return lvl, zone, dist, fc, ("out" if lvl == "out" else "physics"), eta_h
 
-    # Far-future (or past) date → seasonal climatology for that month + coast.
+    # Far-future (or past) date → seasonal climatology; no per-beach ETA.
     risk = seasonal_risk(visit.month, beach.get("region"))
-    return risk, None, None, None, "seasonal"
+    return risk, None, None, None, "seasonal", None
 
 
 def _fmt_arrival(fc: dict | None) -> str:
@@ -732,6 +741,45 @@ def _predict_position(lat: float, lon: float, hours: int) -> tuple[float, float]
         _U_MEAN_MS * dt_sec
     ) / (_m_drift.cos(_m_drift.radians(lat)) * _DRIFT_METERS_PER_DEG)
     return new_lat, new_lon
+
+
+def _beach_eta_quick(beach: dict, masses: list[dict], max_hours: int = 72) -> int | None:
+    """Return hours until the nearest mass drifts within ARRIVAL_KM of this beach.
+
+    Only masses already within (ARRIVAL_KM + max_drift_km) are considered so the
+    inner loop stays tiny (typically 0-5 candidates per beach).
+    Returns 0 if a mass is already that close, None if nothing arrives in max_hours.
+    """
+    from dashboard.risk_overlay import haversine_km as _hkm
+    ARRIVAL_KM = 15.0
+    # Maximum distance a mass can cover in max_hours at mean drift speed.
+    _drift_speed_kmh = (_U_MEAN_MS ** 2 + _V_MEAN_MS ** 2) ** 0.5 * 3.6
+    search_km = ARRIVAL_KM + _drift_speed_kmh * max_hours
+
+    blat = float(beach["latitude"])
+    blon = float(beach["longitude"])
+
+    # Pre-filter to nearby candidates; keep as mutable [lat, lon] lists.
+    cands: list[list[float]] = []
+    for m in masses:
+        try:
+            dlat, dlon = float(m["lat"]), float(m["lon"])
+        except Exception:
+            continue
+        if _hkm(blat, blon, dlat, dlon) <= search_km:
+            cands.append([dlat, dlon])
+
+    if not cands:
+        return None
+
+    for h in range(max_hours + 1):
+        for c in cands:
+            if _hkm(blat, blon, c[0], c[1]) <= ARRIVAL_KM:
+                return h
+            if h < max_hours:
+                c[0], c[1] = _predict_position(c[0], c[1], 1)
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -886,11 +934,25 @@ for b in filtered:
     # Beach markers are WHITE pins with a COLORED RING (region color).
     # This visually separates beaches from risk zones (filled colored rectangles).
     region_color = REGION_COLORS.get(b["region"], "#1f77b4")
-    risk_level, near_zone, dist_km_b, _fc_b, _mode_b = _beach_risk_dated(b)
+    risk_level, near_zone, dist_km_b, _, _mode_b, _eta_b = _beach_risk_dated(b)
     turtle_icon = " 🐢" if b["protected_area"] else ""
     desc_short = (b["description"] or "")[:170].rstrip()
     if len(b["description"] or "") > 170:
         desc_short += "…"
+
+    # Per-beach ETA line for the popup (drift estimate)
+    _eta_popup = ""
+    if _eta_b is not None and _mode_b == "physics":
+        if _eta_b == 0:
+            _eta_popup = (
+                "<div style='color:#ffcdd2;font-size:10.5px;margin-top:3px'>"
+                "⚠️ Sargazo ya cerca / Already nearby</div>"
+            )
+        else:
+            _eta_popup = (
+                f"<div style='color:#b2ebf2;font-size:10.5px;margin-top:3px'>"
+                f"⏱️ Llegada estimada / ETA: ~{_eta_b}h</div>"
+            )
 
     # Risk badge — always present
     if _mode_b == "seasonal" and risk_level is not None:
@@ -907,23 +969,15 @@ for b in filtered:
     elif risk_level is not None and near_zone:
         rc = RISK_COLORS.get(risk_level, "#6c757d")
         label_txt = RISK_LABEL.get(risk_level, risk_level.upper())
-        _arrival = _fmt_arrival(_fc_b)
-        _arrival_line = (
-            f"<div style='color:#b2ebf2;font-size:10.5px;margin-top:4px'>"
-            f"📅 Llegada estimada / ETA: {_arrival}</div>"
-            if _arrival else ""
-        )
-        # Distance refers to the NEAREST DETECTED MASS (beach-specific), shown
-        # only when a mass is actually near this beach.
         _dist_txt = (
-            f" · sargazo a ~{dist_km_b:.0f} km"
+            f" · ~{dist_km_b:.0f} km"
             if dist_km_b is not None else ""
         )
         risk_badge = (
             f"<div style='background:{rc};color:#fff;display:inline-block;"
             f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
             f"🌊 Sargazo: {label_txt}{_dist_txt}"
-            f"</div>{_arrival_line}"
+            f"</div>{_eta_popup}"
         )
     else:
         risk_badge = (
@@ -1230,7 +1284,7 @@ else:
 
 if _panel_beach:
     _pb = _panel_beach
-    _risk_level, _near_zone, _dist_km, _fc, _mode = _beach_risk_dated(_pb)
+    _risk_level, _near_zone, _dist_km, _fc, _mode, _beach_eta = _beach_risk_dated(_pb)
     _turtle = " 🐢" if _pb["protected_area"] else ""
 
     # ── Advisory text per risk level ──────────────────────────────────────
@@ -1280,53 +1334,52 @@ if _panel_beach:
         _emoji, _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("⚪", "", ""))
         _advice = _advice_en if lang == "en" else _advice_es
 
-        # ETA line
+        # ETA lines — per-beach drift estimate (primary) + zone run timestamp
         _eta_line = ""
-        if _fc:
-            _eta_h = _fc.get("eta_hours")
-            _eta_ts = _fc.get("eta_timestamp")
+
+        # Per-beach arrival estimate from the drift simulation.
+        if _beach_eta is not None:
+            if _beach_eta == 0:
+                _eta_line += (
+                    f"<div style='background:rgba(220,53,69,.2);border-radius:8px;"
+                    f"padding:6px 10px;margin:5px 0;display:flex;align-items:center;gap:8px'>"
+                    f"<span style='font-size:15px'>⚠️</span>"
+                    f"<span style='color:#ffcdd2;font-size:12px;font-weight:700'>"
+                    f"{'Sargazo ya cerca de esta playa' if lang == 'es' else 'Sargassum already near this beach'}"
+                    f"</span></div>"
+                )
+            else:
+                _eta_line += (
+                    f"<div style='background:rgba(0,0,0,.2);border-radius:8px;"
+                    f"padding:6px 10px;margin:5px 0'>"
+                    f"<div style='display:flex;justify-content:space-between;align-items:center'>"
+                    f"<span style='color:#80cbc4;font-size:10px;font-weight:700;"
+                    f"text-transform:uppercase;letter-spacing:.5px'>"
+                    f"⏱️ {'Llegada a esta playa' if lang == 'es' else 'Arrival at this beach'}</span>"
+                    f"<span style='color:#e0f7fa;font-size:13px;font-weight:800'>~{_beach_eta}h</span>"
+                    f"</div>"
+                    f"<div style='color:#546e7a;font-size:9.5px;margin-top:2px'>"
+                    f"{'Estimado · corriente media del Caribe' if lang == 'es' else 'Estimated · Caribbean mean current'}"
+                    f"</div></div>"
+                )
+
+        # Zone-level run timestamp (shows data freshness).
+        if _fc and _fc.get("run_at"):
             _run_at = _fc.get("run_at", "")
-            if _eta_h is not None:
-                _eta_line += (
-                    f"<div style='display:flex;justify-content:space-between;"
-                    f"align-items:center;margin:5px 0'>"
-                    f"<span style='color:#80cbc4;font-size:10px;font-weight:700;"
-                    f"text-transform:uppercase;letter-spacing:.5px'>⏱️ ETA</span>"
-                    f"<span style='color:#e0f7fa;font-size:12px;font-weight:700'>"
-                    f"~{_eta_h}h</span></div>"
-                )
-            if _eta_ts:
-                # Format to readable local time (DR is UTC-4)
-                try:
-                    import datetime as _dt
-                    _ts = _dt.datetime.fromisoformat(_eta_ts.replace("Z", "+00:00"))
-                    _ts_dr = _ts.astimezone(_dt.timezone(
-                        _dt.timedelta(hours=-4)))
-                    _eta_fmt = _ts_dr.strftime("%d %b %H:%M")
-                except Exception:
-                    _eta_fmt = _eta_ts[:16]
-                _eta_line += (
-                    f"<div style='display:flex;justify-content:space-between;"
-                    f"align-items:center;margin:3px 0'>"
-                    f"<span style='color:#80cbc4;font-size:10px;font-weight:700;"
-                    f"text-transform:uppercase;letter-spacing:.5px'>📅 Llegada / Arrival</span>"
-                    f"<span style='color:#e0f7fa;font-size:12px'>{_eta_fmt} AST</span></div>"
-                )
-            if _run_at:
-                try:
-                    import datetime as _dt
-                    _ru = _dt.datetime.fromisoformat(_run_at.replace("Z", "+00:00"))
-                    _ru_dr = _ru.astimezone(_dt.timezone(_dt.timedelta(hours=-4)))
-                    _ru_fmt = _ru_dr.strftime("%d %b %H:%M")
-                except Exception:
-                    _ru_fmt = _run_at[:16]
-                _eta_line += (
-                    f"<div style='display:flex;justify-content:space-between;"
-                    f"align-items:center;margin:3px 0'>"
-                    f"<span style='color:#546e7a;font-size:10px;letter-spacing:.4px'>"
-                    f"🔄 Actualizado / Updated</span>"
-                    f"<span style='color:#78909c;font-size:10px'>{_ru_fmt} AST</span></div>"
-                )
+            try:
+                import datetime as _dt
+                _ru = _dt.datetime.fromisoformat(_run_at.replace("Z", "+00:00"))
+                _ru_dr = _ru.astimezone(_dt.timezone(_dt.timedelta(hours=-4)))
+                _ru_fmt = _ru_dr.strftime("%d %b %H:%M")
+            except Exception:
+                _ru_fmt = _run_at[:16]
+            _eta_line += (
+                f"<div style='display:flex;justify-content:space-between;"
+                f"align-items:center;margin:3px 0'>"
+                f"<span style='color:#546e7a;font-size:10px;letter-spacing:.4px'>"
+                f"🔄 Actualizado / Updated</span>"
+                f"<span style='color:#78909c;font-size:10px'>{_ru_fmt} AST</span></div>"
+            )
 
         # Coastal zone name for context + nearest DETECTED MASS distance
         # (beach-specific). The km is to the actual sargassum, not the zone.

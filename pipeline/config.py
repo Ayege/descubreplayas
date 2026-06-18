@@ -73,6 +73,10 @@ ZONES = [
     # South-central coast (Azua / Baní) — fills the visual gap between Juan
     # Dolio and Barahona zones; covers Playa Najayo, Palenque, Palmar de Ocoa.
     {"name": "Azua", "center_lat": 18.22, "center_lon": -70.45},
+    # La Romana / Saona Island corridor — covers Bayahibe, Dominicus, Playa
+    # Minitas, and both Saona Island beaches (Mano Juan, Canto de la Playa),
+    # all of which were >54 km from any existing zone.
+    {"name": "La Romana", "center_lat": 18.30, "center_lon": -68.76},
 ]
 
 # Half-width (degrees) of the square box built around each zone center.
