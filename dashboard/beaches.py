@@ -507,16 +507,27 @@ section[data-testid="stMain"],
     .map-legend { max-height: 20vh !important; }
 }
 
-/* ── Custom loading overlay — shown until the app signals ready ── */
+/* ── Custom loading overlay — CSS-only auto-hide, no JS needed ──
+   Streamlit strips/sandboxes injected <script> tags so we rely on
+   animation-delay + fill-mode instead of a MutationObserver. The
+   overlay fades out after ~4 s and pointer-events drop immediately
+   so the map is never blocked even if the fade is still playing. */
 #sarg-loader {
     position: fixed; inset: 0; z-index: 9999999;
     background: linear-gradient(160deg, #001f26 0%, #003540 40%, #005f6e 75%, #009dae 100%);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 20px;
-    transition: opacity .45s ease, visibility .45s ease;
+    /* fade out after 4 s, stay hidden afterwards */
+    animation: sarg-loader-hide .5s ease 4s forwards;
 }
-#sarg-loader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+/* pointer-events vanish as soon as the fade starts */
+#sarg-loader { pointer-events: auto; }
+@keyframes sarg-loader-hide {
+    0%   { opacity: 1; pointer-events: auto;  }
+    99%  { opacity: 0; pointer-events: none;  }
+    100% { opacity: 0; visibility: hidden; pointer-events: none; }
+}
 
 #sarg-loader .sarg-wave {
     width: 64px; height: 64px;
@@ -546,43 +557,12 @@ section[data-testid="stMain"],
 }</style>
 """, unsafe_allow_html=True)
 
-# Inject loader DOM + auto-hide script.
-# The script watches for the Streamlit root element to become non-empty
-# (i.e. the app has rendered at least one real element), then fades the
-# loader out. Falls back to a 6 s hard timeout so it always disappears.
 st.markdown("""
 <div id="sarg-loader">
   <div class="sarg-brand">🌴 Descubre Playas RD</div>
   <div class="sarg-wave"></div>
   <div class="sarg-label">Cargando mapa… / Loading map…</div>
 </div>
-<script>
-(function () {
-  var loader = document.getElementById('sarg-loader');
-  if (!loader) return;
-
-  function hide() {
-    loader.classList.add('hidden');
-    setTimeout(function () { loader.remove(); }, 500);
-  }
-
-  // Watch for Streamlit to paint real content into the main block container.
-  var observer = new MutationObserver(function () {
-    var root = document.querySelector('[data-testid="stMainBlockContainer"]') ||
-               document.querySelector('.main .block-container') ||
-               document.querySelector('[data-testid="stAppViewContainer"]');
-    if (root && root.children.length > 0) {
-      observer.disconnect();
-      // Small delay so the map iframe has a moment to start painting.
-      setTimeout(hide, 600);
-    }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-
-  // Hard fallback — always remove loader after 6 s even if observer misfires.
-  setTimeout(function () { observer.disconnect(); hide(); }, 6000);
-})();
-</script>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
