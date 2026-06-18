@@ -870,15 +870,65 @@ for b in filtered:
 # ---------------------------------------------------------------------------
 _ZONE_BOX_DEG = _ZONE_HALF_DEG  # half-width, kept in sync with pipeline/config.py ZONE_BOX_HALF_DEG
 
+def _zone_region(clat: float, clon: float) -> str:
+    """Map a zone's centre coordinates to a DR coastal region for seasonal climatology."""
+    if clon > -69.0:
+        return "East (Punta Cana / La Romana)"
+    if clat > 19.5:
+        return "North (Puerto Plata / Cabarete)"
+    if -69.5 < clon < -69.0 and clat > 18.9:
+        return "Samaná Peninsula"
+    if clon < -70.5:
+        return "Southwest (Barahona / Pedernales)"
+    return "South (Santo Domingo / South Coast)"
+
+
 if show_zones and zones:
+    import datetime as _dt_z
+    _visit_z = sel_date
+    _days_z = (_visit_z - _dt_z.date.today()).days if _visit_z is not None else 0
+    _zone_seasonal = _visit_z is not None and _days_z > 3
+
     for _z in zones:
         _zid = _z["id"]
         _fc_z = forecast_by_zone_id.get(_zid)
-        _z_risk = _risk_at_horizon(_fc_z) if _fc_z else "none"
-        _z_color = RISK_COLORS.get(_z_risk, "#6c757d")
-        _z_label = RISK_LABEL.get(_z_risk, _z_risk.upper())
         _clat = _z["center_lat"]
         _clon = _z["center_lon"]
+
+        if _zone_seasonal:
+            # Far-future date: derive risk from seasonal climatology for this coast.
+            _z_risk = seasonal_risk(_visit_z.month, _zone_region(_clat, _clon))
+        else:
+            _z_risk = _risk_at_horizon(_fc_z) if _fc_z else "none"
+
+        _z_color = RISK_COLORS.get(_z_risk, "#6c757d")
+        _z_label = RISK_LABEL.get(_z_risk, _z_risk.upper())
+
+        # Build popup extra lines (ETA lines only make sense for physics forecast)
+        if _zone_seasonal:
+            _z_extra = (
+                f"<div style='background:rgba(255,193,7,.2);border-radius:12px;"
+                f"padding:3px 10px;font-size:10px;color:#ffe082;margin-top:4px'>"
+                f"📊 {L['seasonal_badge']}</div>"
+                f"<div style='color:#80cbc4;font-size:10px;margin-top:4px'>"
+                f"{L['method_seasonal']}</div>"
+            )
+        else:
+            _z_extra = (
+                (
+                    f"<div style='color:#b2dfdb;font-size:11px'>⏱️ ETA ~{_fc_z['eta_hours']}h</div>"
+                    if _fc_z and _fc_z.get("eta_hours") is not None else ""
+                )
+                + (
+                    f"<div style='color:#b2dfdb;font-size:11px'>📅 {_fmt_arrival(_fc_z)}</div>"
+                    if _fmt_arrival(_fc_z) else ""
+                )
+                + (
+                    f"<div style='color:#80cbc4;font-size:10px;margin-top:4px'>"
+                    f"🔄 {_fc_z.get('run_at','')[:16].replace('T',' ')} UTC</div>"
+                    if _fc_z and _fc_z.get("run_at") else ""
+                )
+            )
 
         # Draw bounding box rectangle
         folium.Rectangle(
@@ -901,19 +951,7 @@ if show_zones and zones:
                 f"<div style='background:{_z_color};border-radius:16px;display:inline-block;"
                 f"padding:3px 12px;font-size:11px;font-weight:800;color:#fff;margin-bottom:6px'>"
                 f"{_z_label}</div>"
-                + (
-                    f"<div style='color:#b2dfdb;font-size:11px'>⏱️ ETA ~{_fc_z['eta_hours']}h</div>"
-                    if _fc_z and _fc_z.get("eta_hours") is not None else ""
-                )
-                + (
-                    f"<div style='color:#b2dfdb;font-size:11px'>📅 {_fmt_arrival(_fc_z)}</div>"
-                    if _fmt_arrival(_fc_z) else ""
-                )
-                + (
-                    f"<div style='color:#80cbc4;font-size:10px;margin-top:4px'>"
-                    f"🔄 {_fc_z.get('run_at','')[:16].replace('T',' ')} UTC</div>"
-                    if _fc_z and _fc_z.get("run_at") else ""
-                )
+                + _z_extra
                 + f"</div>",
                 max_width=220,
             ),
