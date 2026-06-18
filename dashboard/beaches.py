@@ -220,6 +220,17 @@ footer,
     overflow: hidden !important;
 }
 
+/* ── Kill the Streamlit "Made with Streamlit" loading splash ── */
+[data-testid="stSplashScreen"],
+.stSplashScreen,
+div[class*="splashScreen"],
+div[class*="SplashScreen"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
 /* Header bar: transparent + floating so it never shows the default grey
    Streamlit chrome and never pushes a white gap above the map. We keep it in
    the DOM (NOT display:none) because the sidebar-reopen button lives inside it. */
@@ -494,7 +505,84 @@ section[data-testid="stMain"],
     }
     .beach-detail { max-height: 36vh !important; padding: 12px 14px 16px !important; }
     .map-legend { max-height: 20vh !important; }
+}
+
+/* ── Custom loading overlay — shown until the app signals ready ── */
+#sarg-loader {
+    position: fixed; inset: 0; z-index: 9999999;
+    background: linear-gradient(160deg, #001f26 0%, #003540 40%, #005f6e 75%, #009dae 100%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px;
+    transition: opacity .45s ease, visibility .45s ease;
+}
+#sarg-loader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+#sarg-loader .sarg-wave {
+    width: 64px; height: 64px;
+    border: 5px solid rgba(255,255,255,.18);
+    border-top-color: #4dd0e1;
+    border-right-color: #00bcd4;
+    border-radius: 50%;
+    animation: sarg-spin .85s linear infinite;
+}
+@keyframes sarg-spin { to { transform: rotate(360deg); } }
+
+#sarg-loader .sarg-label {
+    color: #b2ebf2;
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px; font-weight: 700;
+    letter-spacing: .5px;
+    animation: sarg-pulse 1.6s ease-in-out infinite;
+}
+@keyframes sarg-pulse {
+    0%, 100% { opacity: .55; }
+    50%       { opacity: 1;   }
+}
+#sarg-loader .sarg-brand {
+    font-family: 'Nunito', sans-serif;
+    font-size: 22px; font-weight: 900; color: #fff;
+    letter-spacing: .5px; margin-bottom: 4px;
 }</style>
+""", unsafe_allow_html=True)
+
+# Inject loader DOM + auto-hide script.
+# The script watches for the Streamlit root element to become non-empty
+# (i.e. the app has rendered at least one real element), then fades the
+# loader out. Falls back to a 6 s hard timeout so it always disappears.
+st.markdown("""
+<div id="sarg-loader">
+  <div class="sarg-brand">🌴 Descubre Playas RD</div>
+  <div class="sarg-wave"></div>
+  <div class="sarg-label">Cargando mapa… / Loading map…</div>
+</div>
+<script>
+(function () {
+  var loader = document.getElementById('sarg-loader');
+  if (!loader) return;
+
+  function hide() {
+    loader.classList.add('hidden');
+    setTimeout(function () { loader.remove(); }, 500);
+  }
+
+  // Watch for Streamlit to paint real content into the main block container.
+  var observer = new MutationObserver(function () {
+    var root = document.querySelector('[data-testid="stMainBlockContainer"]') ||
+               document.querySelector('.main .block-container') ||
+               document.querySelector('[data-testid="stAppViewContainer"]');
+    if (root && root.children.length > 0) {
+      observer.disconnect();
+      // Small delay so the map iframe has a moment to start painting.
+      setTimeout(hide, 600);
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Hard fallback — always remove loader after 6 s even if observer misfires.
+  setTimeout(function () { observer.disconnect(); hide(); }, 6000);
+})();
+</script>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
@@ -636,6 +724,34 @@ def _fmt_arrival(fc: dict | None) -> str:
     except Exception:
         return str(fc.get("eta_timestamp", ""))[:16]
 
+
+# ---------------------------------------------------------------------------
+# Lagrangian drift preview (client-side, climatological mean currents)
+#
+# The pipeline already runs a proper physics drift with real ocean data. Here
+# we use DR-area mean surface currents so the dashboard can show WHERE masses
+# are PREDICTED to be at each forecast horizon WITHOUT a second API call.
+#
+# Climatological means for the Caribbean near Hispaniola:
+#   • North Equatorial Current: ~0.13 m/s westward (u < 0)
+#   • Trade-wind Stokes drift: slight northward component (v > 0)
+# Tune via env vars DASH_DRIFT_U_MS / DASH_DRIFT_V_MS.
+# ---------------------------------------------------------------------------
+import math as _m_drift
+
+_U_MEAN_MS = float(os.environ.get("DASH_DRIFT_U_MS", "-0.13"))   # westward
+_V_MEAN_MS = float(os.environ.get("DASH_DRIFT_V_MS",  "0.025"))  # northward
+_DRIFT_METERS_PER_DEG = 111_320.0
+
+
+def _predict_position(lat: float, lon: float, hours: int) -> tuple[float, float]:
+    """Estimate mass centroid position after `hours` of mean-current advection."""
+    dt_sec = hours * 3600.0
+    new_lat = lat + (_V_MEAN_MS * dt_sec) / _DRIFT_METERS_PER_DEG
+    new_lon = lon + (
+        _U_MEAN_MS * dt_sec
+    ) / (_m_drift.cos(_m_drift.radians(lat)) * _DRIFT_METERS_PER_DEG)
+    return new_lat, new_lon
 
 
 # ---------------------------------------------------------------------------
@@ -985,16 +1101,63 @@ if show_masses:
                 key=lambda d: float(d.get("area_km2", 0.0) or 0.0),
                 reverse=True,
             )[:_MAX_MASS_MARKERS]
+
+        # Determine how many hours ahead to preview drift. SEL_HORIZON drives
+        # the physics forecast slider (0/24/48/72 h); a near-future date beyond
+        # 72h stays at 72h max so the trail stays within the reliable window.
+        _drift_h: int = SEL_HORIZON if SEL_HORIZON is not None else 0
+        if sel_date is not None:
+            import datetime as _dt_drift
+            _ddays = (sel_date - _dt_drift.date.today()).days
+            if 0 < _ddays <= 3:
+                _drift_h = min(_ddays * 24, 72)
+        _show_drift = _drift_h > 0
+
         _mass_group = folium.FeatureGroup(name="Sargazo", show=True)
         for _d in _masses:
             try:
                 _a = float(_d.get("area_km2", 0.0))
             except (TypeError, ValueError):
                 _a = 0.0
+            _lat0, _lon0 = float(_d["lat"]), float(_d["lon"])
             # Radius scales with area (sqrt so big masses don't dominate); clamp 3–18 px.
             _r = max(3.0, min(18.0, 3.0 + (_a ** 0.5) * 4.0))
+
+            if _show_drift:
+                # Build a 4-point trail: current → +24h → +48h → horizon
+                _checkpoints = sorted({24, 48, _drift_h} & {h for h in [24, 48, 72] if h <= _drift_h})
+                _trail = [[_lat0, _lon0]]
+                for _ch in _checkpoints:
+                    _pl, _pn = _predict_position(_lat0, _lon0, _ch)
+                    _trail.append([_pl, _pn])
+
+                # Drift trail — thin dashed line
+                folium.PolyLine(
+                    _trail,
+                    color="#8d6e63",
+                    weight=1.5,
+                    opacity=0.65,
+                    dash_array="5 4",
+                    tooltip=f"🟤 Ruta estimada · {_a:.2f} km²",
+                ).add_to(_mass_group)
+
+                # Predicted position at selected horizon — ghost circle
+                _plat, _plon = _trail[-1]
+                folium.CircleMarker(
+                    location=[_plat, _plon],
+                    radius=max(2.5, _r - 2),
+                    color="#ff8f00",
+                    fill=True,
+                    fill_color="#ffcc80",
+                    fill_opacity=0.55,
+                    weight=1.5,
+                    dash_array="4 3",
+                    tooltip=f"🟠 Sargazo (+{_drift_h}h estimado) · {_a:.2f} km²",
+                ).add_to(_mass_group)
+
+            # Current detected position — always drawn
             folium.CircleMarker(
-                location=[_d["lat"], _d["lon"]],
+                location=[_lat0, _lon0],
                 radius=_r,
                 color="#5d4037",
                 fill=True,
@@ -1003,10 +1166,12 @@ if show_masses:
                 weight=1,
                 tooltip=f"🟤 Sargazo · {_a:.2f} km²",
             ).add_to(_mass_group)
+
         _mass_group.add_to(m)
     # If no masses came back we silently skip — sidebar caption explains why below.
 
-# Floating legend — only show Sargassum risk (zones).
+# Floating legend — show risk zones + drift key when masses are visible.
+_show_drift_legend = show_masses and (SEL_HORIZON or 0) > 0
 if zones:
     risk_legend_rows = "".join(
         f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
@@ -1020,6 +1185,22 @@ if zones:
     )
 else:
     legend_html = ""
+
+if _show_drift_legend:
+    _drift_label = "Pos. estimada" if lang == "es" else "Est. position"
+    legend_html += (
+        f"<div style='margin-top:6px;padding-top:5px;border-top:1px solid #cfd8dc'>"
+        f"<div style='font-weight:800;font-size:11px;color:#005f73;margin-bottom:3px'>"
+        f"{'Sargazo — deriva' if lang == 'es' else 'Sargassum — drift'}</div>"
+        f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
+        f"<div style='width:16px;height:10px;background:#795548;border-radius:50%'></div>"
+        f"<span style='font-size:11px;color:#37474f'>{'Posición actual' if lang == 'es' else 'Current position'}</span></div>"
+        f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
+        f"<div style='width:16px;height:10px;background:#ffcc80;border:1.5px dashed #ff8f00;border-radius:50%'></div>"
+        f"<span style='font-size:11px;color:#37474f'>{_drift_label} (+{SEL_HORIZON}h)</span></div>"
+        f"<div style='font-size:9.5px;color:#78909c;margin-top:3px'>{'Corriente media del Caribe' if lang == 'es' else 'Caribbean mean current'}</div>"
+        f"</div>"
+    )
 
 m.get_root().html.add_child(folium.Element(
     f"<div style='position:absolute;top:10px;left:60px;z-index:1000;"
