@@ -1,0 +1,16 @@
+[server]
+# Disable XSRF protection so the streamlit-folium component can load its
+# frontend assets when the app is served behind a custom domain or CDN proxy.
+# Without this, the component's static index.html returns 403/404 through
+# certain reverse-proxy setups (e.g. Streamlit Community Cloud + custom domain).
+enableXsrfProtection = false
+enableCORS = false
+
+[browser]
+# Tell the Streamlit runtime what the public-facing URL is so it builds
+# correct absolute paths for component assets (folium iframe src, etc.).
+# Leave blank to let Streamlit auto-detect (safe for most deployments).
+serverAddress = ""
+
+[theme]
+base = "light"

@@ -21,10 +21,10 @@ python-telegram-bot
 httpx
 
 # Dashboard
-streamlit
-folium
+streamlit==1.58.0
+folium==0.20.0
 pydeck
 
 # Config
 python-dotenv
-streamlit-folium
+streamlit-folium==0.27.2
