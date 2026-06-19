@@ -76,12 +76,38 @@ create table if not exists beaches (
     google_maps_url     text
 );
 
+-- Extended ML forecasts (7 / 14 / 21 day horizons)
+create table if not exists ml_forecasts (
+    id          bigserial primary key,
+    run_at      timestamptz not null default now(),
+    zone_id     int not null references zones(id) on delete cascade,
+    lead_days   int not null check (lead_days in (7, 14, 21)),
+    risk_level  text not null check (risk_level in ('none', 'low', 'medium', 'high')),
+    confidence  double precision not null default 0.0,
+    method      text not null default 'seasonal',
+    valid_at    date not null,
+    unique (run_at, zone_id, lead_days)
+);
+
+alter table ml_forecasts enable row level security;
+
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where tablename = 'ml_forecasts' and policyname = 'ml_forecasts_public_read'
+  ) then
+    create policy ml_forecasts_public_read on ml_forecasts for select using (true);
+  end if;
+end $$;
+
 -- -------------------------------------------------------------------------
 -- Indexes
 -- -------------------------------------------------------------------------
-create index if not exists detections_run_at_idx  on detections (run_at desc);
-create index if not exists forecasts_run_at_idx   on forecasts  (run_at desc);
-create index if not exists forecasts_zone_id_idx  on forecasts  (zone_id);
+create index if not exists detections_run_at_idx    on detections   (run_at desc);
+create index if not exists forecasts_run_at_idx     on forecasts    (run_at desc);
+create index if not exists forecasts_zone_id_idx    on forecasts    (zone_id);
+create index if not exists ml_forecasts_run_at_idx  on ml_forecasts (run_at desc);
+create index if not exists ml_forecasts_zone_idx    on ml_forecasts (zone_id, lead_days);
 create index if not exists detections_geom_idx    on detections using gist (geom);
 create index if not exists zones_geom_idx         on zones      using gist (geom);
 create index if not exists beaches_geom_idx        on beaches    using gist (geom);
@@ -196,6 +222,13 @@ insert into zones (name, center_lat, center_lon, geom) values
     'Azua', 18.22, -70.45,
     st_geomfromtext(
       'POLYGON((-70.55 18.12, -70.35 18.12, -70.35 18.32, -70.55 18.32, -70.55 18.12))',
+      4326
+    )
+  ),
+  (
+    'La Romana', 18.30, -68.76,
+    st_geomfromtext(
+      'POLYGON((-69.11 17.95, -68.41 17.95, -68.41 18.65, -69.11 18.65, -69.11 17.95))',
       4326
     )
   )

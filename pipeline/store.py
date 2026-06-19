@@ -112,6 +112,52 @@ def upsert_forecasts(forecasts: list[dict]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# ML extended forecasts
+# ---------------------------------------------------------------------------
+
+def upsert_ml_forecasts(ml_forecasts: list[dict]) -> list[dict]:
+    """Upsert ML extended forecasts (7/14/21-day) into the ml_forecasts table.
+
+    Args:
+        ml_forecasts: list of dicts from model.SargassumForecaster.predict():
+                      {zone_id, lead_days, risk_level, confidence, method, valid_at}
+
+    Each (run_at, zone_id, lead_days) triple is unique — the upsert replaces
+    a row from an earlier run in the same wall-clock minute if one exists.
+    """
+    if not ml_forecasts:
+        logger.info("upsert_ml_forecasts: nothing to insert.")
+        return []
+
+    run_at = dt.datetime.now(dt.timezone.utc).isoformat()
+    rows: list[dict[str, Any]] = []
+    for f in ml_forecasts:
+        rows.append({
+            "run_at": run_at,
+            "zone_id": int(f["zone_id"]),
+            "lead_days": int(f["lead_days"]),
+            "risk_level": f["risk_level"],
+            "confidence": float(f.get("confidence", 0.0)),
+            "method": f.get("method", "seasonal"),
+            "valid_at": f["valid_at"],
+        })
+
+    try:
+        sb = _client()
+        result = (
+            sb.table("ml_forecasts")
+            .upsert(rows, on_conflict="run_at,zone_id,lead_days")
+            .execute()
+        )
+        inserted = result.data or []
+        logger.info("upsert_ml_forecasts: upserted %d row(s).", len(inserted))
+        return inserted
+    except Exception:
+        logger.exception("upsert_ml_forecasts failed.")
+        raise
+
+
+# ---------------------------------------------------------------------------
 # Zone cache
 # ---------------------------------------------------------------------------
 

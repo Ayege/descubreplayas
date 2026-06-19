@@ -28,3 +28,6 @@ pydeck
 # Config
 python-dotenv
 streamlit-folium==0.27.2
+
+# ML forecasting
+scikit-learn

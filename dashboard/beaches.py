@@ -74,8 +74,14 @@ _T = {
         "season_note": "📅 Temporada alta de sargazo en el Caribe: marzo–agosto.",
         "prediction_info_title": "ℹ️ Métodos de predicción",
         "prediction_physics": "Física (0-72h): Deriva lagrangiana + corrientes oceánicas. Preciso.",
-        "prediction_seasonal": "Temporada: Climatología histórica (mar-ago = alta). No predice eventos específicos.",
-        "prediction_date_note": "⚠️ Hasta 3 días: pronóstico físico (deriva). Más lejos: estimación estacional (climatología), no un pronóstico exacto.",
+        "prediction_ml": "ML (4-21d): Modelo supervisado entrenado en datos históricos. Más preciso que solo climatología.",
+        "prediction_seasonal": "Temporada (>21d): Climatología histórica del Caribe. No predice eventos específicos.",
+        "prediction_date_note": "⚠️ Hasta 3 días: pronóstico físico. 4-21 días: estimación ML. Más lejos: climatología estacional.",
+        "ml_badge": "Pronóstico ML (extendido)",
+        "method_ml": "Método: ML extendido · Confianza {conf}%",
+        "ml_advisory": "Estimación basada en patrones históricos y condiciones actuales. Más precisa que climatología estacional, menos que física de 72h.",
+        "ml_confidence": "Confianza modelo",
+        "ml_note_map": "Vista extendida — ML · posiciones especulativas",
         "beach_legend": "Playas por región",
         "zone_legend": "Riesgo de sargazo (zonas)",
         "seasonal_badge": "Estimación estacional",
@@ -132,8 +138,14 @@ _T = {
         "season_note": "📅 Caribbean sargassum peak season: March–August.",
         "prediction_info_title": "ℹ️ Prediction methods",
         "prediction_physics": "Physics (0-72h): Lagrangian drift + ocean currents. Accurate.",
-        "prediction_seasonal": "Seasonal: Historical climatology (Mar-Aug = peak). Does not predict specific events.",
-        "prediction_date_note": "⚠️ Within 3 days: physics (drift) forecast. Further out: seasonal estimate (climatology), not an exact forecast.",
+        "prediction_ml": "ML (4-21d): Supervised model trained on historical data. More accurate than climatology alone.",
+        "prediction_seasonal": "Seasonal (>21d): Caribbean historical climatology. Does not predict specific events.",
+        "prediction_date_note": "⚠️ Within 3 days: physics drift. 4-21 days: ML estimate. Further: seasonal climatology.",
+        "ml_badge": "ML Forecast (extended)",
+        "method_ml": "Method: ML extended · Confidence {conf}%",
+        "ml_advisory": "Estimate based on historical patterns and current conditions. More accurate than seasonal climatology, less than 72h physics.",
+        "ml_confidence": "Model confidence",
+        "ml_note_map": "Extended view — ML · speculative positions",
         "beach_legend": "Beaches by region",
         "zone_legend": "Sargassum risk (zones)",
         "seasonal_badge": "Seasonal estimate",
@@ -606,6 +618,25 @@ def _cached_fetch_detections(url: str):
     return fetch_detections(url, limit=800)
 
 
+@st.cache_data(ttl=300)
+def _cached_fetch_ml_forecasts(url: str) -> list[dict]:
+    """Fetch ML extended forecasts (7/14/21-day) from the API."""
+    if not url:
+        return []
+    try:
+        import requests, certifi
+        resp = requests.get(
+            f"{url}/forecast/extended",
+            timeout=8,
+            verify=certifi.where(),
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        return []
+    except Exception:
+        return []
+
+
 # ---------------------------------------------------------------------------
 # Live risk fetch
 # ---------------------------------------------------------------------------
@@ -613,9 +644,27 @@ zones: list[dict] = []
 risk_by_zone_id: dict[int, str] = {}
 zones, forecast_by_zone_id = _cached_fetch_live_risk(API_BASE_URL)
 
+# ML extended forecasts — fetched once per 5-min cache window
+_ml_forecasts: list[dict] = _cached_fetch_ml_forecasts(API_BASE_URL)
+
 # Fetch live 10 m wind once per session-hour and store as a module-level
 # tuple so _beach_risk / _beach_eta_quick / _predict_position can all share
 # the same value without re-hitting the API on every beach calculation.
+
+
+def _ml_risk_for_zone(
+    zone_id: int, days_ahead: int, ml_forecasts: list[dict]
+) -> tuple[str, float, str] | None:
+    """Return (risk_level, confidence, method) from ML forecasts for this zone.
+
+    Picks the lead-day option (7/14/21) closest to days_ahead.
+    Returns None if no ML forecast exists for the zone.
+    """
+    candidates = [f for f in ml_forecasts if f.get("zone_id") == zone_id]
+    if not candidates:
+        return None
+    best = min(candidates, key=lambda f: abs(f.get("lead_days", 7) - days_ahead))
+    return best["risk_level"], float(best.get("confidence", 0.4)), best.get("method", "seasonal")
 
 
 def _beach_risk(beach: dict):
@@ -680,19 +729,24 @@ def _risk_at_horizon(fc: dict | None) -> str:
 
 
 def _beach_risk_dated(beach: dict):
-    """Date-aware risk that blends the physics forecast with seasonal climatology.
+    """Date-aware risk blending physics → ML → seasonal climatology.
 
     Returns (risk_level, near_zone, dist_km, forecast, mode, beach_eta_h) where:
-      mode       — 'physics' | 'seasonal' | 'out' | None
-      beach_eta_h — hours until sargassum arrives ≤15 km of THIS beach (drift
-                    estimate), or None when nothing is heading this way in 72 h.
+      mode       — 'physics' | 'ml' | 'seasonal' | 'out' | None
+      beach_eta_h — hours until sargassum arrives at this beach (physics only).
+
+    Horizon breakdown:
+      0–3 days   → physics drift forecast (Lagrangian + CMEMS)
+      4–21 days  → ML extended forecast (GradientBoostingClassifier), falls
+                   back to seasonal when no ML data are available
+      > 21 days  → seasonal climatology
     """
     import datetime as _d
 
     visit = globals().get("sel_date")
     days_ahead = (visit - _d.date.today()).days if visit is not None else 0
 
-    # No date, or a near-term date → use the live drift forecast (existing path).
+    # ── 0–3 days: live physics forecast ─────────────────────────────────────
     if visit is None or 0 <= days_ahead <= 3:
         lvl, zone, dist, fc = _beach_risk(beach)
         if lvl is None:
@@ -702,7 +756,23 @@ def _beach_risk_dated(beach: dict):
         eta_h = _beach_eta_quick(beach, masses, wind_u=_wu, wind_v=_wv) if masses else None
         return lvl, zone, dist, fc, ("out" if lvl == "out" else "physics"), eta_h
 
-    # Far-future (or past) date → seasonal climatology; no per-beach ETA.
+    # ── 4–21 days: ML extended forecast ─────────────────────────────────────
+    if 4 <= days_ahead <= 21:
+        # Find the nearest monitoring zone for this beach.
+        _, zone, zdist, fc = risk_for_beach(beach, zones, forecast_by_zone_id)
+        if zone is not None and zdist is not None and zdist > COVERAGE_KM:
+            return "out", zone, zdist, None, "out", None
+        ml_data: list[dict] = globals().get("_ml_forecasts") or []
+        if zone is not None and ml_data:
+            result = _ml_risk_for_zone(zone["id"], days_ahead, ml_data)
+            if result:
+                risk_lvl, _conf, _method = result
+                return risk_lvl, zone, zdist, {"confidence": _conf, "method": _method}, "ml", None
+        # Fallback: seasonal climatology when ML data not yet available.
+        risk = seasonal_risk(visit.month, beach.get("region"))
+        return risk, zone, zdist, None, "seasonal", None
+
+    # ── > 21 days: seasonal climatology ─────────────────────────────────────
     risk = seasonal_risk(visit.month, beach.get("region"))
     return risk, None, None, None, "seasonal", None
 
@@ -958,6 +1028,7 @@ with st.sidebar:
         st.markdown(
             f"<div style='font-size:11px;line-height:1.5;color:#b2ebf2'>"
             f"<div style='margin-bottom:6px'><strong style='color:#4dd0e1'>🔬 {L['prediction_physics']}</strong></div>"
+            f"<div style='margin-bottom:6px'><strong style='color:#ce93d8'>🤖 {L['prediction_ml']}</strong></div>"
             f"<div style='margin-bottom:6px'><strong style='color:#4dd0e1'>📊 {L['prediction_seasonal']}</strong></div>"
             f"<div style='margin-top:8px;padding:6px;background:rgba(255,193,7,.15);border-left:3px solid #ffc107;color:#fff3cd'>"
             f"{L['prediction_date_note']}</div>"
@@ -988,6 +1059,10 @@ with st.sidebar:
         _days_ahead = (sel_date - _today).days
         if 0 <= _days_ahead <= 3:
             st.caption("🔬 " + L["method_physics"])
+        elif 4 <= _days_ahead <= 21:
+            _has_ml = bool(_ml_forecasts)
+            _ml_src = "ML" if _has_ml else ("Climatología" if lang == "es" else "Climatology")
+            st.caption(f"🤖 {_ml_src} — {_days_ahead}d ahead")
         else:
             st.caption("📊 " + L["method_seasonal"])
 
@@ -1035,6 +1110,23 @@ with st.sidebar:
     )
 
 # ---------------------------------------------------------------------------
+# Global date-mode — drives zone colours, mass drift style, and beach badges.
+# ---------------------------------------------------------------------------
+import datetime as _dt_global
+
+_today_g = _dt_global.date.today()
+_days_ahead_g = (sel_date - _today_g).days if sel_date is not None else 0
+# mode: 'physics' | 'ml' | 'seasonal'
+if sel_date is None or _days_ahead_g <= 3:
+    _date_mode = "physics"
+elif _days_ahead_g <= 21:
+    _date_mode = "ml"
+else:
+    _date_mode = "seasonal"
+
+_ml_drift_mode = (_date_mode == "ml")  # drives mass styling + legend
+
+# ---------------------------------------------------------------------------
 # Build Folium map
 # ---------------------------------------------------------------------------
 m = folium.Map(location=[19.0, -69.8], zoom_start=7, tiles="CartoDB Voyager")
@@ -1067,7 +1159,24 @@ for b in filtered:
             )
 
     # Risk badge — always present
-    if _mode_b == "seasonal" and risk_level is not None:
+    if _mode_b == "ml" and risk_level is not None:
+        rc = RISK_COLORS.get(risk_level, "#6c757d")
+        label_txt = RISK_LABEL.get(risk_level, risk_level.upper())
+        _ml_conf_pct = 40
+        if near_zone and _ml_forecasts:
+            _zid_b = near_zone.get("id")
+            _mf_hit = next((f for f in _ml_forecasts if f.get("zone_id") == _zid_b), None)
+            if _mf_hit:
+                _ml_conf_pct = int(_mf_hit.get("confidence", 0.4) * 100)
+        risk_badge = (
+            f"<div style='background:{rc};color:#fff;display:inline-block;"
+            f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
+            f"🌊 Sargazo: {label_txt}"
+            f"</div>"
+            f"<div style='color:#ce93d8;font-size:10.5px;margin-top:4px'>"
+            f"🤖 {L['ml_badge']} · {_ml_conf_pct}%</div>"
+        )
+    elif _mode_b == "seasonal" and risk_level is not None:
         rc = RISK_COLORS.get(risk_level, "#6c757d")
         label_txt = RISK_LABEL.get(risk_level, risk_level.upper())
         risk_badge = (
@@ -1146,28 +1255,45 @@ def _zone_region(clat: float, clon: float) -> str:
 
 
 if show_zones and zones:
-    import datetime as _dt_z
-    _visit_z = sel_date
-    _days_z = (_visit_z - _dt_z.date.today()).days if _visit_z is not None else 0
-    _zone_seasonal = _visit_z is not None and _days_z > 3
-
     for _z in zones:
         _zid = _z["id"]
         _fc_z = forecast_by_zone_id.get(_zid)
         _clat = _z["center_lat"]
         _clon = _z["center_lon"]
 
-        if _zone_seasonal:
-            # Far-future date: derive risk from seasonal climatology for this coast.
-            _z_risk = seasonal_risk(_visit_z.month, _zone_region(_clat, _clon))
+        if _date_mode == "ml":
+            # ML window: pick the forecast for this zone at the closest lead day
+            _ml_hit = _ml_risk_for_zone(_zid, _days_ahead_g, _ml_forecasts) if _ml_forecasts else None
+            if _ml_hit:
+                _z_risk, _z_conf, _ = _ml_hit
+            else:
+                _z_risk = seasonal_risk(sel_date.month, _zone_region(_clat, _clon))
+                _z_conf = 0.4
+        elif _date_mode == "seasonal":
+            _z_risk = seasonal_risk(sel_date.month, _zone_region(_clat, _clon))
+            _z_conf = 0.0
         else:
             _z_risk = _risk_at_horizon(_fc_z) if _fc_z else "none"
+            _z_conf = 1.0
 
         _z_color = RISK_COLORS.get(_z_risk, "#6c757d")
         _z_label = RISK_LABEL.get(_z_risk, _z_risk.upper())
 
-        # Build popup extra lines (ETA lines only make sense for physics forecast)
-        if _zone_seasonal:
+        # Build popup extra lines
+        if _date_mode == "ml":
+            _z_conf_pct = int(_z_conf * 100)
+            _ml_lead = min([7, 14, 21], key=lambda d: abs(d - _days_ahead_g))
+            _ml_valid = (sel_date.isoformat() if sel_date else "")
+            _z_extra = (
+                f"<div style='background:rgba(123,31,162,.2);border-radius:12px;"
+                f"padding:3px 10px;font-size:10px;color:#ce93d8;margin-top:4px'>"
+                f"🤖 {L['ml_badge']} · +{_ml_lead}d</div>"
+                f"<div style='color:#ce93d8;font-size:10px;margin-top:3px'>"
+                f"{L['ml_confidence']}: {_z_conf_pct}%</div>"
+                + (f"<div style='color:#80cbc4;font-size:10px;margin-top:3px'>📅 {_ml_valid}</div>"
+                   if _ml_valid else "")
+            )
+        elif _date_mode == "seasonal":
             _z_extra = (
                 f"<div style='background:rgba(255,193,7,.2);border-radius:12px;"
                 f"padding:3px 10px;font-size:10px;color:#ffe082;margin-top:4px'>"
@@ -1248,15 +1374,20 @@ if show_masses:
                 reverse=True,
             )[:_MAX_MASS_MARKERS]
 
-        # Determine how many hours ahead to preview drift. SEL_HORIZON drives
-        # the physics forecast slider (0/24/48/72 h); a near-future date beyond
-        # 72h stays at 72h max so the trail stays within the reliable window.
+        # Determine how many hours ahead to preview drift.
+        #   0–72 h  → physics slider (SEL_HORIZON)
+        #   4–21 d  → ML window: extrapolate full horizon (speculative — faded style)
+        #   > 21 d  → seasonal; no mass position is meaningful, cap at 72 h for direction
+        import datetime as _dt_drift
         _drift_h: int = SEL_HORIZON if SEL_HORIZON is not None else 0
         if sel_date is not None:
-            import datetime as _dt_drift
             _ddays = (sel_date - _dt_drift.date.today()).days
             if 0 < _ddays <= 3:
                 _drift_h = min(_ddays * 24, 72)
+            elif 4 <= _ddays <= 21:
+                _drift_h = _ddays * 24   # up to 504 h — speculative
+            elif _ddays > 21:
+                _drift_h = 72  # only show direction, not position
         _show_drift = _drift_h > 0
 
         _mass_group = folium.FeatureGroup(name="Sargazo", show=True)
@@ -1270,45 +1401,103 @@ if show_masses:
             _r = max(3.0, min(18.0, 3.0 + (_a ** 0.5) * 4.0))
 
             if _show_drift:
-                # Build a 4-point trail: current → +24h → +48h → horizon
-                _checkpoints = sorted({24, 48, _drift_h} & {h for h in [24, 48, 72] if h <= _drift_h})
-                _trail = [[_lat0, _lon0]]
-                for _ch in _checkpoints:
-                    _pl, _pn = _predict_position(_lat0, _lon0, _ch)
-                    _trail.append([_pl, _pn])
+                if _ml_drift_mode:
+                    # ML / speculative mode — build a multi-segment trail with
+                    # checkpoints every 7 days so the path is visible but not
+                    # overcrowded. Trail color shifts from brown → purple to
+                    # signal increasing uncertainty.
+                    _cp_days = [d for d in [3, 7, 14, 21]
+                                if d * 24 <= _drift_h]
+                    _checkpoints = [d * 24 for d in _cp_days] or [_drift_h]
+                    _trail = [[_lat0, _lon0]]
+                    for _ch in _checkpoints:
+                        _pl, _pn = _predict_position(_lat0, _lon0, _ch)
+                        _trail.append([_pl, _pn])
+                    # Outer faded trail (full path)
+                    folium.PolyLine(
+                        _trail,
+                        color="#7b1fa2",
+                        weight=1.5,
+                        opacity=0.35,
+                        dash_array="6 6",
+                        tooltip=f"🟣 Ruta especulativa ML · {_a:.2f} km²",
+                    ).add_to(_mass_group)
+                    # Short physics segment (first 72 h) in the normal brown
+                    _trail_72 = [[_lat0, _lon0]]
+                    _pl72, _pn72 = _predict_position(_lat0, _lon0, 72)
+                    _trail_72.append([_pl72, _pn72])
+                    folium.PolyLine(
+                        _trail_72,
+                        color="#8d6e63",
+                        weight=1.5,
+                        opacity=0.55,
+                        dash_array="5 4",
+                    ).add_to(_mass_group)
+                    # Uncertainty halo at predicted position — larger radius
+                    _plat, _plon = _trail[-1]
+                    folium.CircleMarker(
+                        location=[_plat, _plon],
+                        radius=max(6.0, _r + 4),
+                        color="#ce93d8",
+                        fill=True,
+                        fill_color="#e1bee7",
+                        fill_opacity=0.20,
+                        weight=1.5,
+                        dash_array="4 3",
+                        tooltip=f"🟣 Sargazo especulativo (+{_drift_h}h ML) · {_a:.2f} km²",
+                    ).add_to(_mass_group)
+                    # Smaller solid dot at predicted centre
+                    folium.CircleMarker(
+                        location=[_plat, _plon],
+                        radius=max(3.0, _r - 2),
+                        color="#7b1fa2",
+                        fill=True,
+                        fill_color="#ce93d8",
+                        fill_opacity=0.45,
+                        weight=1.0,
+                        tooltip=f"🟣 Sargazo especulativo (+{_drift_h}h ML) · {_a:.2f} km²",
+                    ).add_to(_mass_group)
+                else:
+                    # Physics mode — original 4-point trail
+                    _checkpoints = sorted({24, 48, _drift_h} & {h for h in [24, 48, 72] if h <= _drift_h})
+                    _trail = [[_lat0, _lon0]]
+                    for _ch in _checkpoints:
+                        _pl, _pn = _predict_position(_lat0, _lon0, _ch)
+                        _trail.append([_pl, _pn])
 
-                # Drift trail — thin dashed line
-                folium.PolyLine(
-                    _trail,
-                    color="#8d6e63",
-                    weight=1.5,
-                    opacity=0.65,
-                    dash_array="5 4",
-                    tooltip=f"🟤 Ruta estimada · {_a:.2f} km²",
-                ).add_to(_mass_group)
+                    # Drift trail — thin dashed line
+                    folium.PolyLine(
+                        _trail,
+                        color="#8d6e63",
+                        weight=1.5,
+                        opacity=0.65,
+                        dash_array="5 4",
+                        tooltip=f"🟤 Ruta estimada · {_a:.2f} km²",
+                    ).add_to(_mass_group)
 
-                # Predicted position at selected horizon — ghost circle
-                _plat, _plon = _trail[-1]
-                folium.CircleMarker(
-                    location=[_plat, _plon],
-                    radius=max(2.5, _r - 2),
-                    color="#ff8f00",
-                    fill=True,
-                    fill_color="#ffcc80",
-                    fill_opacity=0.55,
-                    weight=1.5,
-                    dash_array="4 3",
-                    tooltip=f"🟠 Sargazo (+{_drift_h}h estimado) · {_a:.2f} km²",
-                ).add_to(_mass_group)
+                # Physics ghost circle (only for non-ML mode)
+                if not _ml_drift_mode:
+                    _plat, _plon = _trail[-1]
+                    folium.CircleMarker(
+                        location=[_plat, _plon],
+                        radius=max(2.5, _r - 2),
+                        color="#ff8f00",
+                        fill=True,
+                        fill_color="#ffcc80",
+                        fill_opacity=0.55,
+                        weight=1.5,
+                        dash_array="4 3",
+                        tooltip=f"🟠 Sargazo (+{_drift_h}h estimado) · {_a:.2f} km²",
+                    ).add_to(_mass_group)
 
-            # Current detected position — always drawn
+            # Current detected position — fainter in ML mode to signal mass has moved
             folium.CircleMarker(
                 location=[_lat0, _lon0],
                 radius=_r,
                 color="#5d4037",
                 fill=True,
                 fill_color="#795548",
-                fill_opacity=0.55,
+                fill_opacity=0.20 if _ml_drift_mode else 0.55,
                 weight=1,
                 tooltip=f"🟤 Sargazo · {_a:.2f} km²",
             ).add_to(_mass_group)
@@ -1317,7 +1506,7 @@ if show_masses:
     # If no masses came back we silently skip — sidebar caption explains why below.
 
 # Floating legend — show risk zones + drift key when masses are visible.
-_show_drift_legend = show_masses and (SEL_HORIZON or 0) > 0
+_show_drift_legend = show_masses and _drift_h > 0
 if zones:
     risk_legend_rows = "".join(
         f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
@@ -1333,20 +1522,37 @@ else:
     legend_html = ""
 
 if _show_drift_legend:
-    _drift_label = "Pos. estimada" if lang == "es" else "Est. position"
-    legend_html += (
-        f"<div style='margin-top:6px;padding-top:5px;border-top:1px solid #cfd8dc'>"
-        f"<div style='font-weight:800;font-size:11px;color:#005f73;margin-bottom:3px'>"
-        f"{'Sargazo — deriva' if lang == 'es' else 'Sargassum — drift'}</div>"
-        f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
-        f"<div style='width:16px;height:10px;background:#795548;border-radius:50%'></div>"
-        f"<span style='font-size:11px;color:#37474f'>{'Posición actual' if lang == 'es' else 'Current position'}</span></div>"
-        f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
-        f"<div style='width:16px;height:10px;background:#ffcc80;border:1.5px dashed #ff8f00;border-radius:50%'></div>"
-        f"<span style='font-size:11px;color:#37474f'>{_drift_label} (+{SEL_HORIZON}h)</span></div>"
-        f"<div style='font-size:9.5px;color:#78909c;margin-top:3px'>{'Corriente media del Caribe' if lang == 'es' else 'Caribbean mean current'}</div>"
-        f"</div>"
-    )
+    if _ml_drift_mode:
+        _drift_days = _drift_h // 24
+        _drift_label = f"Pos. especulativa ML (+{_drift_days}d)" if lang == "es" else f"ML speculative pos. (+{_drift_days}d)"
+        legend_html += (
+            f"<div style='margin-top:6px;padding-top:5px;border-top:1px solid #cfd8dc'>"
+            f"<div style='font-weight:800;font-size:11px;color:#5e35b1;margin-bottom:3px'>"
+            f"{'Sargazo — vista extendida ML' if lang == 'es' else 'Sargassum — ML extended view'}</div>"
+            f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
+            f"<div style='width:16px;height:10px;background:#795548;border-radius:50%;opacity:.35'></div>"
+            f"<span style='font-size:11px;color:#37474f'>{'Posición actual (detectada)' if lang == 'es' else 'Current detected position'}</span></div>"
+            f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
+            f"<div style='width:16px;height:10px;background:#e1bee7;border:1.5px dashed #7b1fa2;border-radius:50%'></div>"
+            f"<span style='font-size:11px;color:#37474f'>{_drift_label}</span></div>"
+            f"<div style='font-size:9.5px;color:#78909c;margin-top:3px'>{'⚠️ Incertidumbre alta — solo indica dirección' if lang == 'es' else '⚠️ High uncertainty — indicates direction only'}</div>"
+            f"</div>"
+        )
+    else:
+        _drift_label = "Pos. estimada" if lang == "es" else "Est. position"
+        legend_html += (
+            f"<div style='margin-top:6px;padding-top:5px;border-top:1px solid #cfd8dc'>"
+            f"<div style='font-weight:800;font-size:11px;color:#005f73;margin-bottom:3px'>"
+            f"{'Sargazo — deriva' if lang == 'es' else 'Sargassum — drift'}</div>"
+            f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
+            f"<div style='width:16px;height:10px;background:#795548;border-radius:50%'></div>"
+            f"<span style='font-size:11px;color:#37474f'>{'Posición actual' if lang == 'es' else 'Current position'}</span></div>"
+            f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
+            f"<div style='width:16px;height:10px;background:#ffcc80;border:1.5px dashed #ff8f00;border-radius:50%'></div>"
+            f"<span style='font-size:11px;color:#37474f'>{_drift_label} (+{_drift_h}h)</span></div>"
+            f"<div style='font-size:9.5px;color:#78909c;margin-top:3px'>{'Corriente media del Caribe' if lang == 'es' else 'Caribbean mean current'}</div>"
+            f"</div>"
+        )
 
 m.get_root().html.add_child(folium.Element(
     f"<div style='position:absolute;top:10px;left:60px;z-index:1000;"
@@ -1354,6 +1560,14 @@ m.get_root().html.add_child(folium.Element(
     f"padding:8px 14px;font-size:12px;font-weight:700;backdrop-filter:blur(4px)'>"
     f"{L['tip']}</div>"
 ))
+if _ml_drift_mode:
+    m.get_root().html.add_child(folium.Element(
+        f"<div style='position:absolute;bottom:36px;left:60px;z-index:1000;"
+        f"background:rgba(74,20,140,.85);color:#e1bee7;border-radius:10px;"
+        f"padding:7px 13px;font-size:11px;font-weight:700;backdrop-filter:blur(4px);"
+        f"border:1px solid #7b1fa2'>"
+        f"🤖 {L['ml_note_map']} (+{_days_ahead_g}d)</div>"
+    ))
 
 # Render map — stable key preserves pan/zoom between beach selections
 map_result = st_folium(
@@ -1414,7 +1628,39 @@ if _panel_beach:
     }
 
     # ── Build the sargassum section ───────────────────────────────────────
-    if _mode == "seasonal" and _risk_level:
+    if _mode == "ml" and _risk_level and _near_zone:
+        _rc = RISK_COLORS.get(_risk_level, "#607d8b")
+        _rlbl = RISK_LABEL.get(_risk_level, _risk_level.upper())
+        _emoji, _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("⚪", "", ""))
+        _advice = _advice_en if lang == "en" else _advice_es
+        _ml_conf_panel = int((_fc or {}).get("confidence", 0.4) * 100)
+        _ml_lead_panel = min([7, 14, 21], key=lambda d: abs(d - _days_ahead_g))
+        _zone_name = _near_zone["name"] if _near_zone else ""
+        _risk_section = (
+            f"<div style='background:rgba(0,0,0,.25);border-radius:12px;"
+            f"padding:10px 12px;margin:9px 0;border-left:4px solid {_rc}'>"
+            f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px'>"
+            f"<span style='background:{_rc};color:#fff;border-radius:16px;"
+            f"padding:2px 10px;font-size:11px;font-weight:800'>{_emoji} {_rlbl}</span>"
+            f"<span style='background:rgba(123,31,162,.25);color:#ce93d8;border-radius:16px;"
+            f"padding:2px 10px;font-size:10px;font-weight:700'>🤖 {L['ml_badge']}</span>"
+            f"</div>"
+            f"<div style='color:#cfd8dc;font-size:11.5px;line-height:1.45;margin-bottom:6px'>{_advice}</div>"
+            f"<div style='background:rgba(0,0,0,.2);border-radius:8px;padding:6px 10px;margin:5px 0'>"
+            f"<div style='display:flex;justify-content:space-between;align-items:center'>"
+            f"<span style='color:#80cbc4;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px'>"
+            f"📅 {'Pronóstico' if lang == 'es' else 'Forecast'} +{_ml_lead_panel}d</span>"
+            f"<span style='color:#e0f7fa;font-size:13px;font-weight:800'>{_rlbl}</span>"
+            f"</div>"
+            f"<div style='color:#546e7a;font-size:9.5px;margin-top:2px'>"
+            f"{'Zona' if lang == 'es' else 'Zone'}: {_zone_name} · {L['ml_confidence']}: {_ml_conf_panel}%</div>"
+            f"</div>"
+            f"<div style='color:#ce93d8;font-size:10.5px;line-height:1.4;margin-bottom:4px'>⚠️ {L['ml_advisory']}</div>"
+            f"<div style='color:#80cbc4;font-size:10px;border-top:1px solid rgba(255,255,255,.1);"
+            f"padding-top:5px;margin-top:5px'>{L['method_ml'].format(conf=_ml_conf_panel)}</div>"
+            f"</div>"
+        )
+    elif _mode == "seasonal" and _risk_level:
         # Seasonal climatology estimate (far-future date). No zone/ETA — this is
         # a statistical expectation for the month, not a deterministic forecast.
         _rc = RISK_COLORS.get(_risk_level, "#607d8b")

@@ -37,14 +37,15 @@ def list_zones() -> list[dict[str, Any]]:
 
 def latest_forecasts() -> list[dict[str, Any]]:
     """Return the single most-recent forecast per zone."""
-    # Supabase / PostgREST: select with join and a DISTINCT ON equivalent
-    # isn't directly expressible, so we fetch recent rows and deduplicate in Python.
+    # Supabase / PostgREST doesn't support DISTINCT ON directly, so we fetch
+    # recent rows and deduplicate in Python. 11 zones × 4 runs = 44 worst-case;
+    # limit=50 is enough with a small safety margin.
     result = (
         get_client()
         .table("forecasts")
         .select("id, run_at, zone_id, risk_level, eta_hours, eta_timestamp, horizons, zones(name)")
         .order("run_at", desc=True)
-        .limit(200)
+        .limit(50)
         .execute()
     )
     rows = result.data or []
@@ -82,7 +83,13 @@ def insert_subscriber(channel: str, chat_id: str, zone_id: int, role: str) -> di
         )
         .execute()
     )
-    return (result.data or [{}])[0]
+    rows = result.data or []
+    if not rows:
+        logger.error(
+            "insert_subscriber returned no data for chat_id=%s zone_id=%s", chat_id, zone_id
+        )
+        raise RuntimeError("Subscription insert returned no data.")
+    return rows[0]
 
 
 def list_beaches(province: str | None = None, region: str | None = None) -> list[dict[str, Any]]:
@@ -98,6 +105,37 @@ def list_beaches(province: str | None = None, region: str | None = None) -> list
         query = query.eq("region", region)
     result = query.order("name").execute()
     return result.data or []
+
+
+def list_ml_forecasts(lead_days: int | None = None) -> list[dict[str, Any]]:
+    """Return the latest ML extended forecast per (zone, lead_days).
+
+    Optionally filter to a single lead horizon (7, 14, or 21 days).
+    """
+    # 11 zones × 3 lead days = 33 rows max; limit=100 is sufficient with buffer.
+    query = (
+        get_client()
+        .table("ml_forecasts")
+        .select(
+            "id, run_at, zone_id, lead_days, risk_level, confidence, method, valid_at, "
+            "zones(name)"
+        )
+        .order("run_at", desc=True)
+        .limit(100)
+    )
+    if lead_days is not None:
+        query = query.eq("lead_days", lead_days)
+    rows = query.execute().data or []
+
+    # Deduplicate: keep only the latest row per (zone_id, lead_days).
+    seen: set[tuple[int, int]] = set()
+    deduped = []
+    for row in rows:
+        key = (row["zone_id"], row["lead_days"])
+        if key not in seen:
+            seen.add(key)
+            deduped.append(row)
+    return deduped
 
 
 def list_detections(limit: int = 2000) -> list[dict[str, Any]]:

@@ -156,6 +156,70 @@ def main() -> int:  # noqa: C901
     except Exception:
         logger.exception("dispatch step failed")
 
+    # ------------------------------------------------------------------
+    # Step 6: ML extended forecast (7 / 14 / 21 days)
+    # ------------------------------------------------------------------
+    t = time.perf_counter()
+    try:
+        from pipeline.model import get_forecaster
+        from pipeline.store import upsert_ml_forecasts, upsert_zones
+
+        forecaster = get_forecaster()
+
+        # Periodically retrain: count pipeline runs via a simple counter file.
+        _counter_path = config.__file__.replace("config.py", ".run_count")
+        try:
+            run_count = int(open(_counter_path).read().strip()) + 1
+        except Exception:
+            run_count = 1
+        try:
+            open(_counter_path, "w").write(str(run_count))
+        except Exception:
+            pass
+
+        if run_count % config.ML_RETRAIN_EVERY_N_RUNS == 1 or not forecaster.is_trained:
+            logger.info("ml: training model (run #%d) …", run_count)
+            from supabase import create_client
+            sb_client = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
+            forecaster.train(sb_client)
+
+        # Build physics risk lookup: {zone_name -> risk int (0-3)}
+        from pipeline.features import RISK_TO_INT
+        physics_risks: dict[str, int] = {}
+        for fc in forecasts:
+            physics_risks[fc["zone_name"]] = RISK_TO_INT.get(fc.get("risk_level", "none"), 0)
+
+        run_date = dt.datetime.now(dt.timezone.utc).date()
+        ml_preds = forecaster.predict(
+            zones=config.ZONES,
+            detections=patches,
+            current_physics_risks=physics_risks,
+            run_date=run_date,
+        )
+
+        if ml_preds:
+            # Map zone names to DB ids (zone_map already fetched in step 4 if
+            # forecasts ran; re-fetch cheaply if not).
+            zone_map: dict[str, int] = {}
+            try:
+                zone_map = upsert_zones(config.ZONES)
+            except Exception:
+                logger.warning("ml: could not fetch zone map — skipping store.")
+
+            if zone_map:
+                for p in ml_preds:
+                    db_id = zone_map.get(p["zone_name"])
+                    if db_id is not None:
+                        p["zone_id"] = db_id
+                ml_preds = [p for p in ml_preds if "zone_id" in p]
+                upsert_ml_forecasts(ml_preds)
+
+        logger.info(
+            "ml: %d extended forecast(s) stored in %s", len(ml_preds), _elapsed(t)
+        )
+    except Exception:
+        logger.exception("ml step failed — pipeline still completed")
+
     logger.info("=== Pipeline run complete in %s ===", _elapsed(run_start))
     return 0
 

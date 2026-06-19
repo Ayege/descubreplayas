@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, Field
+
+RiskLevel = Literal["none", "low", "medium", "high"]
+ForecastMethod = Literal["ml", "seasonal"]
 
 
 # ---------------------------------------------------------------------------
@@ -27,7 +30,7 @@ class ZoneResponse(BaseModel):
 class ForecastResponse(BaseModel):
     zone_id: int
     name: str
-    risk_level: str
+    risk_level: RiskLevel
     eta_hours: Optional[int] = None
     eta_timestamp: Optional[str] = None
     run_at: str
@@ -69,6 +72,17 @@ class BeachResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Request models
 # ---------------------------------------------------------------------------
+
+class ExtendedForecastResponse(BaseModel):
+    zone_id: int
+    zone_name: str
+    lead_days: Literal[7, 14, 21]
+    risk_level: RiskLevel
+    confidence: Annotated[float, Field(ge=0.0, le=1.0)]
+    method: ForecastMethod
+    valid_at: str
+    run_at: str
+
 
 class SubscribeRequest(BaseModel):
     channel: Literal["telegram"] = "telegram"

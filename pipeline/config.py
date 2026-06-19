@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt  # noqa: F401 – used in open_meteo_params type annotations
 import os
 
 from dotenv import load_dotenv
@@ -139,6 +140,14 @@ RISK_AREA_LOW_MAX_KM2 = float(os.environ.get("RISK_AREA_LOW_MAX_KM2", "5.0"))
 RISK_AREA_MEDIUM_MAX_KM2 = float(os.environ.get("RISK_AREA_MEDIUM_MAX_KM2", "25.0"))
 # ETA threshold that upgrades medium→high when a LARGE mass is imminent.
 RISK_HIGH_ETA_HOURS = int(os.environ.get("RISK_HIGH_ETA_HOURS", "24"))
+
+# --- Extended forecast / ML model ----------------------------------------
+# Physics drift is reliable up to FORECAST_HOURS_PHYSICS.  Beyond that the
+# ML model takes over up to FORECAST_HOURS_EXTENDED, then seasonal climatology.
+FORECAST_HOURS_PHYSICS = int(os.environ.get("FORECAST_HOURS_PHYSICS", "72"))
+FORECAST_HOURS_EXTENDED = int(os.environ.get("FORECAST_HOURS_EXTENDED", "168"))  # 7 days
+# Retrain the ML model after this many pipeline runs (approx weekly with 6-h cron).
+ML_RETRAIN_EVERY_N_RUNS = int(os.environ.get("ML_RETRAIN_EVERY_N_RUNS", "28"))
 
 
 def open_meteo_params(lat: float, lon: float, start: dt.date, end: dt.date) -> dict[str, str]:
