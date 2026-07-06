@@ -167,7 +167,7 @@ jobs:
             --max-instances 3 \
             --memory    1Gi \
             --cpu       1 \
-            --update-env-vars  "API_BASE_URL=https://api.descubreplayas.com.do" \
+            --update-env-vars  "API_BASE_URL=https://api.descubreplayas.com.do,GA_MEASUREMENT_ID=${{ secrets.GA_MEASUREMENT_ID }}" \
             --update-secrets   "SUPABASE_URL=sargapp-supabase-url:latest,SUPABASE_KEY=sargapp-supabase-key:latest" \
             --update-labels    "managed-by=github-actions,commit-sha=${{ github.sha }}"
 

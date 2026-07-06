@@ -42,6 +42,7 @@ from dashboard.climatology import seasonal_index, seasonal_risk
 load_dotenv()
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.descubreplayas.com.do")
+GA_MEASUREMENT_ID = os.environ.get("GA_MEASUREMENT_ID", "")
 
 st.set_page_config(
     page_title="Descubre Playas RD",
@@ -49,6 +50,27 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ---------------------------------------------------------------------------
+# Google Analytics 4 — inject gtag.js only when a Measurement ID is set.
+# Set GA_MEASUREMENT_ID=G-XXXXXXXXXX in the Cloud Run environment or .env.
+# ---------------------------------------------------------------------------
+if GA_MEASUREMENT_ID:
+    st.markdown(
+        f"""
+<script async src="https://www.googletagmanager.com/gtag/js?id={GA_MEASUREMENT_ID}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){{dataLayer.push(arguments);}}
+  gtag('js', new Date());
+  gtag('config', '{GA_MEASUREMENT_ID}', {{
+    page_title: document.title,
+    page_location: window.location.href
+  }});
+</script>
+""",
+        unsafe_allow_html=True,
+    )
 
 # ---------------------------------------------------------------------------
 # i18n — Español / English
