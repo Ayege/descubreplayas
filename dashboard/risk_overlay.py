@@ -156,7 +156,7 @@ def risk_from_detections(
 
 
 
-def fetch_live_risk(api_base_url: str, timeout: int = 8) -> tuple[list[dict], dict[int, dict]]:
+def fetch_live_risk(api_base_url: str, timeout: int = 15) -> tuple[list[dict], dict[int, dict]]:
     """Fetch zones and latest forecasts from the API.
 
     Returns (zones, {zone_id: full_forecast_dict}). Returns ([], {}) on any failure so
@@ -169,16 +169,25 @@ def fetch_live_risk(api_base_url: str, timeout: int = 8) -> tuple[list[dict], di
     try:
         import certifi
         import requests
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
     except Exception:
         logger.warning("requests/certifi unavailable; cannot fetch live risk.")
         return [], {}
 
+    # Configure a session with retries to tolerate transient network issues.
+    session = requests.Session()
+    retry = Retry(total=3, backoff_factor=1, status_forcelist=(502, 503, 504))
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
     try:
         verify = certifi.where()
-        zones = requests.get(f"{api_base_url}/zones", timeout=timeout, verify=verify).json()
-        forecasts = requests.get(f"{api_base_url}/forecast", timeout=timeout, verify=verify).json()
-    except Exception:
-        logger.warning("Live risk fetch failed for %s.", api_base_url, exc_info=True)
+        zones = session.get(f"{api_base_url}/zones", timeout=timeout, verify=verify).json()
+        forecasts = session.get(f"{api_base_url}/forecast", timeout=timeout, verify=verify).json()
+    except requests.exceptions.RequestException as e:
+        logger.warning("Live risk fetch failed for %s: %s", api_base_url, e)
         return [], {}
 
     forecast_by_zone_id: dict[int, dict] = {
@@ -187,7 +196,7 @@ def fetch_live_risk(api_base_url: str, timeout: int = 8) -> tuple[list[dict], di
     return zones or [], forecast_by_zone_id
 
 
-def fetch_detections(api_base_url: str, limit: int = 2000, timeout: int = 8) -> list[dict]:
+def fetch_detections(api_base_url: str, limit: int = 2000, timeout: int = 15) -> list[dict]:
     """Fetch the latest run's sargassum masses from the API.
 
     Returns a list of {id, run_at, lat, lon, area_km2, source} dicts, or [] on
@@ -198,18 +207,27 @@ def fetch_detections(api_base_url: str, limit: int = 2000, timeout: int = 8) -> 
     try:
         import certifi
         import requests
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
     except Exception:
         logger.warning("requests/certifi unavailable; cannot fetch detections.")
         return []
+
+    session = requests.Session()
+    retry = Retry(total=3, backoff_factor=1, status_forcelist=(502, 503, 504))
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
     try:
         verify = certifi.where()
-        resp = requests.get(
+        resp = session.get(
             f"{api_base_url}/detections",
             params={"limit": limit},
             timeout=timeout,
             verify=verify,
         )
         return resp.json() or []
-    except Exception:
-        logger.warning("Detection fetch failed for %s.", api_base_url, exc_info=True)
+    except requests.exceptions.RequestException as e:
+        logger.warning("Detection fetch failed for %s: %s", api_base_url, e)
         return []
