@@ -34,6 +34,7 @@ from dashboard.risk_overlay import (
     fetch_detections,
     fetch_live_risk,
     risk_for_beach,
+    haversine_km,
     risk_from_detections,
 )
 from dashboard.climatology import seasonal_index, seasonal_risk
@@ -627,7 +628,7 @@ def _cached_fetch_ml_forecasts(url: str) -> list[dict]:
         import requests, certifi
         resp = requests.get(
             f"{url}/forecast/extended",
-            timeout=8,
+            timeout=15,
             verify=certifi.where(),
         )
         if resp.status_code == 200:
@@ -647,6 +648,13 @@ zones, forecast_by_zone_id = _cached_fetch_live_risk(API_BASE_URL)
 # ML extended forecasts — fetched once per 5-min cache window
 _ml_forecasts: list[dict] = _cached_fetch_ml_forecasts(API_BASE_URL)
 
+# Pre-index ML forecasts by zone_id for O(1) lookups in _ml_risk_for_zone.
+_ml_forecasts_by_zone_id: dict[int, list[dict]] = {}
+for _f in _ml_forecasts:
+    _zid = _f.get("zone_id")
+    if _zid is not None:
+        _ml_forecasts_by_zone_id.setdefault(int(_zid), []).append(_f)
+
 # Fetch live 10 m wind once per session-hour and store as a module-level
 # tuple so _beach_risk / _beach_eta_quick / _predict_position can all share
 # the same value without re-hitting the API on every beach calculation.
@@ -660,7 +668,11 @@ def _ml_risk_for_zone(
     Picks the lead-day option (7/14/21) closest to days_ahead.
     Returns None if no ML forecast exists for the zone.
     """
-    candidates = [f for f in ml_forecasts if f.get("zone_id") == zone_id]
+    # O(1) lookup via pre-indexed dict; fall back to scanning the passed list
+    # when the index isn't available (e.g. during unit tests).
+    candidates = _ml_forecasts_by_zone_id.get(zone_id) or [
+        f for f in ml_forecasts if f.get("zone_id") == zone_id
+    ]
     if not candidates:
         return None
     best = min(candidates, key=lambda f: abs(f.get("lead_days", 7) - days_ahead))
@@ -728,7 +740,7 @@ def _risk_at_horizon(fc: dict | None) -> str:
     return fc.get("risk_level", "none")
 
 
-def _beach_risk_dated(beach: dict):
+def _beach_risk_dated(beach: dict, skip_eta: bool = False):
     """Date-aware risk blending physics → ML → seasonal climatology.
 
     Returns (risk_level, near_zone, dist_km, forecast, mode, beach_eta_h) where:
@@ -751,6 +763,8 @@ def _beach_risk_dated(beach: dict):
         lvl, zone, dist, fc = _beach_risk(beach)
         if lvl is None:
             return None, None, None, None, None, None
+        if skip_eta:
+            return lvl, zone, dist, fc, ("out" if lvl == "out" else "physics"), None
         masses = _cached_fetch_detections(API_BASE_URL)
         _wu, _wv = _WIND_UV
         eta_h = _beach_eta_quick(beach, masses, wind_u=_wu, wind_v=_wv) if masses else None
@@ -1067,6 +1081,30 @@ with st.sidebar:
             st.caption("📊 " + L["method_seasonal"])
 
 
+# Per-render cache: beach name → _beach_risk_dated result WITHOUT ETA.
+# Avoids calling _beach_risk_dated twice per beach (once in _matches for the
+# risk filter, once again in the marker-building loop) and avoids running the
+# O(masses × 72h) _beach_eta_quick loop for every beach on every render.
+# ETA is only computed for the single selected beach in the detail panel.
+_BEACH_RISK_CACHE: dict[str, tuple] = {}
+
+
+def _beach_risk_cached(beach: dict, compute_eta: bool = False) -> tuple:
+    """Return _beach_risk_dated, computing ETA only when compute_eta=True.
+
+    Use compute_eta=True only for the one beach shown in the detail panel.
+    All other callers (filter check, marker loop) should leave it False so
+    the expensive _beach_eta_quick loop runs at most once per render.
+    """
+    name = beach["name"]
+    if name not in _BEACH_RISK_CACHE:
+        _BEACH_RISK_CACHE[name] = _beach_risk_dated(beach, skip_eta=True)
+    if not compute_eta:
+        return _BEACH_RISK_CACHE[name]
+    # Full call with ETA — only invoked for the panel beach.
+    return _beach_risk_dated(beach, skip_eta=False)
+
+
 def _matches(beach: dict) -> bool:
     if sel_regions and beach["region"] not in sel_regions:
         return False
@@ -1084,7 +1122,7 @@ def _matches(beach: dict) -> bool:
     # it matches one of the selected levels. A beach with no risk data (None)
     # is treated as 'none' so the filter behaves intuitively.
     if sel_risks:
-        _beach_lvl = _beach_risk_dated(beach)[0] or "none"
+        _beach_lvl = _beach_risk_cached(beach)[0] or "none"
         # 'out' (outside monitored area) counts as 'none' for filtering.
         if _beach_lvl == "out":
             _beach_lvl = "none"
@@ -1138,7 +1176,7 @@ for b in filtered:
     # Beach markers are WHITE pins with a COLORED RING (region color).
     # This visually separates beaches from risk zones (filled colored rectangles).
     region_color = REGION_COLORS.get(b["region"], "#1f77b4")
-    risk_level, near_zone, dist_km_b, _, _mode_b, _eta_b = _beach_risk_dated(b)
+    risk_level, near_zone, dist_km_b, _, _mode_b, _eta_b = _beach_risk_cached(b)
     turtle_icon = " 🐢" if b["protected_area"] else ""
     desc_short = (b["description"] or "")[:170].rstrip()
     if len(b["description"] or "") > 170:
@@ -1574,17 +1612,64 @@ map_result = st_folium(
     m,
     width="100%",
     height=900,
-    returned_objects=["last_object_clicked_tooltip"],
+    returned_objects=["last_object_clicked_tooltip", "last_object_clicked", "last_clicked"],
     key="beach_map",
 )
 
-# Sync map click → session state (skip rerun if already selected)
-if map_result and map_result.get("last_object_clicked_tooltip"):
-    tooltip_text: str = map_result["last_object_clicked_tooltip"]
-    clicked = tooltip_text.replace("🏖️ ", "").split(" — ")[0].strip()
-    if clicked in filtered_names and clicked != st.session_state.get("selected_beach"):
-        st.session_state["selected_beach"] = clicked
-        st.rerun()
+
+# Sync map click → session state (robust: tooltip -> object -> coords fallback)
+def _select_beach_from_map_result(res: dict | None) -> None:
+    if not res:
+        return
+
+    # 1) Prefer tooltip text when available (our standard: '🏖️ Name — Province')
+    tip = res.get("last_object_clicked_tooltip")
+    if tip:
+        try:
+            clicked = tip.replace("🏖️ ", "").split(" — ")[0].strip()
+        except Exception:
+            clicked = tip.strip()
+        if clicked in filtered_names and clicked != st.session_state.get("selected_beach"):
+            st.session_state["selected_beach"] = clicked
+            st.rerun()
+            return
+
+    # 2) Try last_object_clicked (may contain properties/name)
+    obj = res.get("last_object_clicked")
+    if obj and isinstance(obj, dict):
+        # Attempt common property names
+        for key in ("tooltip", "name", "title", "popup"):
+            val = obj.get(key)
+            if isinstance(val, str):
+                cand = val.replace("🏖️ ", "").split(" — ")[0].strip()
+                if cand in filtered_names and cand != st.session_state.get("selected_beach"):
+                    st.session_state["selected_beach"] = cand
+                    st.rerun()
+                    return
+
+    # 3) Fallback: use last_clicked coordinates and pick the nearest filtered beach
+    last = res.get("last_clicked")
+    if last and isinstance(last, dict):
+        try:
+            lat = float(last.get("lat") or last.get("latitude"))
+            lon = float(last.get("lng") or last.get("lon") or last.get("longitude"))
+        except Exception:
+            return
+        # Find nearest beach among the currently filtered set (within ~0.5 km)
+        best = None
+        best_km = float("inf")
+        for b in (b for b in filtered):
+            d = haversine_km(lat, lon, float(b["latitude"]), float(b["longitude"]))
+            if d < best_km:
+                best_km = d
+                best = b
+        if best and best_km <= 0.6:  # ~600 m tolerance to avoid misclicks
+            if best["name"] != st.session_state.get("selected_beach"):
+                st.session_state["selected_beach"] = best["name"]
+                st.rerun()
+
+
+_select_beach_from_map_result(map_result)
 
 # ---------------------------------------------------------------------------
 # Legend — rendered in the Streamlit DOM (position:fixed) so it is NEVER
@@ -1610,7 +1695,7 @@ else:
 
 if _panel_beach:
     _pb = _panel_beach
-    _risk_level, _near_zone, _dist_km, _fc, _mode, _beach_eta = _beach_risk_dated(_pb)
+    _risk_level, _near_zone, _dist_km, _fc, _mode, _beach_eta = _beach_risk_cached(_pb, compute_eta=True)
     _turtle = " 🐢" if _pb["protected_area"] else ""
 
     # ── Advisory text per risk level ──────────────────────────────────────
