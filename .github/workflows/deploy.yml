@@ -1,25 +1,25 @@
 # ── Deploy to GCP Cloud Run — GitHub Actions ──────────────────────────────────
-# Triggered on every push to main. Builds two Docker images (API + Dashboard),
-# pushes them to Google Container Registry, and deploys to Cloud Run.
+# Triggered on every push to main. Builds API + Dashboard images in PARALLEL
+# and deploys each to Cloud Run using the gcloud CLI directly (avoids the
+# Node 20 deprecation warning emitted by google-github-actions/deploy-cloudrun).
 #
 # Required GitHub Secrets  (Settings → Secrets and variables → Actions):
 #   GCP_PROJECT_ID        — your GCP project id, e.g. sargapp-123456
-#   GCP_REGION            — Cloud Run region, e.g. us-central1
+#   GCP_REGION            — Cloud Run region, e.g. us-east1
 #   GCP_SA_KEY            — JSON key of the deploy service account (see gcp-setup.sh)
 #   SUPABASE_URL          — Supabase project URL
 #   SUPABASE_KEY          — Supabase service-role key
 #   TELEGRAM_BOT_TOKEN    — Telegram bot token
-#   API_BASE_URL          — public URL of the API, e.g. https://api.yourdomain.com
+#   API_BASE_URL          — public URL of the API, e.g. https://api.descubreplayas.com.do
 #
-# The pipeline cron (pipeline.yml) is NOT changed — it still runs on GitHub
-# Actions with no GCP dependency.
+# The pipeline cron (pipeline.yml) is NOT changed here.
 
 name: deploy
 
 on:
   push:
     branches: [main]
-    paths:                      # only deploy when app code actually changes
+    paths:
       - "api/**"
       - "dashboard/**"
       - "pipeline/**"
@@ -27,24 +27,55 @@ on:
       - "requirements.txt"
   workflow_dispatch:
 
-env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION:     ${{ secrets.GCP_REGION }}
-  # Container image names in Artifact Registry (us-east1)
-  API_IMAGE:       us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sargapprepo/sargapp-api
-  DASH_IMAGE:      us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sargapprepo/sargapp-dashboard
-
 jobs:
-  build-and-deploy:
+  # ── Detect which services actually changed ──────────────────────────────────
+  # Skips the API job when only dashboard/ changed, and vice-versa, so a
+  # dashboard-only tweak doesn't rebuild + redeploy the API unnecessarily.
+  changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    outputs:
+      api:       ${{ steps.diff.outputs.api }}
+      dashboard: ${{ steps.diff.outputs.dashboard }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2          # need parent commit for git diff
+
+      - id: diff
+        run: |
+          # On manual dispatch always deploy both.
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "api=true"       >> "$GITHUB_OUTPUT"
+            echo "dashboard=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Empty-tree hash is the safe fallback when there is no parent commit.
+          BASE=$(git rev-parse HEAD~1 2>/dev/null \
+                 || git hash-object -t tree /dev/null)
+          CHANGED=$(git diff --name-only "$BASE" HEAD)
+          if echo "$CHANGED" | grep -qE '^(api/|pipeline/|Dockerfile\.api|requirements\.txt)'; then
+            echo "api=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "api=false" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "$CHANGED" | grep -qE '^(dashboard/|Dockerfile\.dashboard|requirements\.txt)'; then
+            echo "dashboard=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "dashboard=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── Build + deploy API ──────────────────────────────────────────────────────
+  deploy-api:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      IMAGE: us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sargapprepo/sargapp-api
 
     steps:
-      # ── 1. Code ──────────────────────────────────────────────────────────
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # ── 2. GCP auth ───────────────────────────────────────────────────────
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -53,79 +84,102 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker us-east1-docker.pkg.dev --quiet
 
-      # ── 3. Build images (parallel) ────────────────────────────────────────
+      # Pull the previous :latest so Docker can reuse unchanged layers.
+      - name: Warm Docker layer cache
+        run: docker pull "${{ env.IMAGE }}:latest" || true
+
       - name: Build API image
         run: |
           docker build \
+            --cache-from "${{ env.IMAGE }}:latest" \
             -f Dockerfile.api \
-            -t ${{ env.API_IMAGE }}:${{ github.sha }} \
-            -t ${{ env.API_IMAGE }}:latest \
+            -t "${{ env.IMAGE }}:${{ github.sha }}" \
+            -t "${{ env.IMAGE }}:latest" \
             .
+
+      - name: Push API image
+        run: |
+          docker push "${{ env.IMAGE }}:${{ github.sha }}"
+          docker push "${{ env.IMAGE }}:latest"
+
+      # Use gcloud directly — identical to what deploy-cloudrun@v2 runs
+      # internally, but without the Node 20 deprecation warning.
+      - name: Deploy API to Cloud Run
+        run: |
+          gcloud run deploy sargapp-api \
+            --image     "${{ env.IMAGE }}:${{ github.sha }}" \
+            --region    "${{ secrets.GCP_REGION }}" \
+            --port      8000 \
+            --allow-unauthenticated \
+            --min-instances 0 \
+            --max-instances 5 \
+            --memory    512Mi \
+            --cpu       1 \
+            --update-env-vars    "API_BASE_URL=${{ secrets.API_BASE_URL }}" \
+            --update-secrets     "SUPABASE_URL=sargapp-supabase-url:latest,SUPABASE_KEY=sargapp-supabase-key:latest,TELEGRAM_BOT_TOKEN=sargapp-telegram-bot-token:latest" \
+            --update-labels      "managed-by=github-actions,commit-sha=${{ github.sha }}"
+
+  # ── Build + deploy Dashboard ────────────────────────────────────────────────
+  deploy-dashboard:
+    needs: changes
+    if: needs.changes.outputs.dashboard == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      IMAGE: us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sargapprepo/sargapp-dashboard
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-east1-docker.pkg.dev --quiet
+
+      - name: Warm Docker layer cache
+        run: docker pull "${{ env.IMAGE }}:latest" || true
 
       - name: Build Dashboard image
         run: |
           docker build \
+            --cache-from "${{ env.IMAGE }}:latest" \
             -f Dockerfile.dashboard \
-            -t ${{ env.DASH_IMAGE }}:${{ github.sha }} \
-            -t ${{ env.DASH_IMAGE }}:latest \
+            -t "${{ env.IMAGE }}:${{ github.sha }}" \
+            -t "${{ env.IMAGE }}:latest" \
             .
-
-      # ── 4. Push images ────────────────────────────────────────────────────
-      - name: Push API image
-        run: |
-          docker push ${{ env.API_IMAGE }}:${{ github.sha }}
-          docker push ${{ env.API_IMAGE }}:latest
 
       - name: Push Dashboard image
         run: |
-          docker push ${{ env.DASH_IMAGE }}:${{ github.sha }}
-          docker push ${{ env.DASH_IMAGE }}:latest
+          docker push "${{ env.IMAGE }}:${{ github.sha }}"
+          docker push "${{ env.IMAGE }}:latest"
 
-      # ── 5. Deploy API to Cloud Run ────────────────────────────────────────
-      - name: Deploy API
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          service: sargapp-api
-          image:   ${{ env.API_IMAGE }}:${{ github.sha }}
-          region:  ${{ env.REGION }}
-          flags: >-
-            --port=8000
-            --allow-unauthenticated
-            --min-instances=0
-            --max-instances=5
-            --memory=512Mi
-            --cpu=1
-          env_vars: |
-            API_BASE_URL=${{ secrets.API_BASE_URL }}
-          secrets: |
-            SUPABASE_URL=sargapp-supabase-url:latest
-            SUPABASE_KEY=sargapp-supabase-key:latest
-            TELEGRAM_BOT_TOKEN=sargapp-telegram-bot-token:latest
+      - name: Deploy Dashboard to Cloud Run
+        run: |
+          gcloud run deploy sargapp-dashboard \
+            --image     "${{ env.IMAGE }}:${{ github.sha }}" \
+            --region    "${{ secrets.GCP_REGION }}" \
+            --port      8501 \
+            --allow-unauthenticated \
+            --min-instances 0 \
+            --max-instances 3 \
+            --memory    1Gi \
+            --cpu       1 \
+            --update-env-vars  "API_BASE_URL=https://api.descubreplayas.com.do" \
+            --update-secrets   "SUPABASE_URL=sargapp-supabase-url:latest,SUPABASE_KEY=sargapp-supabase-key:latest" \
+            --update-labels    "managed-by=github-actions,commit-sha=${{ github.sha }}"
 
-      # ── 6. Deploy Dashboard to Cloud Run ──────────────────────────────────
-      - name: Deploy Dashboard
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          service: sargapp-dashboard
-          image:   ${{ env.DASH_IMAGE }}:${{ github.sha }}
-          region:  ${{ env.REGION }}
-          flags: >-
-            --port=8501
-            --allow-unauthenticated
-            --min-instances=0
-            --max-instances=3
-            --memory=1Gi
-            --cpu=1
-          env_vars: |
-            API_BASE_URL=https://api.descubreplayas.com.do
-          secrets: |
-            SUPABASE_URL=sargapp-supabase-url:latest
-            SUPABASE_KEY=sargapp-supabase-key:latest
-
-      # ── 7. Summary ────────────────────────────────────────────────────────
+  # ── Summary (always runs, even when one job is skipped) ─────────────────────
+  summary:
+    needs: [deploy-api, deploy-dashboard]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
       - name: Deployment summary
         run: |
-          echo "### Deployment complete ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- **API**: https://api.${{ secrets.CUSTOM_DOMAIN }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Dashboard**: https://${{ secrets.CUSTOM_DOMAIN }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment complete ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **API**: https://api.descubreplayas.com.do" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Dashboard**: https://descubreplayas.com.do" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit**: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
