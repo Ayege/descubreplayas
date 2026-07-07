@@ -135,6 +135,7 @@ _T = {
         "tip": "💡 Haz clic en un marcador para ver detalles",
         "risk_legend": "Riesgo de sargazo",
         "no_match": "Ninguna playa coincide con los filtros.",
+        "search_beach": "🔍 Buscar playa",
         "risk_none": "Sin riesgo",
         "risk_low": "Bajo",
         "risk_medium": "Medio",
@@ -199,6 +200,7 @@ _T = {
         "tip": "💡 Click a marker to see details",
         "risk_legend": "Sargassum risk",
         "no_match": "No beaches match the current filters.",
+        "search_beach": "🔍 Search beach",
         "risk_none": "None",
         "risk_low": "Low",
         "risk_medium": "Medium",
@@ -612,6 +614,18 @@ def _load_beaches() -> list[dict]:
 BEACHES = _load_beaches()
 
 # ---------------------------------------------------------------------------
+# Permalink — initialise selected_beach from ?beach=<name> query param so
+# users can share direct links to a specific beach (e.g. from Telegram alerts).
+# Only runs when selected_beach is not yet set to avoid overriding an in-session
+# map click.
+# ---------------------------------------------------------------------------
+_qp = st.query_params
+if "beach" in _qp and not st.session_state.get("selected_beach"):
+    _beach_from_url = _qp.get("beach", "")
+    if any(b["name"] == _beach_from_url for b in BEACHES):
+        st.session_state["selected_beach"] = _beach_from_url
+
+# ---------------------------------------------------------------------------
 # Language selector (top of sidebar)
 # ---------------------------------------------------------------------------
 with st.sidebar:
@@ -854,10 +868,14 @@ def _regional_current(lat: float, lon: float) -> tuple[float, float]:
     """Return climatological mean surface current (u_east, v_north) in m/s.
 
     Based on HYCOM/Copernicus reanalysis means for the Caribbean near
-    Hispaniola.  Four regimes cover the DR coastline:
+    Hispaniola.  Five regimes cover the DR coastline:
 
     East coast (lon > -69.5)
       North Equatorial Current is strongest here; typical ~0.22 m/s westward.
+    Samaná Peninsula (18.9–19.5 °N, -69.7–-68.8 °W)
+      Open Atlantic-facing shore sits in the NEC main stream; stronger than the
+      generic south/central default (~0.18 m/s vs ~0.13 m/s westward).
+      Previously this fell into the South/central bin and was under-estimated.
     North coast (lat > 19.4, lon < -70.0)
       NEC weakens; trade-wind-driven current; slight southward component.
     Southwest (lon < -70.5, lat < 19.0)
@@ -865,13 +883,15 @@ def _regional_current(lat: float, lon: float) -> tuple[float, float]:
     South / central (default)
       Moderate NEC branch; slight northward component.
     """
-    if lon > -69.5:                          # East (Punta Cana / La Romana / Saona)
+    if lon > -69.5:                                              # East coast
         return -0.22, -0.01
-    if lat > 19.4 and lon < -70.0:           # North (Puerto Plata / Cabarete / Samaná)
+    if 18.9 <= lat <= 19.5 and -69.7 <= lon <= -68.8:           # Samaná Peninsula
+        return -0.18,  0.01
+    if lat > 19.4 and lon < -70.0:                               # North coast
         return -0.12, -0.03
-    if lon < -70.5 and lat < 19.0:           # Southwest (Barahona / Pedernales)
+    if lon < -70.5 and lat < 19.0:                               # Southwest
         return -0.08,  0.01
-    return -0.13,  0.03                      # South / central default
+    return -0.13,  0.03                                          # South / central default
 
 
 @st.cache_data(ttl=3600)
@@ -910,19 +930,41 @@ def _effective_uv(lat: float, lon: float, wind_u: float, wind_v: float) -> tuple
 
 
 def _predict_position(lat: float, lon: float, hours: int,
-                      wind_u: float = 0.0, wind_v: float = 0.0) -> tuple[float, float]:
+                      wind_u: float = 0.0, wind_v: float = 0.0,
+                      _step_h: int = 24) -> tuple[float, float]:
     """Estimate mass centroid after `hours` of Lagrangian advection.
 
-    Uses the region-aware current at the START position.  For short horizons
-    (≤ 72 h) the single-point approximation is accurate to within ~5 km.
+    Uses iterative `_step_h`-hour Euler steps so the regional current is
+    re-evaluated at each checkpoint, preventing the large positional errors
+    that single-step integration produces for long horizons (> 24 h).
+
+    For the hourly caller in `_beach_eta_quick` (hours=1) the fast single-step
+    path is taken.  For ML extended mode (hours up to 504 h) iterating in
+    24-hour chunks re-computes the velocity at each waypoint, keeping the
+    trajectory inside the Caribbean rather than drifting off into the Atlantic.
     """
-    u_eff, v_eff = _effective_uv(lat, lon, wind_u, wind_v)
-    dt_sec = hours * 3600.0
-    new_lat = lat + (v_eff * dt_sec) / _DRIFT_METERS_PER_DEG
-    new_lon = lon + (u_eff * dt_sec) / (
-        _m_drift.cos(_m_drift.radians(lat)) * _DRIFT_METERS_PER_DEG
-    )
-    return new_lat, new_lon
+    if hours <= _step_h:
+        # Fast path — single-step Euler (used for 1-h calls in _beach_eta_quick)
+        u_eff, v_eff = _effective_uv(lat, lon, wind_u, wind_v)
+        dt_sec = hours * 3600.0
+        new_lat = lat + (v_eff * dt_sec) / _DRIFT_METERS_PER_DEG
+        new_lon = lon + (u_eff * dt_sec) / (
+            _m_drift.cos(_m_drift.radians(lat)) * _DRIFT_METERS_PER_DEG
+        )
+        return new_lat, new_lon
+    # Iterative path — re-evaluate velocity at every _step_h-hour waypoint.
+    cur_lat, cur_lon = lat, lon
+    remaining = hours
+    while remaining > 0:
+        h = min(_step_h, remaining)
+        u_eff, v_eff = _effective_uv(cur_lat, cur_lon, wind_u, wind_v)
+        dt_sec = h * 3600.0
+        cur_lat += (v_eff * dt_sec) / _DRIFT_METERS_PER_DEG
+        cur_lon += (u_eff * dt_sec) / (
+            _m_drift.cos(_m_drift.radians(cur_lat)) * _DRIFT_METERS_PER_DEG
+        )
+        remaining -= h
+    return cur_lat, cur_lon
 
 
 def _beach_eta_quick(beach: dict, masses: list[dict], max_hours: int = 72,
@@ -997,6 +1039,24 @@ def _beach_eta_quick(beach: dict, masses: list[dict], max_hours: int = 72,
     return best_eta
 
 
+def _recommend_beaches(beach: dict, all_beaches: list[dict], n: int = 3) -> list[dict]:
+    """Return up to n beaches in the same region ranked by shared activities.
+
+    Excludes the current beach itself and limits to the same coastal region so
+    the suggestions are geographically relevant.
+    """
+    acts = set(beach.get("activities") or [])
+    same_region = [
+        b for b in all_beaches
+        if b["name"] != beach["name"] and b["region"] == beach["region"]
+    ]
+    return sorted(
+        same_region,
+        key=lambda b: len(acts & set(b.get("activities") or [])),
+        reverse=True,
+    )[:n]
+
+
 # Populate wind once, after _fetch_wind_uv is defined.
 _WIND_UV = _fetch_wind_uv()
 
@@ -1017,6 +1077,10 @@ with st.sidebar:
         L["province"], _available_provinces, default=_valid_prev, key="province_filter"
     )
     st.session_state["sel_provinces_prev"] = sel_provinces
+    beach_search = st.text_input(
+        L["search_beach"], "", key="beach_search",
+        placeholder="Ej: Rincón, Sosúa, Bavaro…",
+    )
     sel_activities = st.multiselect(L["activity"], all_activities(), default=[])
     protected_only = st.checkbox(L["protected_only"], value=False)
     free_only = st.checkbox(L["free_only"], value=False)
@@ -1139,6 +1203,8 @@ def _matches(beach: dict) -> bool:
     if free_only and "free" not in beach["entrance_fee"].lower():
         return False
     if sel_month is not None and not beach_good_in_month(beach, sel_month):
+        return False
+    if beach_search and beach_search.strip().lower() not in beach["name"].lower():
         return False
     # Risk filter — compute this beach's current risk level and keep it only if
     # it matches one of the selected levels. A beach with no risk data (None)
@@ -1693,6 +1759,10 @@ def _select_beach_from_map_result(res: dict | None) -> None:
 
 _select_beach_from_map_result(map_result)
 
+# Sync selected beach back to the URL so the current view is shareable via link.
+if st.session_state.get("selected_beach"):
+    st.query_params["beach"] = st.session_state["selected_beach"]
+
 # ---------------------------------------------------------------------------
 # Legend — rendered in the Streamlit DOM (position:fixed) so it is NEVER
 # clipped by the Folium iframe viewport (bottom-left, always visible).
@@ -1899,6 +1969,32 @@ if _panel_beach:
     _desc_raw = _pb.get("description") or ""
     _desc = _desc_raw[:200] + ("…" if len(_desc_raw) > 200 else "")
 
+    # Recommendations — similar beaches in the same region (same activities).
+    _recs = _recommend_beaches(_pb, BEACHES)
+    if _recs:
+        _rec_items = ""
+        for _rec_b in _recs:
+            _rec_name = _rec_b["name"]
+            _rec_prov = _rec_b["province"]
+            _turtle_r = " 🐢" if _rec_b.get("protected_area") else ""
+            _rec_items += (
+                f"<a href='?beach={_rec_name}' style='display:block;"
+                f"background:rgba(0,180,130,.12);border:1px solid rgba(0,255,180,.18);"
+                f"border-radius:10px;padding:7px 10px;margin:4px 0;"
+                f"color:#b2ebf2;font-size:11px;font-weight:700;text-decoration:none'>"
+                f"🏖️ {_rec_name}{_turtle_r}"
+                f"<span style='color:#80cbc4;font-weight:400'> · {_rec_prov}</span></a>"
+            )
+        _recs_html = (
+            "<hr style='border:none;border-top:1px solid rgba(255,255,255,.13);margin:9px 0'>"
+            f"<div style='color:#80cbc4;font-size:10px;font-weight:700;"
+            f"text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px'>"
+            f"✨ {L['recommendations']}</div>"
+            + _rec_items
+        )
+    else:
+        _recs_html = ""
+
     _bubble = (
         "<div class='beach-detail'>"
         # Beach name + location
@@ -1929,7 +2025,8 @@ if _panel_beach:
         "border:1px solid rgba(0,255,180,.3);border-radius:25px;"
         "padding:9px;font-size:12px;font-weight:800;text-decoration:none'>"
         f"📍 {L['open_maps']} ↗</a>"
-        "</div>"
+        + _recs_html
+        + "</div>"
     )
     st.markdown(_bubble, unsafe_allow_html=True)
 

@@ -9,6 +9,8 @@ amenity/fee notes as local observations that can change.
 """
 from __future__ import annotations
 
+import re
+
 BEACH_FIELDS = (
     "name",
     "province",
@@ -1279,8 +1281,7 @@ def beach_good_in_month(beach: dict, month: int) -> bool:
         # Drop parenthetical notes like "(dry season)"
         seg = seg.split("(")[0].strip()
         # Split on en-dash variants and whitespace
-        import re as _re
-        parts = _re.split(r"[–\-—/to]+", seg)
+        parts = re.split(r"[–\-—/to]+", seg)
         month_nums = [_parse_month(p) for p in parts if _parse_month(p)]
         if len(month_nums) >= 2:
             if _month_in_range(month, month_nums[0], month_nums[1]):

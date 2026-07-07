@@ -56,9 +56,8 @@ def main() -> int:
     rows = [_row(b) for b in beaches_with_maps()]
 
     logger.info("Upserting %d beaches into Supabase...", len(rows))
-    result = sb.table("beaches").upsert(rows, on_conflict="name").execute()
-    inserted = result.data or []
-    logger.info("Done. %d beaches upserted.", len(inserted))
+    sb.table("beaches").upsert(rows, on_conflict="name", returning="minimal").execute()
+    logger.info("Done. %d beaches upserted.", len(rows))
     return 0
 
 

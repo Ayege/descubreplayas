@@ -12,9 +12,10 @@ where:
     v_eff = v_current + WIND_DRIFT_FACTOR * v_wind
     dt    = 3600 s
 
-WIND_DRIFT_FACTOR (default 0.015 = 1.5 %) comes from empirical studies of
+WIND_DRIFT_FACTOR (default 0.02 = 2.0 %) comes from empirical studies of
 surface biomass windage.  Sargassum sits mostly below the waterline, so its
-leeway is lower than a hollow buoy (~3 %) but non-negligible.  Tune via env var.
+leeway is lower than a hollow buoy (~3 %) but non-negligible; published values
+range 1.5–3 %.  Tune via the WIND_DRIFT_FACTOR env var (pipeline/config.py).
 """
 from __future__ import annotations
 
