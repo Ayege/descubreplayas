@@ -448,6 +448,8 @@ section[data-testid="stMain"],
     position: fixed; right: 16px; top: 60px;
     width: 295px; max-height: calc(100vh - 80px);
     overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; /* momentum scrolling on iOS */
+    overscroll-behavior: contain;      /* prevent scroll chaining to body */
     background: linear-gradient(160deg,#001f26 0%,#003540 30%,#005060 65%,#006878 100%);
     border-radius: 22px; padding: 18px 16px 16px;
     box-shadow: 0 12px 50px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.1);
@@ -483,8 +485,8 @@ section[data-testid="stMain"],
     [data-testid="stSidebar"] label,
     [data-testid="stSidebar"] .stMarkdown p { font-size: 13px !important; }
     .stIframe, [data-testid="stIFrame"] iframe {
-        height: 62vh !important;
-        min-height: 320px !important;
+        height: 57vh !important;
+        min-height: 280px !important;
     }
     .risk-banner { font-size: 12px; padding: 7px 10px; }
 
@@ -512,36 +514,60 @@ section[data-testid="stMain"],
         opacity: 1 !important;
     }
 
-    /* Detail panel → full-width bottom sheet, kept SMALLER than the map so the
-       map remains the dominant, usable area on phones. */
+    /* Detail panel → full-width bottom sheet.
+       43vh gives ~260px of content on a 600px phone while 57vh map stays dominant.
+       padding-top:22px clears the ::before drag-handle element. */
     .beach-detail {
         right: 0 !important; left: 0 !important;
         top: auto !important; bottom: 0 !important;
         width: 100% !important; max-width: 100% !important;
-        max-height: 36vh !important;
-        border-radius: 20px 20px 0 0 !important;
-        padding: 14px 16px 18px !important;
-        box-shadow: 0 -8px 40px rgba(0,0,0,.55) !important;
+        max-height: 43vh !important;
+        border-radius: 18px 18px 0 0 !important;
+        padding: 22px 16px 20px !important;
+        box-shadow: 0 -6px 32px rgba(0,0,0,.6) !important;
     }
-    /* Legend → top-RIGHT on mobile so it never collides with the sidebar
-       reopen button (top-left) or the bottom sheet. */
+    /* Drag-handle pill — positioned above the scrollable content so it never
+       scrolls away. position:absolute works because .beach-detail is position:fixed
+       (which creates a containing block for absolutely-positioned children). */
+    .beach-detail::before {
+        content: '';
+        position: absolute; top: 8px; left: 50%;
+        transform: translateX(-50%);
+        width: 40px; height: 4px;
+        background: rgba(255,255,255,.22);
+        border-radius: 2px;
+        pointer-events: none;
+    }
+    /* Legend → top-RIGHT; avoids the sidebar-reopen button (top-left) and
+       stays well above the bottom sheet. */
     .map-legend {
         top: 54px !important; bottom: auto !important;
         left: auto !important; right: 8px !important; transform: none !important;
-        max-height: 26vh !important; padding: 7px 11px !important;
+        max-height: 22vh !important; padding: 6px 10px !important;
         min-width: 0 !important; font-size: 11px;
+    }
+    /* Dim the map behind the open sidebar drawer (CSS :has, Chrome 105+,
+       Safari 15.4+, Firefox 121+). Older browsers silently ignore this rule. */
+    body:has([data-testid="stSidebar"]:not([aria-hidden="true"]))::before {
+        content: '';
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.42);
+        z-index: 999994;  /* just below the sidebar z-index: 999995 */
+        pointer-events: none;
     }
 }
 
-/* ── Very small screens ── */
+/* ── Very small screens (iPhone SE / Android compact) ── */
 @media (max-width: 480px) {
     [data-testid="stSidebar"] h1 { font-size: 1rem !important; }
     .stIframe, [data-testid="stIFrame"] iframe {
-        height: 60vh !important;
-        min-height: 300px !important;
+        height: 54vh !important;
+        min-height: 260px !important;
     }
-    .beach-detail { max-height: 36vh !important; padding: 12px 14px 16px !important; }
-    .map-legend { max-height: 20vh !important; }
+    /* On 480px screens keep the panel at 42vh; the extra 2vh vs 768px slightly
+       increases content visibility on the tallest compact phones (667px). */
+    .beach-detail { max-height: 42vh !important; padding: 22px 14px 18px !important; }
+    .map-legend { max-height: 18vh !important; font-size: 10px; }
 }
 
 /* ── Custom loading overlay — CSS-only auto-hide, no JS needed ──
@@ -1486,6 +1512,9 @@ if show_zones and zones:
 # ---------------------------------------------------------------------------
 # Detected sargassum masses — plotted as brown blobs sized by area.
 # ---------------------------------------------------------------------------
+# Initialised here so _show_drift_legend (below) is always safe, even when
+# show_masses=True but the API returns no detections.
+_drift_h: int = 0
 if show_masses:
     _masses = _cached_fetch_detections(API_BASE_URL)
     if _masses:
