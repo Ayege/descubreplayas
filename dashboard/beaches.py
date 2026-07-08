@@ -441,7 +441,6 @@ st.markdown("""
    controls inside it stay fully visible and tappable on every screen. */
 #MainMenu,
 footer,
-[data-testid="stToolbar"],
 [data-testid="stDecoration"],
 [data-testid="stDeployButton"],
 [data-testid="stStatusWidget"] {
@@ -450,6 +449,18 @@ footer,
     height: 0 !important;
     min-height: 0 !important;
     overflow: hidden !important;
+}
+
+/* Toolbar: DO NOT display:none — it hosts the expand-sidebar button
+   (stExpandSidebarButton), and a child of a display:none parent can never be
+   shown. Instead strip the toolbar's footprint and let clicks pass through to
+   the map; the unwanted chrome items above are hidden individually, and the
+   expand button is re-shown + repositioned as our floating "Filtros" control. */
+[data-testid="stToolbar"] {
+    background: transparent !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    pointer-events: none !important;
 }
 
 /* ── Kill the Streamlit "Made with Streamlit" loading splash ── */
@@ -496,19 +507,40 @@ header button {
 }
 
 /* The floating "reopen sidebar" button (shown when the drawer is collapsed):
-   make it an obvious, tappable teal pill above the map on every screen size. */
+   make it an obvious, tappable teal pill above the map on every screen size.
+   In Streamlit 1.58 this control is [data-testid="stExpandSidebarButton"]. */
+[data-testid="stExpandSidebarButton"],
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"] {
     position: fixed !important;
     top: 10px !important;
     left: 10px !important;
-    background: rgba(0,96,100,.92) !important;
-    border-radius: 10px !important;
-    padding: 4px 6px !important;
-    box-shadow: 0 2px 10px rgba(0,0,0,.3) !important;
+    display: flex !important;
+    align-items: center !important;
+    background: linear-gradient(135deg,rgba(0,96,100,.97),rgba(0,130,140,.97)) !important;
+    border-radius: 22px !important;
+    padding: 7px 16px !important;
+    box-shadow: 0 3px 14px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.18) !important;
+    backdrop-filter: blur(6px) !important;
 }
+/* Text label so the reveal button is self-explanatory on DESKTOP too (not just
+   mobile). Shows next to the » icon whenever the sidebar is collapsed. */
+[data-testid="stExpandSidebarButton"]::after,
+[data-testid="stSidebarCollapsedControl"]::after,
+[data-testid="collapsedControl"]::after {
+    content: 'Filtros';
+    color: #fff !important;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: .3px;
+    margin-left: 6px;
+    white-space: nowrap;
+}
+[data-testid="stExpandSidebarButton"] svg,
 [data-testid="stSidebarCollapsedControl"] svg,
 [data-testid="collapsedControl"] svg,
+[data-testid="stExpandSidebarButton"] button,
 [data-testid="stSidebarCollapsedControl"] button,
 [data-testid="collapsedControl"] button {
     color: #fff !important;
@@ -537,16 +569,68 @@ section[data-testid="stMain"],
     padding-top: 0 !important;
 }
 
+/* ── Kill the flex GAP on the main content vertical block ──
+   THIS is the real cause of the white bar at the top. Streamlit lays the main
+   column out as a flex container with a ~1rem `gap` between every child. The
+   page injects several invisible st.markdown() blocks (GA, meta, JSON-LD,
+   pretty-URL, <style>, and the #sarg-loader div) BEFORE the map. Even when
+   those children are 0px tall (scripts/styles are display:none by the UA, and
+   the loader is position:fixed), each one still contributes ONE flex gap, and
+   the stack of gaps adds up to a visible white band above the map.
+   Setting gap:0 on the MAIN block removes that band. The sidebar lives in a
+   separate block, so its spacing is unaffected. The only in-flow visual child
+   here is the map iframe; the detail panel & legend are position:fixed. */
+section[data-testid="stMain"] [data-testid="stVerticalBlock"],
+[data-testid="stMainBlockContainer"] [data-testid="stVerticalBlock"] {
+    gap: 0 !important;
+}
+
+/* ── Collapse technical containers (script / JSON-LD / style injections) ──
+   Streamlit renders every st.markdown() as an stElementContainer that still
+   occupies a vertical-block gap even when its only content is an invisible
+   <script> or <style> tag. That stacked gap is what pushes the map down and
+   leaves the white band on top. display:none removes them from flex layout
+   entirely (a hidden element contributes no gap), so the map hits the top.
+   NOTE: the #sarg-loader block is a plain <div> (no script/style) so it is
+   never matched here — and it is position:fixed anyway. */
+[data-testid="stElementContainer"]:has(> [data-testid="stMarkdown"] script),
+[data-testid="stElementContainer"]:has(> [data-testid="stMarkdown"] style),
+[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] script),
+[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] style),
+.element-container:has(script[type="application/ld+json"]) {
+    display: none !important;
+}
+
 /* ── App BG ── */
 .stApp { background: #f0fafa; overflow-x: hidden; }
 
-/* ── Map iframe: full viewport height on all screen sizes ── */
-.stIframe, [data-testid="stIFrame"] iframe {
+/* ── Map iframe: full viewport height on all screen sizes ──
+   streamlit-folium renders the map as a CUSTOM COMPONENT iframe
+   (data-testid="stCustomComponentV1"), NOT a plain stIFrame, so it must be
+   targeted explicitly or it stays stuck at its fixed 900px height and leaves a
+   background gap below the map on tall viewports. We also zero-out its wrapper
+   so nothing adds extra height around it. The inner Leaflet map is forced to
+   100% via a folium-side <style> injection (see m.get_root() below). */
+.stIframe,
+[data-testid="stIFrame"] iframe,
+[data-testid="stCustomComponentV1"],
+iframe[title="streamlit_folium.st_folium"] {
     height: calc(100vh - 4px) !important;
     min-height: 400px !important;
     width: 100% !important;
     border-radius: 0 !important;
     display: block !important;
+}
+/* The div wrapping the custom-component iframe must not reserve its own box. */
+[data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]),
+[data-testid="stElementContainer"]:has(> div > [data-testid="stCustomComponentV1"]) {
+    height: calc(100vh - 4px) !important;
+    line-height: 0 !important;
+}
+/* Streamlit's auto-resize anchor sits after the iframe and can add a sliver. */
+[data-testid="stAppIframeResizerAnchor"] {
+    display: none !important;
+    height: 0 !important;
 }
 
 /* ── Sidebar shell ── */
@@ -679,26 +763,43 @@ section[data-testid="stMain"],
     [data-testid="stSidebar"] h1 { font-size: 1.1rem !important; }
     [data-testid="stSidebar"] label,
     [data-testid="stSidebar"] .stMarkdown p { font-size: 13px !important; }
-    .stIframe, [data-testid="stIFrame"] iframe {
+    .stIframe,
+    [data-testid="stIFrame"] iframe,
+    [data-testid="stCustomComponentV1"],
+    iframe[title="streamlit_folium.st_folium"] {
         height: 57vh !important;
         min-height: 280px !important;
     }
+    [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]) {
+        height: 57vh !important;
+    }
     .risk-banner { font-size: 12px; padding: 7px 10px; }
 
-    /* Filter drawer: when open on mobile, overlay it ON TOP of the map as a
-       near-full-width sheet so the filters are readable and never squished
-       into a thin left column. Streamlit toggles its open/closed state; we
-       only control how it looks while open. */
-    [data-testid="stSidebar"][aria-expanded="true"],
-    [data-testid="stSidebar"]:not([aria-hidden="true"]) {
+    /* ── Filter drawer on mobile ──
+       The sidebar becomes a fixed overlay drawer. We take FULL control of the
+       hide/show with transform: Streamlit computes a negative margin from the
+       sidebar's NATURAL width, but we override that width, so its own maths
+       leaves a visible sliver at the edge. transform: translateX(-100%) on an
+       element with an explicit width guarantees it slides fully off-screen.
+       Default state is hidden; it slides in only when expanded. */
+    [data-testid="stSidebar"] {
         position: fixed !important;
         top: 0 !important;
         left: 0 !important;
         height: 100vh !important;
         width: min(86vw, 360px) !important;
         min-width: min(86vw, 360px) !important;
+        max-width: min(86vw, 360px) !important;
         z-index: 999995 !important;
         box-shadow: 6px 0 32px rgba(0,0,0,.45) !important;
+        transform: translateX(-100%) !important;   /* hidden by default */
+        transition: transform .3s ease !important;
+    }
+    /* Expanded state (Streamlit 1.58: the sidebar carries aria-expanded).
+       aria-expanded="true"  → drawer open  → slide fully into view.
+       aria-expanded="false" → collapsed     → base rule keeps it off-screen. */
+    [data-testid="stSidebar"][aria-expanded="true"] {
+        transform: translateX(0) !important;
     }
     /* Keep the sidebar's own collapse (×) button visible & tappable on mobile. */
     [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"],
@@ -743,7 +844,9 @@ section[data-testid="stMain"],
     }
     /* ── Mobile FAB: replace the global small top-left button with a centered
        teal pill that floats above the bottom detail sheet.
-       bottom:47vh sits 4vh clear above the 43vh-max panel. ── */
+       bottom:47vh sits 4vh clear above the 43vh-max panel.
+       Streamlit 1.58 reveal control = stExpandSidebarButton. ── */
+    [data-testid="stExpandSidebarButton"],
     [data-testid="stSidebarCollapsedControl"],
     [data-testid="collapsedControl"] {
         top: auto !important;
@@ -753,26 +856,38 @@ section[data-testid="stMain"],
         transform: translateX(-50%) !important;
         background: linear-gradient(135deg,rgba(0,96,100,.97),rgba(0,130,140,.97)) !important;
         border-radius: 40px !important;
-        padding: 11px 24px !important;
+        padding: 11px 22px !important;
         box-shadow: 0 4px 22px rgba(0,0,0,.55), 0 0 0 1.5px rgba(255,255,255,.2) !important;
         backdrop-filter: blur(8px) !important;
-        min-width: 110px !important;
+        min-width: 132px !important;
     }
-    /* Full-screen modal overlay — pointer-events:auto blocks all interaction
-       behind the open sidebar so the drawer feels truly modal. The sidebar
-       (z-index 999995) stays above the overlay (999994) so the ✕ close button
-       remains tappable. Chrome 105+, Safari 15.4+, Firefox 121+. */
-    body:has([data-testid="stSidebar"]:not([aria-hidden="true"]))::before {
+    /* Add a clear text label so the FAB obviously reveals the filters. */
+    [data-testid="stExpandSidebarButton"]::after,
+    [data-testid="stSidebarCollapsedControl"]::after,
+    [data-testid="collapsedControl"]::after {
+        content: 'Filtros';
+        color: #fff !important;
+        font-family: 'Nunito', sans-serif;
+        font-weight: 800;
+        font-size: 13px;
+        letter-spacing: .3px;
+        margin-left: 6px;
+        white-space: nowrap;
+    }
+    /* Full-screen modal backdrop — shown only while the drawer is OPEN
+       (aria-expanded="true" on the sidebar). pointer-events block interaction
+       with the map behind the drawer so it feels modal. The drawer (z-index
+       999995) stays above the backdrop (999994) so its ✕ close button remains
+       tappable. Chrome 105+, Safari 15.4+, Firefox 121+. */
+    body:has([data-testid="stSidebar"][aria-expanded="true"])::before {
         content: '';
         position: fixed; inset: 0;
         background: rgba(0,0,0,.58);
         z-index: 999994;
         pointer-events: auto;
     }
-    /* Hide the FAB while the sidebar is open — no "open" button needed when
-       the panel is already showing. Same :has() requirement as above. */
-    body:has([data-testid="stSidebar"]:not([aria-hidden="true"])) [data-testid="stSidebarCollapsedControl"],
-    body:has([data-testid="stSidebar"]:not([aria-hidden="true"])) [data-testid="collapsedControl"] {
+    /* Hide the reveal FAB while the drawer is open — no "open" button needed. */
+    body:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stExpandSidebarButton"] {
         display: none !important;
     }
 }
@@ -780,9 +895,15 @@ section[data-testid="stMain"],
 /* ── Very small screens (iPhone SE / Android compact) ── */
 @media (max-width: 480px) {
     [data-testid="stSidebar"] h1 { font-size: 1rem !important; }
-    .stIframe, [data-testid="stIFrame"] iframe {
+    .stIframe,
+    [data-testid="stIFrame"] iframe,
+    [data-testid="stCustomComponentV1"],
+    iframe[title="streamlit_folium.st_folium"] {
         height: 54vh !important;
         min-height: 260px !important;
+    }
+    [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]) {
+        height: 54vh !important;
     }
     /* On 480px screens keep the panel at 42vh; the extra 2vh vs 768px slightly
        increases content visibility on the tallest compact phones (667px). */
@@ -793,7 +914,7 @@ section[data-testid="stMain"],
 /* ── Custom loading overlay — CSS-only auto-hide, no JS needed ──
    Streamlit strips/sandboxes injected <script> tags so we rely on
    animation-delay + fill-mode instead of a MutationObserver. The
-   overlay fades out after ~4 s and pointer-events drop immediately
+   overlay fades out after ~8 s and pointer-events drop immediately
    so the map is never blocked even if the fade is still playing. */
 #sarg-loader {
     position: fixed; inset: 0; z-index: 9999999;
@@ -801,8 +922,8 @@ section[data-testid="stMain"],
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 20px;
-    /* fade out after 4 s, stay hidden afterwards */
-    animation: sarg-loader-hide .5s ease 4s forwards;
+    /* fade out after 8 s, stay hidden afterwards */
+    animation: sarg-loader-hide .5s ease 8s forwards;
 }
 /* pointer-events vanish as soon as the fade starts */
 #sarg-loader { pointer-events: auto; }
@@ -1502,6 +1623,20 @@ _ml_drift_mode = (_date_mode == "ml")  # drives mass styling + legend
 # Build Folium map
 # ---------------------------------------------------------------------------
 m = folium.Map(location=[19.0, -69.8], zoom_start=7, tiles="CartoDB Voyager")
+# Make the inner Leaflet map fill the full viewport height. st_folium renders
+# the map inside a FIXED-height (900px) folium Figure, so on tall/full screens a
+# blank strip appears below the map even after our CSS stretches the OUTER
+# iframe to 100vh. Forcing the map div itself to 100vh (which equals the window
+# height because the outer iframe is already 100vh) removes that strip.
+# IMPORTANT: only size the map — never reposition .leaflet-container
+# (position:absolute) because Leaflet caches container geometry at init and
+# blanks out if it is moved after load. Sizing before init is safe.
+m.get_root().header.add_child(folium.Element(
+    "<style>"
+    "html, body { height: 100%; margin: 0; padding: 0; }"
+    ".folium-map { height: 100vh !important; width: 100% !important; }"
+    "</style>"
+))
 cluster = MarkerCluster(
     options={"maxClusterRadius": 50, "disableClusteringAtZoom": 11}
 ).add_to(m)
