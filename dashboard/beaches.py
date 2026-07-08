@@ -73,14 +73,15 @@ if GA_MEASUREMENT_ID:
     )
 
 # ---------------------------------------------------------------------------
-# SEO — meta description, Open Graph, Twitter Card, JSON-LD structured data,
-# and html lang attribute. Injected before the i18n dict so Google's JS
-# renderer encounters them on the first execution pass.
+# SEO — meta tags, Open Graph, JSON-LD structured data
+# 
+# PRODUCTION (Docker): docker-entrypoint-dashboard.sh patches Streamlit's
+# index.html template at container startup, injecting canonical + core meta
+# tags into the server-rendered HTML so Googlebot sees them immediately.
 #
-# NOTE: Streamlit serves a minimal HTML shell on the first HTTP response;
-# meta tags below are injected into the rendered DOM.  Modern Googlebot
-# executes JavaScript and indexes these on its second (rendered) crawl pass.
-# For full static SEO, also deploy a landing-page HTML at the canonical URL.
+# DEV / FALLBACK: The JavaScript injection below adds the same tags to 
+# document.head after React hydrates. This ensures local `streamlit run` 
+# sessions also have SEO tags (though Google may not see them on first crawl).
 # ---------------------------------------------------------------------------
 import json as _json_mod
 

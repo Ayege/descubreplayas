@@ -18,6 +18,10 @@ COPY --from=builder /install /usr/local
 COPY dashboard/ dashboard/
 COPY pipeline/__init__.py pipeline/__init__.py
 COPY pipeline/config.py   pipeline/config.py
+COPY docker-entrypoint-dashboard.sh /entrypoint.sh
+
+# Make entrypoint executable
+RUN chmod +x /entrypoint.sh
 
 # Streamlit config: disable telemetry, enable headless mode for Cloud Run
 # Written with printf to avoid Docker heredoc parser misreading [section] headers.
@@ -28,10 +32,6 @@ RUN mkdir -p .streamlit && printf \
 ENV PORT=8501
 EXPOSE ${PORT}
 
-RUN useradd -m appuser && chown -R appuser /app
-USER appuser
-
-CMD ["sh", "-c", "streamlit run dashboard/beaches.py \
-        --server.port=${PORT} \
-        --server.address=0.0.0.0 \
-        --server.headless=true"]
+# Use custom entrypoint that injects SEO tags into Streamlit's index.html at startup
+# (Requires root to modify /usr/local/lib files; Cloud Run is already sandboxed)
+ENTRYPOINT ["/entrypoint.sh"]
