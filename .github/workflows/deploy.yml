@@ -11,6 +11,8 @@
 #   SUPABASE_KEY          — Supabase service-role key
 #   TELEGRAM_BOT_TOKEN    — Telegram bot token
 #   API_BASE_URL          — public URL of the API, e.g. https://api.descubreplayas.com.do
+#   APP_CANONICAL_URL     — canonical URL of the dashboard, e.g. https://descubreplayas.com.do
+#   GA_MEASUREMENT_ID     — Google Analytics 4 measurement ID (optional)
 #
 # The pipeline cron (pipeline.yml) is NOT changed here.
 
@@ -167,7 +169,7 @@ jobs:
             --max-instances 3 \
             --memory    1Gi \
             --cpu       1 \
-            --update-env-vars  "API_BASE_URL=https://api.descubreplayas.com.do,GA_MEASUREMENT_ID=${{ secrets.GA_MEASUREMENT_ID }}" \
+            --update-env-vars  "API_BASE_URL=https://api.descubreplayas.com.do,APP_CANONICAL_URL=${{ secrets.APP_CANONICAL_URL }},GA_MEASUREMENT_ID=${{ secrets.GA_MEASUREMENT_ID }}" \
             --update-secrets   "SUPABASE_URL=sargapp-supabase-url:latest,SUPABASE_KEY=sargapp-supabase-key:latest" \
             --update-labels    "managed-by=github-actions,commit-sha=${{ github.sha }}"
 

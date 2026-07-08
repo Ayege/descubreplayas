@@ -153,30 +153,64 @@ _json_ld = {
 }
 _json_ld_str = _json_mod.dumps(_json_ld, ensure_ascii=False)
 
-# Meta tags — f-string safe: none of the string values contain " or { }
+# Meta tags injected synchronously into <head> so Googlebot sees them immediately.
+# The script creates DOM elements and appends them to document.head before any
+# Streamlit rendering. This ensures canonical + OG tags are present in the
+# snapshot Google takes during its crawl (even before JS hydration completes).
 st.markdown(
-    f"""<meta http-equiv="content-language" content="es-DO">
-<meta name="description" content="{_DESC_ES} {_DESC_EN}">
-<meta name="keywords" content="{_KEYWORDS}">
-<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
-<meta name="author" content="Ayesha Yege">
-<meta name="geo.region" content="DO">
-<meta name="geo.placename" content="República Dominicana">
-<link rel="canonical" href="{_APP_URL}">
-<meta property="og:type" content="website">
-<meta property="og:url" content="{_APP_URL}">
-<meta property="og:title" content="Descubre Playas RD 🌴 — 56 Playas + Alertas de Sargazo">
-<meta property="og:description" content="{_DESC_ES}">
-<meta property="og:locale" content="es_DO">
-<meta property="og:locale:alternate" content="en_US">
-<meta property="og:site_name" content="Descubre Playas RD">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Descubre Playas RD — Alertas Sargazo Tiempo Real">
-<meta name="twitter:description" content="{_DESC_ES}">
-<script>document.documentElement.setAttribute('lang','es-DO');</script>""",
+    f"""<script>
+(function(){{
+  var head = document.head;
+  function addMeta(name, content, prop) {{
+    var meta = document.createElement('meta');
+    if (prop) meta.setAttribute('property', prop);
+    else if (name) meta.setAttribute('name', name);
+    if (content) meta.setAttribute('content', content);
+    head.appendChild(meta);
+  }}
+  function addLink(rel, href) {{
+    var link = document.createElement('link');
+    link.setAttribute('rel', rel);
+    link.setAttribute('href', href);
+    head.appendChild(link);
+  }}
+  
+  // Language & geo
+  document.documentElement.setAttribute('lang', 'es-DO');
+  addMeta('content-language', null); 
+  head.appendChild(Object.assign(document.createElement('meta'), {{
+    httpEquiv: 'content-language', content: 'es-DO'
+  }}));
+  
+  // Core SEO
+  addMeta('description', "{_DESC_ES} {_DESC_EN}");
+  addMeta('keywords', "{_KEYWORDS}");
+  addMeta('robots', 'index, follow, max-snippet:-1, max-image-preview:large');
+  addMeta('author', 'Ayesha Yege');
+  addMeta('geo.region', 'DO');
+  addMeta('geo.placename', 'República Dominicana');
+  
+  // CANONICAL — critical for Google Search Console
+  addLink('canonical', '{_APP_URL}');
+  
+  // Open Graph
+  addMeta(null, 'website', 'og:type');
+  addMeta(null, '{_APP_URL}', 'og:url');
+  addMeta(null, 'Descubre Playas RD 🌴 — 56 Playas + Alertas de Sargazo', 'og:title');
+  addMeta(null, "{_DESC_ES}", 'og:description');
+  addMeta(null, 'es_DO', 'og:locale');
+  addMeta(null, 'en_US', 'og:locale:alternate');
+  addMeta(null, 'Descubre Playas RD', 'og:site_name');
+  
+  // Twitter Card
+  addMeta('twitter:card', 'summary_large_image');
+  addMeta('twitter:title', 'Descubre Playas RD — Alertas Sargazo Tiempo Real');
+  addMeta('twitter:description', "{_DESC_ES}");
+}})();
+</script>""",
     unsafe_allow_html=True,
 )
-# JSON-LD in its own call to avoid f-string + JSON curly-brace conflicts.
+# JSON-LD in its own script tag (already valid JSON string from _json_ld_str above)
 st.markdown(
     "<script type='application/ld+json'>" + _json_ld_str + "</script>",
     unsafe_allow_html=True,
