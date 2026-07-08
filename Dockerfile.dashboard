@@ -19,6 +19,7 @@ COPY dashboard/ dashboard/
 COPY pipeline/__init__.py pipeline/__init__.py
 COPY pipeline/config.py   pipeline/config.py
 COPY docker-entrypoint-dashboard.sh /entrypoint.sh
+COPY static/ static/
 
 # Make entrypoint executable
 RUN chmod +x /entrypoint.sh

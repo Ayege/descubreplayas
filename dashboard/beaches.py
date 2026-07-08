@@ -27,6 +27,7 @@ from dashboard.beaches_data import (
     beaches_with_maps,
     provinces_for_regions,
     region_for_province,
+    BEACHES,
 )
 from dashboard.risk_overlay import (
     RISK_COLORS,
@@ -100,6 +101,24 @@ _KEYWORDS = (
     "Bahía de las Águilas, Playa Rincón, ecoturismo dominicano, DR beaches"
 )
 
+
+def _slugify(name: str) -> str:
+    import unicodedata as _ud
+
+    n = _ud.normalize("NFKD", name)
+    n = n.encode("ascii", "ignore").decode("ascii")
+    n = n.lower()
+    out = []
+    for ch in n:
+        if ch.isalnum():
+            out.append(ch)
+        else:
+            out.append("-")
+    s = "".join(out)
+    while "--" in s:
+        s = s.replace("--", "-")
+    return s.strip("-")
+
 # JSON-LD built as a Python dict so its curly braces never conflict with
 # f-string syntax. Injected in a separate st.markdown() call.
 _json_ld = {
@@ -136,22 +155,26 @@ _json_ld = {
             "@type": "ItemList",
             "name": "Playas de República Dominicana",
             "description": _DESC_ES,
-            "numberOfItems": 56,
-            "itemListElement": [
-                {"@type": "ListItem", "position": 1,  "name": "Playa Rincón",         "url": _APP_URL + "?beach=Playa+Rinc%C3%B3n"},
-                {"@type": "ListItem", "position": 2,  "name": "Bahía de las Águilas", "url": _APP_URL + "?beach=Bah%C3%ADa+de+las+%C3%81guilas"},
-                {"@type": "ListItem", "position": 3,  "name": "Playa Bávaro",          "url": _APP_URL + "?beach=Playa+B%C3%A1varo"},
-                {"@type": "ListItem", "position": 4,  "name": "Cabarete Beach",        "url": _APP_URL + "?beach=Cabarete+Beach"},
-                {"@type": "ListItem", "position": 5,  "name": "Playa Frontón",         "url": _APP_URL + "?beach=Playa+Front%C3%B3n"},
-                {"@type": "ListItem", "position": 6,  "name": "Cayo Levantado",        "url": _APP_URL + "?beach=Cayo+Levantado"},
-                {"@type": "ListItem", "position": 7,  "name": "Playa Sosúa",           "url": _APP_URL + "?beach=Playa+Sos%C3%BAa"},
-                {"@type": "ListItem", "position": 8,  "name": "Bayahibe Beach",        "url": _APP_URL + "?beach=Bayahibe+Beach"},
-                {"@type": "ListItem", "position": 9,  "name": "Kite Beach",            "url": _APP_URL + "?beach=Kite+Beach"},
-                {"@type": "ListItem", "position": 10, "name": "Playa Juanillo",        "url": _APP_URL + "?beach=Playa+Juanillo"},
-            ],
+            "numberOfItems": len(BEACHES),
+            "itemListElement": [],
         },
     ],
 }
+# Populate ItemList from BEACHES using pretty /beach/<slug> URLs
+try:
+    items = []
+    for i, b in enumerate(BEACHES):
+        name = b.get("name")
+        if not name:
+            continue
+        slug = _slugify(name)
+        url = _APP_URL.rstrip("/") + "/beach/" + slug
+        items.append({"@type": "ListItem", "position": i + 1, "name": name, "url": url})
+    _json_ld["@graph"][-1]["itemListElement"] = items
+    _json_ld["@graph"][-1]["numberOfItems"] = len(items)
+except Exception:
+    pass
+
 _json_ld_str = _json_mod.dumps(_json_ld, ensure_ascii=False)
 
 # Meta tags injected synchronously into <head> so Googlebot sees them immediately.
@@ -215,6 +238,33 @@ st.markdown(
 st.markdown(
     "<script type='application/ld+json'>" + _json_ld_str + "</script>",
     unsafe_allow_html=True,
+)
+
+# If the page was loaded with `?beach=Name`, restore a pretty path after
+# server-side processing so the visible URL is `/beach/<slug>` while the app
+# has been rendered using the query param. This keeps both server indexing
+# and user-visible pretty URLs working.
+st.markdown(
+        """
+<script>
+    (function(){
+        try {
+            var params = new URLSearchParams(window.location.search);
+            var beach = params.get('beach');
+            if (beach && !window.location.pathname.startsWith('/beach/')) {
+                // slugify in JS: ASCII-fallback, lower, replace non-alnum with '-'
+                var s = beach.normalize('NFKD').replace(/\p{Diacritic}/gu, '');
+                s = s.toLowerCase();
+                s = s.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                var pretty = '/beach/' + encodeURIComponent(s);
+                // Replace history so navigation stays on pretty path without reload
+                window.history.replaceState({}, document.title, pretty + window.location.hash);
+            }
+        } catch(e) { /* noop */ }
+    })();
+</script>
+""",
+        unsafe_allow_html=True,
 )
 
 # ---------------------------------------------------------------------------

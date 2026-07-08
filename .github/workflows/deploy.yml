@@ -40,6 +40,20 @@ jobs:
       dashboard: ${{ steps.diff.outputs.dashboard }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies (for sitemap generation)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate sitemap
+        run: |
+          python scripts/generate_sitemap.py
         with:
           fetch-depth: 2          # need parent commit for git diff
 

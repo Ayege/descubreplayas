@@ -27,7 +27,26 @@ perl -i -pe 'BEGIN{undef $/;} s|(<head>\s*)|$1
     <meta name="author" content="Ayesha Yege">
     <meta name="geo.region" content="DO">
     <meta name="geo.placename" content="República Dominicana">
-    <link rel="canonical" href="'"$CANONICAL_URL"'">
+    <base href="/">
+    <script>
+      // Insert per-request canonical based on the current URL so
+      // parameterized beach pages (e.g. ?beach=Playa+Rincon) can be
+      // indexed as distinct URLs. This runs early in <head>.
+      (function(){
+        try {
+          var c = document.createElement('link');
+          c.setAttribute('rel','canonical');
+          var u = location.origin + location.pathname + location.search;
+          c.setAttribute('href', u);
+          document.head.appendChild(c);
+          // Also update any existing og:url meta to reflect the pretty path
+          try {
+            var og = document.querySelector('meta[property="og:url"]');
+            if (og) og.setAttribute('content', u);
+          } catch(e){}
+        } catch(e) { /* noop */ }
+      })();
+    </script>
     <meta property="og:type" content="website">
     <meta property="og:url" content="'"$CANONICAL_URL"'">
     <meta property="og:title" content="Descubre Playas RD 🌴 — 56 Playas + Alertas de Sargazo">

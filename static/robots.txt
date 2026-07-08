@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://descubreplayas.com.do/static/sitemap.xml
