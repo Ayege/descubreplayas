@@ -73,6 +73,116 @@ if GA_MEASUREMENT_ID:
     )
 
 # ---------------------------------------------------------------------------
+# SEO — meta description, Open Graph, Twitter Card, JSON-LD structured data,
+# and html lang attribute. Injected before the i18n dict so Google's JS
+# renderer encounters them on the first execution pass.
+#
+# NOTE: Streamlit serves a minimal HTML shell on the first HTTP response;
+# meta tags below are injected into the rendered DOM.  Modern Googlebot
+# executes JavaScript and indexes these on its second (rendered) crawl pass.
+# For full static SEO, also deploy a landing-page HTML at the canonical URL.
+# ---------------------------------------------------------------------------
+import json as _json_mod
+
+_APP_URL = os.environ.get("APP_CANONICAL_URL", "https://descubreplayas.com.do")
+_DESC_ES = (
+    "Guía de 56 playas de República Dominicana con alertas de sargazo en tiempo "
+    "real, riesgo por playa, pronóstico de llegada, actividades y acceso."
+)
+_DESC_EN = (
+    "Guide to 56 Dominican Republic beaches with live sargassum risk forecast, "
+    "activities, access info and early-warning sargassum alerts."
+)
+_KEYWORDS = (
+    "playas República Dominicana, sargazo RD, alerta sargazo, Dominican Republic "
+    "beaches, sargassum alert, Punta Cana, Samáná, Puerto Plata, Barahona, "
+    "Bahía de las Águilas, Playa Rincón, ecoturismo dominicano, DR beaches"
+)
+
+# JSON-LD built as a Python dict so its curly braces never conflict with
+# f-string syntax. Injected in a separate st.markdown() call.
+_json_ld = {
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "WebApplication",
+            "name": "Descubre Playas RD",
+            "url": _APP_URL,
+            "description": _DESC_ES,
+            "applicationCategory": "TravelApplication",
+            "operatingSystem": "Web Browser",
+            "inLanguage": ["es-DO", "en"],
+            "author": {
+                "@type": "Person",
+                "name": "Ayesha Yege",
+                "url": "https://www.linkedin.com/in/ayesha-yege/",
+            },
+            "about": {
+                "@type": "Place",
+                "name": "República Dominicana",
+                "containedInPlace": {"@type": "Country", "name": "Dominican Republic"},
+            },
+            "featureList": [
+                "Alertas de sargazo en tiempo real — 56 playas RD",
+                "Pronóstico de llegada por playa (72 h física + ML extendido)",
+                "Filtros por región, provincia, actividad y riesgo",
+                "Masas de sargazo detectadas vía satélite Sentinel-2",
+                "Bilingüe español / inglés",
+            ],
+            "keywords": _KEYWORDS,
+        },
+        {
+            "@type": "ItemList",
+            "name": "Playas de República Dominicana",
+            "description": _DESC_ES,
+            "numberOfItems": 56,
+            "itemListElement": [
+                {"@type": "ListItem", "position": 1,  "name": "Playa Rincón",         "url": _APP_URL + "?beach=Playa+Rinc%C3%B3n"},
+                {"@type": "ListItem", "position": 2,  "name": "Bahía de las Águilas", "url": _APP_URL + "?beach=Bah%C3%ADa+de+las+%C3%81guilas"},
+                {"@type": "ListItem", "position": 3,  "name": "Playa Bávaro",          "url": _APP_URL + "?beach=Playa+B%C3%A1varo"},
+                {"@type": "ListItem", "position": 4,  "name": "Cabarete Beach",        "url": _APP_URL + "?beach=Cabarete+Beach"},
+                {"@type": "ListItem", "position": 5,  "name": "Playa Frontón",         "url": _APP_URL + "?beach=Playa+Front%C3%B3n"},
+                {"@type": "ListItem", "position": 6,  "name": "Cayo Levantado",        "url": _APP_URL + "?beach=Cayo+Levantado"},
+                {"@type": "ListItem", "position": 7,  "name": "Playa Sosúa",           "url": _APP_URL + "?beach=Playa+Sos%C3%BAa"},
+                {"@type": "ListItem", "position": 8,  "name": "Bayahibe Beach",        "url": _APP_URL + "?beach=Bayahibe+Beach"},
+                {"@type": "ListItem", "position": 9,  "name": "Kite Beach",            "url": _APP_URL + "?beach=Kite+Beach"},
+                {"@type": "ListItem", "position": 10, "name": "Playa Juanillo",        "url": _APP_URL + "?beach=Playa+Juanillo"},
+            ],
+        },
+    ],
+}
+_json_ld_str = _json_mod.dumps(_json_ld, ensure_ascii=False)
+
+# Meta tags — f-string safe: none of the string values contain " or { }
+st.markdown(
+    f"""<meta http-equiv="content-language" content="es-DO">
+<meta name="description" content="{_DESC_ES} {_DESC_EN}">
+<meta name="keywords" content="{_KEYWORDS}">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+<meta name="author" content="Ayesha Yege">
+<meta name="geo.region" content="DO">
+<meta name="geo.placename" content="República Dominicana">
+<link rel="canonical" href="{_APP_URL}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{_APP_URL}">
+<meta property="og:title" content="Descubre Playas RD 🌴 — 56 Playas + Alertas de Sargazo">
+<meta property="og:description" content="{_DESC_ES}">
+<meta property="og:locale" content="es_DO">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:site_name" content="Descubre Playas RD">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Descubre Playas RD — Alertas Sargazo Tiempo Real">
+<meta name="twitter:description" content="{_DESC_ES}">
+<script>document.documentElement.setAttribute('lang','es-DO');</script>""",
+    unsafe_allow_html=True,
+)
+# JSON-LD in its own call to avoid f-string + JSON curly-brace conflicts.
+st.markdown(
+    "<script type='application/ld+json'>" + _json_ld_str + "</script>",
+    unsafe_allow_html=True,
+)
+
+# ---------------------------------------------------------------------------
 # i18n — Español / English
 # ---------------------------------------------------------------------------
 _T = {
@@ -546,14 +656,39 @@ section[data-testid="stMain"],
         max-height: 22vh !important; padding: 6px 10px !important;
         min-width: 0 !important; font-size: 11px;
     }
-    /* Dim the map behind the open sidebar drawer (CSS :has, Chrome 105+,
-       Safari 15.4+, Firefox 121+). Older browsers silently ignore this rule. */
+    /* ── Mobile FAB: replace the global small top-left button with a centered
+       teal pill that floats above the bottom detail sheet.
+       bottom:47vh sits 4vh clear above the 43vh-max panel. ── */
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"] {
+        top: auto !important;
+        left: 50% !important;
+        right: auto !important;
+        bottom: 47vh !important;
+        transform: translateX(-50%) !important;
+        background: linear-gradient(135deg,rgba(0,96,100,.97),rgba(0,130,140,.97)) !important;
+        border-radius: 40px !important;
+        padding: 11px 24px !important;
+        box-shadow: 0 4px 22px rgba(0,0,0,.55), 0 0 0 1.5px rgba(255,255,255,.2) !important;
+        backdrop-filter: blur(8px) !important;
+        min-width: 110px !important;
+    }
+    /* Full-screen modal overlay — pointer-events:auto blocks all interaction
+       behind the open sidebar so the drawer feels truly modal. The sidebar
+       (z-index 999995) stays above the overlay (999994) so the ✕ close button
+       remains tappable. Chrome 105+, Safari 15.4+, Firefox 121+. */
     body:has([data-testid="stSidebar"]:not([aria-hidden="true"]))::before {
         content: '';
         position: fixed; inset: 0;
-        background: rgba(0,0,0,.42);
-        z-index: 999994;  /* just below the sidebar z-index: 999995 */
-        pointer-events: none;
+        background: rgba(0,0,0,.58);
+        z-index: 999994;
+        pointer-events: auto;
+    }
+    /* Hide the FAB while the sidebar is open — no "open" button needed when
+       the panel is already showing. Same :has() requirement as above. */
+    body:has([data-testid="stSidebar"]:not([aria-hidden="true"])) [data-testid="stSidebarCollapsedControl"],
+    body:has([data-testid="stSidebar"]:not([aria-hidden="true"])) [data-testid="collapsedControl"] {
+        display: none !important;
     }
 }
 
