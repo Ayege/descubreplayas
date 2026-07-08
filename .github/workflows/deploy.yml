@@ -40,6 +40,8 @@ jobs:
       dashboard: ${{ steps.diff.outputs.dashboard }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2          # need parent commit for git diff
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -54,8 +56,6 @@ jobs:
       - name: Generate sitemap
         run: |
           python scripts/generate_sitemap.py
-        with:
-          fetch-depth: 2          # need parent commit for git diff
 
       - id: diff
         run: |
