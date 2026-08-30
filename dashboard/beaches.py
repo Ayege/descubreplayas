@@ -602,7 +602,14 @@ section[data-testid="stMain"] [data-testid="stVerticalBlock"],
 }
 
 /* ── App BG ── */
-.stApp { background: #f0fafa; overflow-x: hidden; }
+.stApp {
+    background: #f0fafa;
+    overflow-x: hidden;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow-y: hidden !important;
+}
+html, body { height: 100vh; overflow: hidden; }
 
 /* ── Map iframe: full viewport height on all screen sizes ──
    streamlit-folium renders the map as a CUSTOM COMPONENT iframe
