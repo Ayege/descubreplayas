@@ -97,7 +97,7 @@ with st.sidebar:
 # Folium map — DR coast centred
 # ---------------------------------------------------------------------------
 
-m = folium.Map(location=[19.0, -69.9], zoom_start=7, tiles="CartoDB positron")
+m = folium.Map(location=[19.0, -69.9], zoom_start=7, tiles="OpenStreetMap")
 
 for zone in zones:
     zid = zone["id"]

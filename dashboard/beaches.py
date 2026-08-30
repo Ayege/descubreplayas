@@ -1622,7 +1622,7 @@ _ml_drift_mode = (_date_mode == "ml")  # drives mass styling + legend
 # ---------------------------------------------------------------------------
 # Build Folium map
 # ---------------------------------------------------------------------------
-m = folium.Map(location=[19.0, -69.8], zoom_start=7, tiles="CartoDB Voyager")
+m = folium.Map(location=[19.0, -69.8], zoom_start=7, tiles="OpenStreetMap")
 # Make the inner Leaflet map fill the full viewport height. st_folium renders
 # the map inside a FIXED-height (900px) folium Figure, so on tall/full screens a
 # blank strip appears below the map even after our CSS stretches the OUTER
