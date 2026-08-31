@@ -6,6 +6,14 @@ Detects floating sargassum from satellite imagery, models its drift with ocean c
 Also ships a tourist **beach explorer** — 56 DR beaches with live sargassum risk, per-beach arrival time estimates, activities, wildlife, parking, and Google Maps links.
 An ML extended forecast layer adds 7 / 14 / 21-day outlooks that bridge the gap between the 72-hour physics drift model and monthly seasonal climatology.
 
+<p align="center">
+  <img src="docs/media/hero.png" alt="Beach explorer — national map with detected sargassum masses and the Playa Rincón detail panel" width="100%">
+</p>
+
+<p align="center">
+  <em>Detected sargassum masses (brown) drifting across the DR EEZ, monitoring zones (dashed), and per-beach risk with arrival ETA.</em>
+</p>
+
 ---
 
 ## Quick start (5 minutes to a running dashboard)
@@ -38,6 +46,11 @@ streamlit run dashboard/beaches.py
 ```
 
 Open http://localhost:8501 — you'll see the interactive tropical map with 56 DR beaches.
+
+> **To see detected sargassum on the map, the API has to be running too.** The
+> explorer reads masses from `GET /detections`, so with `API_BASE_URL` pointing
+> at a host that is down the map shows beaches but no sargassum. Start the API
+> (below) in a second terminal and reload.
 
 ### Also run the API and risk map
 
@@ -130,7 +143,8 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `pipeline/config.py`        | EEZ bbox, zones, thresholds, ML settings — all from env vars            |
 | `api/`                      | FastAPI: health, zones, forecasts, extended forecasts, beaches, Telegram |
 | `dashboard/beaches.py`      | Streamlit beach explorer (tropical UI, bilingual ES/EN)                  |
-| `dashboard/beaches_data.py` | 56-beach offline dataset                                                 |
+| `dashboard/beaches_data.py` | 56-beach offline dataset (canonical, English — filters and API key on it) |
+| `dashboard/beaches_i18n.py` | Spanish display layer: 183 vocabulary terms + prose for all 56 beaches   |
 | `dashboard/climatology.py`  | Caribbean monthly risk index (seasonal fallback)                         |
 | `dashboard/risk_overlay.py` | Live risk fetch + nearest-zone mapping                                   |
 | `sql/schema.sql`            | PostGIS tables, seed zones (including La Romana), indexes, RLS policies  |
@@ -322,9 +336,33 @@ Results are stored in the `ml_forecasts` table and served at `GET /forecast/exte
 
 ## Beach explorer features
 
+<p align="center">
+  <img src="docs/media/demo.gif" alt="Picking a beach from the sidebar, the map flying to it, zooming in, and the whole UI plus beach data switching to English" width="100%">
+</p>
+
+<p align="center">
+  <em>Type to find a beach → the map flies to it → zoom in → switch language. Interface <strong>and</strong> beach data are fully bilingual.</em>
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/media/map-overview.png" alt="National view with no beach selected"></td>
+    <td width="50%"><img src="docs/media/beach-panel.png" alt="Beach detail panel showing sargassum risk, arrival ETA, season, access, activities and wildlife"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Opens on the national map — no card, nothing in the way.</em></td>
+    <td align="center"><em>Per-beach panel: live risk, arrival ETA, access, activities, wildlife.</em></td>
+  </tr>
+</table>
+
 The `dashboard/beaches.py` app provides an interactive tropical map with:
 
 - **56 DR beaches** catalogued with province, region, activities, wildlife, facilities, and Google Maps links.
+- **"Go to beach" picker** — type-ahead search over the current results; picking one flies the map to it and opens its panel, so you never have to hunt for a pin.
+- **Accent-insensitive search** — "Bavaro" finds *Playa Bávaro*, "Aguilas" finds *Bahía de las Águilas*. 13 of the 56 names carry an accent, and Streamlit's own fuzzy filter does not fold diacritics, so each affected option also shows its plain spelling.
+- **Auto-framing** — narrowing a filter (region, province, activity, risk) re-frames the map on what is left, computed in Web Mercator from the result set's bounds.
+- **Opens clean** — national map, no beach card. The panel appears only when you pick a beach, click a pin, or open a `?beach=…` link (which centres the map on it).
+- **Fully bilingual (ES/EN)** — not just the interface: every beach description, access note, ecosystem, activity, species and facility is translated. 183 vocabulary terms plus per-beach prose live in `dashboard/beaches_i18n.py`; `beaches_data.py` stays English because the filters, the API and the Supabase seeder all key on it.
 - **Live risk badges** on each beach pin (none / low / medium / high) derived from the nearest monitoring zone's latest forecast.
 - **Per-beach arrival ETA** — direction-aware estimate of when the nearest approaching mass will reach the beach:
   - Only masses whose drift vector points *toward* the beach (dot product > 0.005 m/s approach speed) are considered.
@@ -339,6 +377,14 @@ The `dashboard/beaches.py` app provides an interactive tropical map with:
 - **Live wind** from Open-Meteo (free, no key required), cached 1 hour via `@st.cache_data`.
 - **Custom loading spinner** (pure CSS, no JavaScript) replaces the Streamlit branding splash screen.
 
+<p align="center">
+  <img src="docs/media/sidebar.png" alt="Sidebar with the go-to-beach picker on top and the filter, layers and prediction-method sections collapsed below" width="320">
+</p>
+
+<p align="center">
+  <em>Sidebar: the primary action sits on top; filters, map layers and forecast settings stay collapsed until needed.</em>
+</p>
+
 ---
 
 ## Development notes
@@ -349,6 +395,11 @@ The `dashboard/beaches.py` app provides an interactive tropical map with:
 - The `streamlit-folium` component is pinned at `0.27.2` — upgrading may break the map component asset loading behind custom-domain reverse proxies
 - `.streamlit/config.toml` disables Streamlit's XSRF and CORS checks so the folium iframe loads correctly on `descubreplayas.com.do`
 - Maps use **OpenStreetMap tiles** (free, no API key required). CartoDB tiles required an API key after their free-tier policy changed in 2023–2024.
+- **No sargassum on the map usually means the API is not running.** The explorer reads masses from `GET /detections`; with `API_BASE_URL` pointing at a dead host the call returns `[]` and the map draws beaches only. Start `uvicorn api.main:app` alongside the dashboard.
+- **Streamlit strips `<script>` from `st.markdown`.** Anything that must execute in the page has to go through `st.components.v1.html`, which renders a real same-origin iframe and can reach `window.parent.document` — that is how `_inject_head()` installs `<html lang>` and the meta tags. Inert `<script type="application/ld+json">` is the exception: it survives, which is why the JSON-LD block still works.
+- **SEO tags have two sources.** `docker-entrypoint-dashboard.sh` patches Streamlit's `index.html` at container start, so crawlers get them in the first HTTP response; `_inject_head()` then keeps `lang`, `og:locale` and the description in step with the language toggle for the visitor.
+- **CSS that targets the folium map must match `iframe[title="streamlit_folium.st_folium"]`**, not `[data-testid="stCustomComponentV1"]` — the latter is on *every* custom component, including the zero-height SEO helper, which would then be stretched to `100vh`.
+- streamlit-folium renders the map into its own `#map_div` (not folium's `.folium-map`) and sets an inline pixel height on it from the `height=` argument, so the map is sized by an `!important` rule injected into the iframe's `<head>`.
 
 ---
 
@@ -446,3 +497,33 @@ done
 ```
 
 `pipeline/run.py` would need a `--backfill-date` flag that overrides `dt.date.today()` in Steps 1–3.
+
+---
+
+## License
+
+Released under the **[MIT License](LICENSE)** — © 2026 Ayesha Yege.
+
+You are free to use, copy, modify, merge, publish, distribute, sublicense and
+sell copies of this software, including commercially. The only condition is
+that the copyright notice and the permission notice stay in any copy or
+substantial portion of it. The software is provided "as is", without warranty
+of any kind.
+
+### A note on the data
+
+The code is MIT. The data it moves is not all ours, and each source carries its
+own terms — check them before redistributing derived datasets:
+
+| Source | Used for | Terms |
+| --- | --- | --- |
+| **Copernicus Sentinel-2** (ESA) | Sargassum detection imagery | Free and open, attribution required |
+| **Copernicus Marine Service** | Ocean currents (`uo`, `vo`) | Free with registration; cite the product |
+| **Open-Meteo** | 10 m wind | Free for non-commercial use (CC BY 4.0) |
+| **OpenStreetMap** | Map tiles | © OpenStreetMap contributors, ODbL |
+| **Beach catalogue** (`dashboard/beaches_data.py`) | 56 DR beaches | Compiled from DR Ministry of Tourism guides, national-park data and travel references |
+
+Beach amenity, fee and access notes are local observations that change over
+time. Treat them as a starting point, not an authority — and do not rely on the
+sargassum forecast alone for safety-critical decisions; see
+[Limitations and known gaps](#limitations-and-known-gaps).

@@ -14,6 +14,7 @@ if __package__ is None:
 
 import folium
 import streamlit as st
+import streamlit.components.v1 as _components
 from dotenv import load_dotenv
 from folium.plugins import MarkerCluster
 from streamlit_folium import st_folium
@@ -39,6 +40,7 @@ from dashboard.risk_overlay import (
     risk_from_detections,
 )
 from dashboard.climatology import seasonal_index, seasonal_risk
+from dashboard.beaches_i18n import BEACH_TEXT_ES, TERMS_ES
 
 load_dotenv()
 
@@ -49,7 +51,10 @@ st.set_page_config(
     page_title="Descubre Playas RD",
     page_icon="🌴",
     layout="wide",
-    initial_sidebar_state="expanded",
+    # "auto" = shown on desktop, hidden on small screens. With "expanded" the
+    # drawer opened over the map on phones, so the app landed on a wall of
+    # filters instead of the map.
+    initial_sidebar_state="auto",
 )
 
 # ---------------------------------------------------------------------------
@@ -100,6 +105,35 @@ _KEYWORDS = (
     "beaches, sargassum alert, Punta Cana, Samáná, Puerto Plata, Barahona, "
     "Bahía de las Águilas, Playa Rincón, ecoturismo dominicano, DR beaches"
 )
+
+
+def _strip_accents(text: str) -> str:
+    """Drop diacritics, keeping case ("Bávaro" -> "Bavaro")."""
+    import unicodedata as _ud
+
+    return _ud.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+
+
+def _fold(text: str) -> str:
+    """Case- and accent-insensitive form, for matching.
+
+    People type "Bavaro", "Rincon", "Aguilas" — 13 of the 56 beach names carry
+    an accent, and an exact match would hide them.
+    """
+    return _strip_accents(text).lower()
+
+
+def _search_alias(name: str) -> str:
+    """Accent-free spelling of just the words that carry accents ("" if none).
+
+    Streamlit filters a selectbox on the text it DISPLAYS and its fuzzy match
+    does not fold diacritics, so the unaccented spelling has to be part of the
+    label for typing "Bavaro" to find "Playa Bávaro". Only the differing words
+    are kept, and their capitalisation is preserved, so the hint reads as a
+    name rather than as noise.
+    """
+    diff = [_strip_accents(w) for w in name.split() if _strip_accents(w) != w]
+    return " ".join(diff)
 
 
 def _slugify(name: str) -> str:
@@ -177,64 +211,80 @@ except Exception:
 
 _json_ld_str = _json_mod.dumps(_json_ld, ensure_ascii=False)
 
-# Meta tags injected synchronously into <head> so Googlebot sees them immediately.
-# The script creates DOM elements and appends them to document.head before any
-# Streamlit rendering. This ensures canonical + OG tags are present in the
-# snapshot Google takes during its crawl (even before JS hydration completes).
-st.markdown(
-    f"""<script>
-(function(){{
-  var head = document.head;
-  function addMeta(name, content, prop) {{
-    var meta = document.createElement('meta');
-    if (prop) meta.setAttribute('property', prop);
-    else if (name) meta.setAttribute('name', name);
-    if (content) meta.setAttribute('content', content);
-    head.appendChild(meta);
-  }}
-  function addLink(rel, href) {{
-    var link = document.createElement('link');
-    link.setAttribute('rel', rel);
-    link.setAttribute('href', href);
-    head.appendChild(link);
-  }}
-  
-  // Language & geo
-  document.documentElement.setAttribute('lang', 'es-DO');
-  addMeta('content-language', null); 
-  head.appendChild(Object.assign(document.createElement('meta'), {{
-    httpEquiv: 'content-language', content: 'es-DO'
-  }}));
-  
-  // Core SEO
-  addMeta('description', "{_DESC_ES} {_DESC_EN}");
-  addMeta('keywords', "{_KEYWORDS}");
-  addMeta('robots', 'index, follow, max-snippet:-1, max-image-preview:large');
-  addMeta('author', 'Ayesha Yege');
-  addMeta('geo.region', 'DO');
-  addMeta('geo.placename', 'República Dominicana');
-  
-  // CANONICAL — critical for Google Search Console
-  addLink('canonical', '{_APP_URL}');
-  
-  // Open Graph
-  addMeta(null, 'website', 'og:type');
-  addMeta(null, '{_APP_URL}', 'og:url');
-  addMeta(null, 'Descubre Playas RD 🌴 — 56 Playas + Alertas de Sargazo', 'og:title');
-  addMeta(null, "{_DESC_ES}", 'og:description');
-  addMeta(null, 'es_DO', 'og:locale');
-  addMeta(null, 'en_US', 'og:locale:alternate');
-  addMeta(null, 'Descubre Playas RD', 'og:site_name');
-  
-  // Twitter Card
-  addMeta('twitter:card', 'summary_large_image');
-  addMeta('twitter:title', 'Descubre Playas RD — Alertas Sargazo Tiempo Real');
-  addMeta('twitter:description', "{_DESC_ES}");
-}})();
-</script>""",
-    unsafe_allow_html=True,
-)
-# JSON-LD in its own script tag (already valid JSON string from _json_ld_str above)
+# NOTE: the meta tags used to be injected here with st.markdown("<script>…"),
+# which never worked — Streamlit sanitises <script> out of markdown, so no
+# description/canonical/og tag was ever added and <html lang> stayed at
+# Streamlit's default "en". They are now installed by _inject_head() further
+# down, which uses st.components.v1.html (a real same-origin iframe whose
+# script DOES run and can reach window.parent.document) and is called once the
+# language toggle has been read, so the tags match the language on screen.
+#
+# For CRAWLERS the authoritative source is docker-entrypoint-dashboard.sh: it
+# patches Streamlit's index.html at container start, so Googlebot gets the tags
+# in the initial HTTP response rather than after hydration.
+
+_OG_TITLE = "Descubre Playas RD 🌴 — 56 Playas + Alertas de Sargazo"
+_TW_TITLE = "Descubre Playas RD — Alertas Sargazo Tiempo Real"
+# BCP-47 for <html lang> and the Open Graph locale, per UI language.
+_HTML_LANG = {"es": "es-DO", "en": "en"}
+_OG_LOCALE = {"es": ("es_DO", "en_US"), "en": ("en_US", "es_DO")}
+
+
+def _inject_head(ui_lang: str) -> None:
+    """Install <html lang> + meta tags in the parent document for `ui_lang`.
+
+    Runs on every language switch. Each node it creates is stamped with
+    `data-sarg-seo` and the previous batch is removed first, so toggling
+    updates the tags instead of appending a second copy of each.
+    """
+    desc = _DESC_ES if ui_lang == "es" else _DESC_EN
+    locale, alt_locale = _OG_LOCALE[ui_lang]
+    cfg = {
+        "lang": _HTML_LANG[ui_lang],
+        "tags": [
+            {"name": "description", "content": desc},
+            {"name": "keywords", "content": _KEYWORDS},
+            {"name": "robots",
+             "content": "index, follow, max-snippet:-1, max-image-preview:large"},
+            {"name": "author", "content": "Ayesha Yege"},
+            {"name": "geo.region", "content": "DO"},
+            {"name": "geo.placename", "content": "República Dominicana"},
+            {"property": "og:type", "content": "website"},
+            {"property": "og:url", "content": _APP_URL},
+            {"property": "og:title", "content": _OG_TITLE},
+            {"property": "og:description", "content": desc},
+            {"property": "og:locale", "content": locale},
+            {"property": "og:locale:alternate", "content": alt_locale},
+            {"property": "og:site_name", "content": "Descubre Playas RD"},
+            {"name": "twitter:card", "content": "summary_large_image"},
+            {"name": "twitter:title", "content": _TW_TITLE},
+            {"name": "twitter:description", "content": desc},
+        ],
+    }
+    _components.html(
+        "<script>(function(){var cfg=" + _json_mod.dumps(cfg) + ";try{"
+        "var d=window.parent.document,l=window.parent.location;"
+        "d.documentElement.setAttribute('lang',cfg.lang);"
+        "d.querySelectorAll('[data-sarg-seo]').forEach(function(n){n.remove();});"
+        "cfg.tags.forEach(function(t){var m=d.createElement('meta');"
+        "if(t.property){m.setAttribute('property',t.property);}"
+        "else{m.setAttribute('name',t.name);}"
+        "m.setAttribute('content',t.content);m.setAttribute('data-sarg-seo','1');"
+        "d.head.appendChild(m);});"
+        # Canonical is built from the PARENT location (this iframe's own URL is
+        # about:srcdoc) so ?beach=… pages get their own canonical.
+        "var c=d.createElement('link');c.setAttribute('rel','canonical');"
+        "c.setAttribute('href',l.origin+l.pathname+l.search);"
+        "c.setAttribute('data-sarg-seo','1');d.head.appendChild(c);"
+        "}catch(e){/* detached or cross-origin: server-side tags still apply */}"
+        "})();</script>",
+        height=0,
+    )
+
+
+# JSON-LD in its own script tag. Unlike the block above this one DOES survive:
+# Streamlit strips executable <script>, but type="application/ld+json" is inert
+# data and is left in the DOM, where Google reads it.
 st.markdown(
     "<script type='application/ld+json'>" + _json_ld_str + "</script>",
     unsafe_allow_html=True,
@@ -274,7 +324,7 @@ _T = {
     "es": {
         "title": "🌴 Descubre Playas RD 🇩🇴",
         "subtitle": "Tu guía completa de playas de la República Dominicana — 56 playas con acceso, actividades, fauna, sargazo en tiempo real y más. Impulsando el ecoturismo responsable mediante un algoritmo propio que cruza datos geoespaciales de acceso y registros de biodiversidad para proteger las costas dominicanas.",
-        "filters_header": "Filtrar Playas",
+        "filters_header": "🔎 Filtrar playas",
         "region": "Región",
         "province": "Provincia",
         "activity": "Actividad",
@@ -331,6 +381,23 @@ _T = {
         "risk_legend": "Riesgo de sargazo",
         "no_match": "Ninguna playa coincide con los filtros.",
         "search_beach": "🔍 Buscar playa",
+        "search_placeholder": "Ej: Rincón, Sosúa, Bávaro…",
+        "choose_options": "Elige opciones",
+        "all_regions": "Todas las regiones",
+        "all_provinces": "Todas las provincias",
+        "layers_header": "🌊 Capas y pronóstico",
+        "goto_beach": "📍 Ir a la playa",
+        "goto_help": "Elige una playa y el mapa vuela hasta ella.",
+        "goto_placeholder": "Elige una playa…",
+        "zoom_here": "🔍 Acercar a esta playa",
+        "popup_sargassum": "Sargazo",
+        "popup_no_data": "sin datos",
+        "popup_nearby": "⚠️ Sargazo ya cerca",
+        "popup_eta": "⏱️ Llegada estimada",
+        "mass_ml_route": "Ruta especulativa ML",
+        "mass_ml_pos": "Sargazo especulativo",
+        "mass_route": "Ruta estimada",
+        "mass_estimated": "estimado",
         "risk_none": "Sin riesgo",
         "risk_low": "Bajo",
         "risk_medium": "Medio",
@@ -339,7 +406,7 @@ _T = {
     "en": {
         "title": "🌴 Discover DR Beaches",
         "subtitle": "Your complete guide to Dominican Republic beaches — 56 beaches with access info, activities, wildlife, live sargassum risk & more",
-        "filters_header": "🔎 Filter Beaches",
+        "filters_header": "🔎 Filter beaches",
         "region": "Region",
         "province": "Province",
         "activity": "Activity",
@@ -374,18 +441,18 @@ _T = {
         "seasonal_advisory": "Estimate based on the Caribbean's typical annual cycle for this month and coast. Not an exact forecast.",
         "results": "{n} of {total} beaches",
         "select_beach": "📍 Select a beach",
-        "best_time": "🗓️ Best time",
-        "access": "🚪 Access",
-        "entrance": "🎟️ Entrance",
-        "parking": "🅿️ Parking",
+        "best_time": "Best time",
+        "access": "Access",
+        "entrance": "Entrance",
+        "parking": "Parking",
         "yes": "Yes",
         "no_limited": "No / limited",
-        "water": "🌊 Water",
-        "activities": "🏄 Activities",
-        "wildlife": "🐠 Wildlife",
-        "facilities": "🏗️ Facilities",
-        "ecosystem": "🌿 Ecosystem",
-        "open_maps": "📍 Google Maps",
+        "water": "Water",
+        "activities": "Activities",
+        "wildlife": "Wildlife",
+        "facilities": "Facilities",
+        "ecosystem": "Ecosystem",
+        "open_maps": "Google Maps",
         "risk_header": "🌊 Sargassum Risk",
         "risk_unavail": "No data (API offline)",
         "nearest_zone": "nearest zone",
@@ -396,6 +463,23 @@ _T = {
         "risk_legend": "Sargassum risk",
         "no_match": "No beaches match the current filters.",
         "search_beach": "🔍 Search beach",
+        "search_placeholder": "e.g. Rincón, Sosúa, Bávaro…",
+        "choose_options": "Choose options",
+        "all_regions": "All regions",
+        "all_provinces": "All provinces",
+        "layers_header": "🌊 Layers & forecast",
+        "goto_beach": "📍 Go to beach",
+        "goto_help": "Pick a beach and the map flies straight to it.",
+        "goto_placeholder": "Choose a beach…",
+        "zoom_here": "🔍 Zoom to this beach",
+        "popup_sargassum": "Sargassum",
+        "popup_no_data": "no data",
+        "popup_nearby": "⚠️ Sargassum already nearby",
+        "popup_eta": "⏱️ ETA",
+        "mass_ml_route": "ML speculative route",
+        "mass_ml_pos": "Speculative sargassum",
+        "mass_route": "Estimated route",
+        "mass_estimated": "estimated",
         "risk_none": "None",
         "risk_low": "Low",
         "risk_medium": "Medium",
@@ -443,6 +527,8 @@ st.markdown("""
 footer,
 [data-testid="stDecoration"],
 [data-testid="stDeployButton"],
+[data-testid="stAppDeployButton"],   /* 1.58 renamed it; the old id alone let
+                                        the word "Deploy" leak over the map */
 [data-testid="stStatusWidget"] {
     display: none !important;
     visibility: hidden !important;
@@ -612,26 +698,34 @@ section[data-testid="stMain"] [data-testid="stVerticalBlock"],
 html, body { height: 100vh; overflow: hidden; }
 
 /* ── Map iframe: full viewport height on all screen sizes ──
-   streamlit-folium renders the map as a CUSTOM COMPONENT iframe
-   (data-testid="stCustomComponentV1"), NOT a plain stIFrame, so it must be
-   targeted explicitly or it stays stuck at its fixed 900px height and leaves a
-   background gap below the map on tall viewports. We also zero-out its wrapper
-   so nothing adds extra height around it. The inner Leaflet map is forced to
-   100% via a folium-side <style> injection (see m.get_root() below). */
+   streamlit-folium renders the map as a CUSTOM COMPONENT iframe, NOT a plain
+   stIFrame, so it must be targeted explicitly or it stays stuck at its fixed
+   900px height and leaves a background gap below the map on tall viewports.
+   We also zero-out its wrapper so nothing adds extra height around it. The
+   inner Leaflet map is forced to 100% via a folium-side <style> injection
+   (see m.get_root() below).
+   MATCH ON title, NOT on data-testid="stCustomComponentV1": that testid is on
+   EVERY custom component, so it would also stretch the zero-height SEO helper
+   iframe (see _inject_head) to 100vh. The title is unique to the map.
+   Full 100vh (not 100vh-4px): html/body/.stApp are height:100vh + overflow
+   hidden, so an exact-height iframe cannot produce a scrollbar, and the 4px
+   slack was itself a visible strip of page background under the map. */
 .stIframe,
 [data-testid="stIFrame"] iframe,
-[data-testid="stCustomComponentV1"],
 iframe[title="streamlit_folium.st_folium"] {
-    height: calc(100vh - 4px) !important;
+    height: 100vh !important;
     min-height: 400px !important;
     width: 100% !important;
     border-radius: 0 !important;
     display: block !important;
+    vertical-align: bottom !important;   /* no inline-baseline gap under it */
 }
-/* The div wrapping the custom-component iframe must not reserve its own box. */
+/* The div wrapping the custom-component iframe must not reserve its own box.
+   The iframe's DOM parent is an unlabelled <div> inside stElementContainer,
+   so both the container AND that div are zeroed to the same height. */
 [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]),
-[data-testid="stElementContainer"]:has(> div > [data-testid="stCustomComponentV1"]) {
-    height: calc(100vh - 4px) !important;
+[data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]) > div {
+    height: 100vh !important;
     line-height: 0 !important;
 }
 /* Streamlit's auto-resize anchor sits after the iframe and can add a sliver. */
@@ -678,6 +772,70 @@ iframe[title="streamlit_folium.st_folium"] {
     font-size: clamp(0.8rem, 1.8vw, 0.95rem) !important;
 }
 [data-testid="stSidebar"] hr { border-color: rgba(255,255,255,.18) !important; margin: 8px 0 !important; }
+
+/* ── Sidebar text inputs ──
+   The global `[data-testid="stSidebar"] *` rule recolours text but NOT the
+   caret, which Streamlit leaves at its default dark grey (rgb(49,51,63)) —
+   invisible against these dark teal fields, so you cannot see where you are
+   typing. Colour the caret and the placeholder explicitly.
+   The dropdown list itself is portalled OUTSIDE the sidebar, so it keeps
+   Streamlit's dark-on-white styling and needs nothing here. */
+[data-testid="stSidebar"] input,
+[data-testid="stSidebar"] textarea {
+    caret-color: #4dd0e1 !important;
+    color: #ffffff !important;
+}
+[data-testid="stSidebar"] input::placeholder,
+[data-testid="stSidebar"] textarea::placeholder {
+    color: rgba(224,247,250,.65) !important;
+    opacity: 1 !important;      /* Firefox dims placeholders by default */
+}
+
+/* ── Sidebar expanders ──
+   Streamlit's own expander colours assume its default background. Over this
+   teal gradient the header could come out light while `[data-testid="stSidebar"] *`
+   still forces pale text on it, leaving the label unreadable. Every state is
+   painted explicitly here — idle, hover, focus, keyboard focus, active and
+   open — so no Streamlit default (or transition frame) can flash a light
+   background under pale text. Backgrounds are translucent WHITE over the
+   gradient, which keeps them dark enough for the pale text in all cases. */
+[data-testid="stSidebar"] [data-testid="stExpander"] details,
+[data-testid="stSidebar"] [data-testid="stExpander"] {
+    background: transparent !important;
+    border: none !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+    background: rgba(255,255,255,.10) !important;
+    border: 1px solid rgba(255,255,255,.20) !important;
+    border-radius: 10px !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover,
+[data-testid="stSidebar"] [data-testid="stExpander"] summary:focus,
+[data-testid="stSidebar"] [data-testid="stExpander"] summary:focus-visible,
+[data-testid="stSidebar"] [data-testid="stExpander"] summary:active,
+[data-testid="stSidebar"] [data-testid="stExpander"] details[open] > summary {
+    /* Only a slight lift: the sidebar gradient is already light at the bottom,
+       and a stronger white overlay dropped the lowest expander to a 4.12
+       contrast ratio against its white label. The brighter border carries the
+       state change instead. */
+    background: rgba(255,255,255,.14) !important;
+    border-color: rgba(255,255,255,.55) !important;
+    color: #ffffff !important;
+}
+/* The label sits in nested spans/divs; colour them too or they keep the
+   inherited pale tone against the lighter hover background. */
+[data-testid="stSidebar"] [data-testid="stExpander"] summary *,
+[data-testid="stSidebar"] [data-testid="stExpander"] summary svg {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+}
+/* Body of an open expander — slightly inset from the header. */
+[data-testid="stSidebar"] [data-testid="stExpander"] details[open] > div {
+    background: rgba(0,0,0,.10) !important;
+    border-radius: 0 0 10px 10px !important;
+}
 
 /* ── Sidebar inputs ── */
 [data-testid="stSidebar"] [data-testid="stMultiSelect"] > div > div,
@@ -742,6 +900,29 @@ iframe[title="streamlit_folium.st_folium"] {
     font-family: 'Nunito', sans-serif; z-index: 99999; color: #e0f7fa;
 }
 
+/* ── SEO helper iframe (see _inject_head) ──
+   It only exists to run a script against the parent document. Collapsed to a
+   zero-size absolute box rather than display:none, so the browser is certain
+   to load the frame and execute it. */
+.st-key-seo_head {
+    position: absolute !important;
+    width: 0 !important; height: 0 !important;
+    overflow: hidden !important; border: 0 !important;
+    visibility: hidden !important;
+}
+
+/* ── Sidebar zoom button (sits under the "go to beach" picker) ── */
+.st-key-beach_zoom_btn button {
+    background: rgba(0,255,180,.10) !important;
+    border: 1px solid rgba(0,255,180,.30) !important;
+    border-radius: 20px !important;
+    padding: 5px 12px !important;
+}
+.st-key-beach_zoom_btn button p,
+.st-key-beach_zoom_btn button div {
+    color: #b2ebf2 !important; font-weight: 700 !important; font-size: 12px !important;
+}
+
 /* ── Floating map legend (desktop: bottom-center) ── */
 .map-legend {
     position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
@@ -772,15 +953,38 @@ iframe[title="streamlit_folium.st_folium"] {
     [data-testid="stSidebar"] .stMarkdown p { font-size: 13px !important; }
     .stIframe,
     [data-testid="stIFrame"] iframe,
-    [data-testid="stCustomComponentV1"],
     iframe[title="streamlit_folium.st_folium"] {
         height: 57vh !important;
         min-height: 280px !important;
     }
-    [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]) {
+    [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]),
+    [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]) > div {
         height: 57vh !important;
     }
     .risk-banner { font-size: 12px; padding: 7px 10px; }
+
+    /* ── "Filtros" pill on phones ──
+       Streamlit centres this button on small screens with left:50% plus a
+       translateX(-50%), which dropped it in the middle of the map. Overriding
+       `left` alone is not enough — the transform has to go too, or the button
+       stays half a width off. Top-LEFT is taken by Leaflet's +/- and the tip
+       banner sits beside it, and the detail panel is a bottom sheet here, so
+       the top-right corner is the one spot that stays clear in every state.
+       The `html body` prefix is required, not decorative: Streamlit's own
+       centring rule outranks a bare [data-testid] selector even with
+       !important, so without the extra specificity the button stays in the
+       middle of the map. */
+    html body [data-testid="stExpandSidebarButton"],
+    html body [data-testid="stSidebarCollapsedControl"],
+    html body [data-testid="collapsedControl"] {
+        position: fixed !important;
+        top: 10px !important;
+        right: 10px !important;
+        left: auto !important;
+        bottom: auto !important;
+        transform: none !important;
+        z-index: 1000000 !important;
+    }
 
     /* ── Filter drawer on mobile ──
        The sidebar becomes a fixed overlay drawer. We take FULL control of the
@@ -904,18 +1108,42 @@ iframe[title="streamlit_folium.st_folium"] {
     [data-testid="stSidebar"] h1 { font-size: 1rem !important; }
     .stIframe,
     [data-testid="stIFrame"] iframe,
-    [data-testid="stCustomComponentV1"],
     iframe[title="streamlit_folium.st_folium"] {
         height: 54vh !important;
         min-height: 260px !important;
     }
-    [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]) {
+    [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]),
+    [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]) > div {
         height: 54vh !important;
     }
     /* On 480px screens keep the panel at 42vh; the extra 2vh vs 768px slightly
        increases content visibility on the tallest compact phones (667px). */
     .beach-detail { max-height: 42vh !important; padding: 22px 14px 18px !important; }
     .map-legend { max-height: 18vh !important; font-size: 10px; }
+}
+
+/* ── Mobile: no card open → the map takes the whole screen ──
+   The 57vh / 54vh map heights above assume the detail panel fills the bottom
+   of the screen as a sheet. The app now opens with NO beach selected, so that
+   sheet does not exist and its share of the screen showed as a blank band
+   under the map. `:not(:has(.beach-detail))` matches exactly that state.
+   Placed after the media blocks above and carrying higher specificity, so it
+   wins over both the 768px and 480px rules.
+   dvh, not vh: on phones `vh` is measured against the viewport WITHOUT the
+   browser's collapsing URL bar, which leaves its own gap at the bottom. */
+@media (max-width: 768px) {
+    html:has(body:not(:has(.beach-detail))),
+    body:not(:has(.beach-detail)),
+    body:not(:has(.beach-detail)) .stApp {
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+    }
+    body:not(:has(.beach-detail)) iframe[title="streamlit_folium.st_folium"],
+    body:not(:has(.beach-detail)) [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]),
+    body:not(:has(.beach-detail)) [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]) > div {
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+    }
 }
 
 /* ── Custom loading overlay — CSS-only auto-hide, no JS needed ──
@@ -998,12 +1226,15 @@ if "beach" in _qp and not st.session_state.get("selected_beach"):
     _beach_from_url = _qp.get("beach", "")
     if any(b["name"] == _beach_from_url for b in BEACHES):
         st.session_state["selected_beach"] = _beach_from_url
+        # _request_view() does not exist yet at this point in the script, so
+        # flag the beach for the navigation block to centre the map on.
+        st.session_state["_permalink_pending"] = True
 
 # ---------------------------------------------------------------------------
 # Language selector (top of sidebar)
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    _en = st.toggle("🇺🇸 English", value=False, key="lang_en")
+    _en = st.toggle("🇬🇧 🇺🇸 English", value=False, key="lang_en")
     lang = "en" if _en else "es"
     L = _T[lang]
     RISK_LABEL = _RISK_LABELS[lang]
@@ -1013,6 +1244,40 @@ with st.sidebar:
         f"<p style='font-size:11px;color:#9edde6;margin:0 0 8px;line-height:1.4'>{L['subtitle']}</p>",
         unsafe_allow_html=True,
     )
+
+# Now that the language is known, install <html lang> and the meta tags that
+# describe the page. Called outside the sidebar block so the (zero-height)
+# helper iframe lands in the main area, where .st-key-seo_head hides it.
+with st.container(key="seo_head"):
+    _inject_head(lang)
+
+
+# ---------------------------------------------------------------------------
+# Dataset translation helpers
+#
+# beaches_data.py stays English — it is what the filters, the API and the
+# Supabase seeder key on — so translation happens only on the way to the
+# screen. Every lookup falls through to the original string, which keeps a
+# newly added beach readable before its Spanish copy is written.
+# ---------------------------------------------------------------------------
+def tr_term(value: str) -> str:
+    """Translate one closed-vocabulary value (region, activity, species…)."""
+    return TERMS_ES.get(value, value) if lang == "es" else value
+
+
+def tr_terms(values: list[str] | None) -> str:
+    """Translate a list of vocabulary values into a display string."""
+    if not values:
+        return "N/A"
+    return ", ".join(tr_term(v) for v in values)
+
+
+def tr_text(beach: dict, field: str) -> str:
+    """Translate one free-text field of a beach (description, ecosystem…)."""
+    value = beach.get(field) or ""
+    if lang != "es":
+        return value
+    return BEACH_TEXT_ES.get(beach["name"], {}).get(field, value)
 
 # ---------------------------------------------------------------------------
 # Cached API helpers — TTL 5 min so beach-click reruns don't re-hit the API.
@@ -1438,64 +1703,117 @@ _WIND_UV = _fetch_wind_uv()
 # Sidebar — filters
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown(f"### {L['filters_header']}")
-    sel_regions = st.multiselect(L["region"], all_regions(), default=all_regions())
+    # The one thing most visitors come to do — find a beach — is reserved at
+    # the very top. It needs `filtered`, which only exists once every filter
+    # widget below has run, so an empty container holds the spot and is filled
+    # in later (see "go to beach" picker).
+    _nav_slot = st.container()
 
-    # Province options are restricted to provinces that exist within the
-    # selected regions so the two filters stay in sync. Any previously-selected
-    # province that no longer belongs to the current regions is silently dropped.
-    _available_provinces = provinces_for_regions(sel_regions)
-    _prev_provinces = st.session_state.get("sel_provinces_prev", [])
-    _valid_prev = [p for p in _prev_provinces if p in _available_provinces]
-    sel_provinces = st.multiselect(
-        L["province"], _available_provinces, default=_valid_prev, key="province_filter"
-    )
-    st.session_state["sel_provinces_prev"] = sel_provinces
-    beach_search = st.text_input(
-        L["search_beach"], "", key="beach_search",
-        placeholder="Ej: Rincón, Sosúa, Bavaro…",
-    )
-    sel_activities = st.multiselect(L["activity"], all_activities(), default=[])
-    protected_only = st.checkbox(L["protected_only"], value=False)
-    free_only = st.checkbox(L["free_only"], value=False)
-
-    # Filter by current sargassum risk level. Options are localized labels but
-    # map back to the canonical risk keys. Empty = show all risk levels.
-    sel_risks = st.multiselect(
-        L["risk_filter"],
-        options=["high", "medium", "low", "none"],
-        default=[],
-        format_func=lambda k: f"{RISK_EMOJI.get(k, '')} {RISK_LABEL.get(k, k)}".strip(),
-        key="risk_filter",
-    )
-
-    st.markdown("---")
-    show_zones = st.checkbox(L["show_zones"], value=bool(zones), key="show_zones")
-    show_masses = st.checkbox(L["show_masses"], value=True, key="show_masses")
-    if not zones:
-        st.caption(f"🌊 {L['risk_unavail']}")
-
-    # Forecast horizon — the physics-limited time dimension of the prediction.
-    # Sargassum drift is only reliable ~72h out, so we expose Now/+24/+48/+72h.
-    if zones:
-        _HORIZON_OPTS = {
-            L["horizon_now"]: 0,
-            "+24h": 24,
-            "+48h": 48,
-            "+72h": 72,
-        }
-        _h_label = st.radio(
-            L["horizon"],
-            options=list(_HORIZON_OPTS.keys()),
-            index=0,
-            horizontal=True,
-            key="forecast_horizon",
-            help=L["horizon_note"],
+    # Everything below is secondary: collapsed by default so the sidebar opens
+    # as a short, calm panel instead of a wall of ~15 controls.
+    with st.expander(L["filters_header"], expanded=False):
+        # An empty region selection means "all regions" (see _matches), which
+        # keeps the control compact — the alternative, pre-selecting all five,
+        # rendered five removable chips that read as an active filter.
+        sel_regions = st.multiselect(
+            L["region"], all_regions(), default=[],
+            format_func=tr_term, placeholder=L["all_regions"],
         )
-        SEL_HORIZON: int | None = _HORIZON_OPTS[_h_label]
-    else:
-        SEL_HORIZON = None
-    st.caption(L["season_note"])
+
+        # Province options are restricted to provinces that exist within the
+        # selected regions so the two filters stay in sync. Any previously-
+        # selected province outside the current regions is silently dropped.
+        _available_provinces = provinces_for_regions(sel_regions)
+        _prev_provinces = st.session_state.get("sel_provinces_prev", [])
+        _valid_prev = [p for p in _prev_provinces if p in _available_provinces]
+        sel_provinces = st.multiselect(
+            L["province"], _available_provinces, default=_valid_prev,
+            key="province_filter", placeholder=L["all_provinces"],
+        )
+        st.session_state["sel_provinces_prev"] = sel_provinces
+        beach_search = st.text_input(
+            L["search_beach"], "", key="beach_search",
+            placeholder=L["search_placeholder"],
+        )
+        sel_activities = st.multiselect(
+            L["activity"], all_activities(), default=[],
+            format_func=tr_term, placeholder=L["choose_options"],
+        )
+        protected_only = st.checkbox(L["protected_only"], value=False)
+        free_only = st.checkbox(L["free_only"], value=False)
+
+        # Filter by current sargassum risk level. Options are localized labels
+        # but map back to the canonical risk keys. Empty = all risk levels.
+        sel_risks = st.multiselect(
+            L["risk_filter"],
+            options=["high", "medium", "low", "none"],
+            default=[],
+            format_func=lambda k: f"{RISK_EMOJI.get(k, '')} {RISK_LABEL.get(k, k)}".strip(),
+            placeholder=L["choose_options"],
+            key="risk_filter",
+        )
+
+        # Date-of-visit picker — drives the time dimension of the sargassum
+        # prediction AND filters beaches by best visiting season.
+        #   • within 3 days  → physics drift forecast (high confidence)
+        #   • further out    → seasonal climatology estimate (labelled clearly)
+        # Leaving blank shows the live 'now' view for all 56 beaches.
+        import datetime as _dt
+        _today = _dt.date.today()
+        sel_date = st.date_input(
+            L["month_filter"],
+            value=None,
+            min_value=_dt.date(_today.year, 1, 1),
+            max_value=_dt.date(_today.year, 12, 31),
+            key="visit_date",
+            help=L["month_note"] + " " + L["prediction_date_note"],
+        )
+        # None = no filter; otherwise filter by the month of the selected date
+        sel_month: int | None = sel_date.month if sel_date else None
+        # Tell the user which prediction method applies to the chosen date.
+        if sel_date is not None:
+            _days_ahead = (sel_date - _today).days
+            if 0 <= _days_ahead <= 3:
+                st.caption("🔬 " + L["method_physics"])
+            elif 4 <= _days_ahead <= 21:
+                _has_ml = bool(_ml_forecasts)
+                _ml_src = "ML" if _has_ml else ("Climatología" if lang == "es" else "Climatology")
+                st.caption(f"🤖 {_ml_src} — {_days_ahead}d ahead")
+            else:
+                st.caption("📊 " + L["method_seasonal"])
+
+    with st.expander(L["layers_header"], expanded=False):
+        # Off by default: the 11 dashed rectangles are the model's own grid,
+        # not something a visitor needs to see. Every beach still reads its
+        # risk from the nearest zone whether or not the boxes are drawn — this
+        # only controls the drawing.
+        show_zones = st.checkbox(L["show_zones"], value=False, key="show_zones")
+        show_masses = st.checkbox(L["show_masses"], value=True, key="show_masses")
+        if not zones:
+            st.caption(f"🌊 {L['risk_unavail']}")
+
+        # Forecast horizon — the physics-limited time dimension of the
+        # prediction. Drift is only reliable ~72h out, so we expose
+        # Now/+24/+48/+72h.
+        if zones:
+            _HORIZON_OPTS = {
+                L["horizon_now"]: 0,
+                "+24h": 24,
+                "+48h": 48,
+                "+72h": 72,
+            }
+            _h_label = st.radio(
+                L["horizon"],
+                options=list(_HORIZON_OPTS.keys()),
+                index=0,
+                horizontal=True,
+                key="forecast_horizon",
+                help=L["horizon_note"],
+            )
+            SEL_HORIZON: int | None = _HORIZON_OPTS[_h_label]
+        else:
+            SEL_HORIZON = None
+        st.caption(L["season_note"])
 
     # Prediction methodology explainer
     with st.expander(L["prediction_info_title"], expanded=False):
@@ -1509,36 +1827,6 @@ with st.sidebar:
             f"</div>",
             unsafe_allow_html=True,
         )
-    
-    st.markdown("---")
-    # Date-of-visit picker — drives the time dimension of the sargassum
-    # prediction AND filters beaches by best visiting season.
-    #   • within 3 days  → physics drift forecast (high confidence)
-    #   • further out    → seasonal climatology estimate (labelled clearly)
-    # Leaving blank shows the live 'now' view for all 56 beaches.
-    import datetime as _dt
-    _today = _dt.date.today()
-    sel_date = st.date_input(
-        L["month_filter"],
-        value=None,
-        min_value=_dt.date(_today.year, 1, 1),
-        max_value=_dt.date(_today.year, 12, 31),
-        key="visit_date",
-        help=L["month_note"] + " " + L["prediction_date_note"],
-    )
-    # None = no filter; otherwise filter by the month of the selected date
-    sel_month: int | None = sel_date.month if sel_date else None
-    # Tell the user which prediction method applies to the chosen date.
-    if sel_date is not None:
-        _days_ahead = (sel_date - _today).days
-        if 0 <= _days_ahead <= 3:
-            st.caption("🔬 " + L["method_physics"])
-        elif 4 <= _days_ahead <= 21:
-            _has_ml = bool(_ml_forecasts)
-            _ml_src = "ML" if _has_ml else ("Climatología" if lang == "es" else "Climatology")
-            st.caption(f"🤖 {_ml_src} — {_days_ahead}d ahead")
-        else:
-            st.caption("📊 " + L["method_seasonal"])
 
 
 # Per-render cache: beach name → _beach_risk_dated result WITHOUT ETA.
@@ -1578,7 +1866,8 @@ def _matches(beach: dict) -> bool:
         return False
     if sel_month is not None and not beach_good_in_month(beach, sel_month):
         return False
-    if beach_search and beach_search.strip().lower() not in beach["name"].lower():
+    # Accent-insensitive so "Bavaro" finds "Playa Bávaro" (see _fold).
+    if beach_search and _fold(beach_search.strip()) not in _fold(beach["name"]):
         return False
     # Risk filter — compute this beach's current risk level and keep it only if
     # it matches one of the selected levels. A beach with no risk data (None)
@@ -1596,8 +1885,162 @@ def _matches(beach: dict) -> bool:
 filtered = [b for b in BEACHES if _matches(b)]
 filtered_names = {b["name"] for b in filtered}
 
-with st.sidebar:
+# ---------------------------------------------------------------------------
+# Map view requests
+#
+# Every way of moving the map — the "go to beach" picker, a search result, a
+# filter change, the detail panel's zoom button — goes through _request_view().
+# st_folium moves the map only when the center/zoom it receives DIFFER from the
+# previous render (its frontend diffs them against window.__GLOBAL_DATA__), so
+# a request that stays put leaves the user free to pan and zoom by hand; the
+# view jumps only on the rerun where we actually change the request.
+# ---------------------------------------------------------------------------
+ZOOM_BEACH = 13   # the beach plus the coast around it
+ZOOM_CLOSE = 16   # street level, for the panel's zoom button
+
+
+def _request_view(lat: float, lon: float, zoom: int) -> None:
+    """Ask the map to move to (lat, lon) at `zoom` starting on this rerun.
+
+    Re-picking the SAME beach after panning away has to move the map again,
+    but st_folium ignores an unchanged center. Nudging the longitude by an
+    alternating 1e-9 — roughly 0.1 mm on the ground — makes the value differ
+    so the component re-centres, with no perceptible shift.
+    """
+    _nonce = st.session_state.get("_view_nonce", 0) + 1
+    st.session_state["_view_nonce"] = _nonce
+    st.session_state["_view"] = {
+        "center": (float(lat), float(lon) + (_nonce % 2) * 1e-9),
+        "zoom": int(zoom),
+    }
+
+
+def _goto_beach(beach: dict, zoom: int = ZOOM_BEACH) -> None:
+    """Select a beach and fly the map to it."""
+    st.session_state["selected_beach"] = beach["name"]
+    _request_view(beach["latitude"], beach["longitude"], zoom)
+
+
+def _bounds_view(points: list[tuple[float, float]], map_w: int = 1100,
+                 map_h: int = 780, pad: float = 0.28,
+                 zmin: int = 6, zmax: int = 13) -> tuple[float, float, int]:
+    """Centre + zoom that frames every point (Web Mercator).
+
+    The pixel size of the map is assumed rather than measured — it lives in an
+    iframe and Streamlit never learns its dimensions. It only controls how
+    tight the fit is, and `pad` plus the zmin/zmax clamp absorb the error on
+    any real screen.
+    """
+    lats = [p[0] for p in points]
+    lons = [p[1] for p in points]
+
+    def _merc_y(lat: float) -> float:
+        s = _math.sin(_math.radians(max(min(lat, 85.05), -85.05)))
+        return _math.log((1 + s) / (1 - s)) / 2
+
+    lon_span = max(max(lons) - min(lons), 1e-6) * (1 + pad)
+    y_span = max(_merc_y(max(lats)) - _merc_y(min(lats)), 1e-6) * (1 + pad)
+    zoom = min(
+        _math.log2(360.0 / lon_span * (map_w / 256.0)),
+        _math.log2(2 * _math.pi / y_span * (map_h / 256.0)),
+    )
+    return (
+        (min(lats) + max(lats)) / 2,
+        (min(lons) + max(lons)) / 2,
+        int(max(zmin, min(zmax, _math.floor(zoom)))),
+    )
+
+
+# ── Auto-zoom when the filters change ──
+# Narrowing to one region should frame that region without the user panning.
+# The very first render is only recorded, never acted on, so the app still
+# opens on its national default view.
+_filter_sig = repr((
+    sorted(sel_regions), sorted(sel_provinces), sorted(sel_activities),
+    protected_only, free_only, sorted(sel_risks), sel_month,
+    beach_search.strip().lower(),
+))
+if "_filter_sig" not in st.session_state:
+    st.session_state["_filter_sig"] = _filter_sig
+elif st.session_state["_filter_sig"] != _filter_sig:
+    st.session_state["_filter_sig"] = _filter_sig
+    if filtered:
+        _fit_lat, _fit_lon, _fit_z = _bounds_view(
+            [(float(b["latitude"]), float(b["longitude"])) for b in filtered]
+        )
+        _request_view(_fit_lat, _fit_lon, _fit_z)
+
+# ── "Go to beach" picker ──
+# Written into the container reserved at the TOP of the sidebar, above the
+# filter expanders, because finding a beach is the primary task. Streamlit's
+# selectbox is type-ahead searchable, so this doubles as the beach finder and
+# there is no separate list of search-result buttons.
+with _nav_slot:
+    if filtered:
+        _nav_sorted = sorted(filtered, key=lambda b: b["name"])
+        _nav_names = [b["name"] for b in _nav_sorted]
+        _nav_by_name = {b["name"]: b for b in _nav_sorted}
+
+        def _nav_label(name: str) -> str:
+            """Option text, with the accent-free spelling when there is one.
+
+            Streamlit matches what it DISPLAYS and its fuzzy filter keeps
+            diacritics, so "Bavaro" would not find "Playa Bávaro" unless the
+            plain spelling is part of the label.
+            """
+            alias = _search_alias(name)
+            shown = f"{name} ({alias})" if alias else name
+            return f"🏖️ {shown} · {_nav_by_name[name]['province']}"
+        # Nothing is selected until the visitor asks for it: the app opens on
+        # the national map with no beach card. A beach that a filter has just
+        # excluded counts as not selected, so the card closes instead of
+        # silently switching to a different beach.
+        _nav_cur = st.session_state.get("selected_beach")
+        if _nav_cur not in _nav_names:
+            _nav_cur = None
+
+        # Keep the picker in step with selections made elsewhere (map click,
+        # ?beach= permalink). `_goto_synced` records the value we last pushed
+        # in, so a fresh pick made IN the picker is never overwritten by this
+        # sync on the same rerun.
+        if st.session_state.get("_goto_synced") != _nav_cur:
+            st.session_state["goto_select"] = _nav_cur
+            st.session_state["_goto_synced"] = _nav_cur
+        if st.session_state.get("goto_select") not in _nav_names:
+            st.session_state["goto_select"] = None
+
+        _pick = st.selectbox(
+            L["goto_beach"],
+            _nav_names,
+            index=None,
+            key="goto_select",
+            placeholder=L["goto_placeholder"],
+            format_func=_nav_label,
+            help=L["goto_help"],
+        )
+        if _pick and _pick != _nav_cur:
+            st.session_state["_goto_synced"] = _pick
+            _goto_beach(_nav_by_name[_pick])
+
+        # A ?beach=… link should land ON the beach, not on the national view.
+        # The permalink is read long before _request_view exists, so it leaves
+        # this flag behind for us to act on here.
+        if _pick and st.session_state.pop("_permalink_pending", False):
+            _goto_beach(_nav_by_name[_pick])
+
+        # Zoom control for the picked beach — only meaningful once there is
+        # one. It sits here, next to the picker, rather than floating over the
+        # map, which already carries the Filtros pill, the +/- control, the tip
+        # and the legend. This block runs before the map is rendered, so a
+        # click lands on the same rerun.
+        if _pick and st.button(L["zoom_here"], key="beach_zoom_btn",
+                               use_container_width=True):
+            _goto_beach(_nav_by_name[_pick], zoom=ZOOM_CLOSE)
+    else:
+        st.info(L["no_match"])
     st.caption(L["results"].format(n=len(filtered), total=len(BEACHES)))
+
+with st.sidebar:
     st.markdown(
         "<div style='margin-top:18px;padding:10px 16px 8px;"
         "border-top:1px solid rgba(255,255,255,.18);text-align:center'>"
@@ -1629,19 +2072,59 @@ _ml_drift_mode = (_date_mode == "ml")  # drives mass styling + legend
 # ---------------------------------------------------------------------------
 # Build Folium map
 # ---------------------------------------------------------------------------
+# Height of the top-left lane reserved for the parent document's floating
+# "Filtros" pill, so nothing the map draws in that corner sits underneath it.
+# The pill is 10px from the top and ~44px tall, so 60px clears it with a gap.
+_MAP_TOP_LANE = 60
+
 m = folium.Map(location=[19.0, -69.8], zoom_start=7, tiles="OpenStreetMap")
-# Make the inner Leaflet map fill the full viewport height. st_folium renders
-# the map inside a FIXED-height (900px) folium Figure, so on tall/full screens a
-# blank strip appears below the map even after our CSS stretches the OUTER
-# iframe to 100vh. Forcing the map div itself to 100vh (which equals the window
-# height because the outer iframe is already 100vh) removes that strip.
+# Make the inner Leaflet map fill the whole component iframe.
+#
+# ROOT CAUSE of the blank strip under the map: streamlit-folium does NOT render
+# folium's own `.folium-map` div. Its component page (frontend/build/index.html)
+# is `#root > #parent > .float-child > #map_div`, and its JS sets an INLINE
+# `height: <height>px` on #map_div from the `height=` argument of st_folium
+# (900 here). So a `.folium-map` rule never matches, and the map stays 900px
+# tall no matter how far our outer CSS stretches the iframe — on any viewport
+# taller than 900px that leaves a visible band of page background below it.
+#
+# Fix: size streamlit-folium's REAL wrapper chain to 100% of the iframe. The
+# `!important` beats the JS-set inline height (important author declarations
+# outrank inline styles), and because this stylesheet is in the iframe <head>
+# it applies BEFORE Leaflet initialises — so Leaflet measures the correct size
+# at init and needs no invalidateSize() afterwards.
+#
 # IMPORTANT: only size the map — never reposition .leaflet-container
 # (position:absolute) because Leaflet caches container geometry at init and
 # blanks out if it is moved after load. Sizing before init is safe.
+# Widths are deliberately left alone: index.html sizes .float-child (50% in
+# DualMap mode) and forcing it would break that layout.
 m.get_root().header.add_child(folium.Element(
     "<style>"
-    "html, body { height: 100%; margin: 0; padding: 0; }"
-    ".folium-map { height: 100vh !important; width: 100% !important; }"
+    "html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }"
+    "#root, #parent, .float-container, .float-child,"
+    "#map_div, #map_div2, .folium-map, .leaflet-container {"
+    " height: 100% !important; min-height: 0 !important;"
+    " margin: 0 !important; padding: 0 !important; }"
+    "#map_div, .folium-map, .leaflet-container { width: 100% !important; }"
+    # index.html ends with a literal <span>&nbsp;</span> after #root; it is a
+    # ~16px in-flow line box that would sit under the map once #root is 100%.
+    "body > span { display: none !important; }"
+    # ── Top-left lane reservation ──
+    # The parent document floats the "Filtros" pill (stExpandSidebarButton) at
+    # fixed top:10/left:10 whenever the sidebar is collapsed. That pill lives in
+    # the Streamlit document, so it paints OVER this iframe and used to land
+    # right on top of Leaflet's +/- zoom control. The iframe cannot see the
+    # sidebar state, so we permanently reserve the first ~54px row for the pill
+    # and start the map's own controls on the row below it.
+    f".leaflet-top.leaflet-left {{ margin-top: {_MAP_TOP_LANE}px !important; }}"
+    # Tip banner width. On desktop it stops short of the 295px detail panel;
+    # on phones that reservation would leave it ~10px wide and stack the text
+    # one word per line, and there is no right-hand panel to avoid anyway
+    # (it becomes a bottom sheet), so only the zoom control needs clearing.
+    "#sarg-tip { max-width: calc(100% - 380px); }"
+    "@media (max-width: 768px) {"
+    " #sarg-tip { max-width: calc(100% - 72px); white-space: normal; } }"
     "</style>"
 ))
 cluster = MarkerCluster(
@@ -1654,8 +2137,9 @@ for b in filtered:
     region_color = REGION_COLORS.get(b["region"], "#1f77b4")
     risk_level, near_zone, dist_km_b, _, _mode_b, _eta_b = _beach_risk_cached(b)
     turtle_icon = " 🐢" if b["protected_area"] else ""
-    desc_short = (b["description"] or "")[:170].rstrip()
-    if len(b["description"] or "") > 170:
+    _desc_full = tr_text(b, "description")
+    desc_short = _desc_full[:170].rstrip()
+    if len(_desc_full) > 170:
         desc_short += "…"
 
     # Per-beach ETA line for the popup (drift estimate)
@@ -1664,12 +2148,12 @@ for b in filtered:
         if _eta_b == 0:
             _eta_popup = (
                 "<div style='color:#ffcdd2;font-size:10.5px;margin-top:3px'>"
-                "⚠️ Sargazo ya cerca / Already nearby</div>"
+                f"{L['popup_nearby']}</div>"
             )
         else:
             _eta_popup = (
                 f"<div style='color:#b2ebf2;font-size:10.5px;margin-top:3px'>"
-                f"⏱️ Llegada estimada / ETA: ~{_eta_b}h</div>"
+                f"{L['popup_eta']}: ~{_eta_b}h</div>"
             )
 
     # Risk badge — always present
@@ -1685,7 +2169,7 @@ for b in filtered:
         risk_badge = (
             f"<div style='background:{rc};color:#fff;display:inline-block;"
             f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            f"🌊 Sargazo: {label_txt}"
+            f"🌊 {L['popup_sargassum']}: {label_txt}"
             f"</div>"
             f"<div style='color:#ce93d8;font-size:10.5px;margin-top:4px'>"
             f"🤖 {L['ml_badge']} · {_ml_conf_pct}%</div>"
@@ -1696,7 +2180,7 @@ for b in filtered:
         risk_badge = (
             f"<div style='background:{rc};color:#fff;display:inline-block;"
             f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            f"🌊 Sargazo: {label_txt}"
+            f"🌊 {L['popup_sargassum']}: {label_txt}"
             f"</div>"
             f"<div style='color:#b2ebf2;font-size:10.5px;margin-top:4px'>"
             f"📊 {L['seasonal_badge']}</div>"
@@ -1711,14 +2195,14 @@ for b in filtered:
         risk_badge = (
             f"<div style='background:{rc};color:#fff;display:inline-block;"
             f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            f"🌊 Sargazo: {label_txt}{_dist_txt}"
+            f"🌊 {L['popup_sargassum']}: {label_txt}{_dist_txt}"
             f"</div>{_eta_popup}"
         )
     else:
         risk_badge = (
             "<div style='background:#90a4ae;color:#fff;display:inline-block;"
             "padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            "🌊 Sargazo: sin datos / no data"
+            f"🌊 {L['popup_sargassum']}: {L['popup_no_data']}"
             "</div>"
         )
 
@@ -1728,7 +2212,7 @@ for b in filtered:
         # teal header only — no white box
         f"<div style='background:linear-gradient(135deg,#005f73,#0a9396);padding:12px 14px'>"
         f"<div style='color:#fff;font-size:15px;font-weight:900'>{b['name']}{turtle_icon}</div>"
-        f"<div style='color:#b2ebf2;font-size:11px;margin-top:2px'>{b['province']} · {b['region']}</div>"
+        f"<div style='color:#b2ebf2;font-size:11px;margin-top:2px'>{b['province']} · {tr_term(b['region'])}</div>"
         f"<div style='margin-top:7px'>{risk_badge}</div>"
         f"<a href='{b['google_maps_url']}' target='_blank' "
         f"style='display:block;text-align:center;background:rgba(255,255,255,.22);"
@@ -1937,7 +2421,7 @@ if show_masses:
                         weight=1.5,
                         opacity=0.35,
                         dash_array="6 6",
-                        tooltip=f"🟣 Ruta especulativa ML · {_a:.2f} km²",
+                        tooltip=f"🟣 {L['mass_ml_route']} · {_a:.2f} km²",
                     ).add_to(_mass_group)
                     # Short physics segment (first 72 h) in the normal brown
                     _trail_72 = [[_lat0, _lon0]]
@@ -1961,7 +2445,7 @@ if show_masses:
                         fill_opacity=0.20,
                         weight=1.5,
                         dash_array="4 3",
-                        tooltip=f"🟣 Sargazo especulativo (+{_drift_h}h ML) · {_a:.2f} km²",
+                        tooltip=f"🟣 {L['mass_ml_pos']} (+{_drift_h}h ML) · {_a:.2f} km²",
                     ).add_to(_mass_group)
                     # Smaller solid dot at predicted centre
                     folium.CircleMarker(
@@ -1972,7 +2456,7 @@ if show_masses:
                         fill_color="#ce93d8",
                         fill_opacity=0.45,
                         weight=1.0,
-                        tooltip=f"🟣 Sargazo especulativo (+{_drift_h}h ML) · {_a:.2f} km²",
+                        tooltip=f"🟣 {L['mass_ml_pos']} (+{_drift_h}h ML) · {_a:.2f} km²",
                     ).add_to(_mass_group)
                 else:
                     # Physics mode — original 4-point trail
@@ -1989,7 +2473,7 @@ if show_masses:
                         weight=1.5,
                         opacity=0.65,
                         dash_array="5 4",
-                        tooltip=f"🟤 Ruta estimada · {_a:.2f} km²",
+                        tooltip=f"🟤 {L['mass_route']} · {_a:.2f} km²",
                     ).add_to(_mass_group)
 
                 # Physics ghost circle (only for non-ML mode)
@@ -2004,7 +2488,7 @@ if show_masses:
                         fill_opacity=0.55,
                         weight=1.5,
                         dash_array="4 3",
-                        tooltip=f"🟠 Sargazo (+{_drift_h}h estimado) · {_a:.2f} km²",
+                        tooltip=f"🟠 {L['popup_sargassum']} (+{_drift_h}h {L['mass_estimated']}) · {_a:.2f} km²",
                     ).add_to(_mass_group)
 
             # Current detected position — fainter in ML mode to signal mass has moved
@@ -2016,15 +2500,18 @@ if show_masses:
                 fill_color="#795548",
                 fill_opacity=0.20 if _ml_drift_mode else 0.55,
                 weight=1,
-                tooltip=f"🟤 Sargazo · {_a:.2f} km²",
+                tooltip=f"🟤 {L['popup_sargassum']} · {_a:.2f} km²",
             ).add_to(_mass_group)
 
         _mass_group.add_to(m)
     # If no masses came back we silently skip — sidebar caption explains why below.
 
 # Floating legend — show risk zones + drift key when masses are visible.
+# The zone key is gated on show_zones as well as on having zone data: with the
+# rectangles hidden (the default) a "sargassum risk (zones)" colour key would
+# refer to something that is not on the map.
 _show_drift_legend = show_masses and _drift_h > 0
-if zones:
+if zones and show_zones:
     risk_legend_rows = "".join(
         f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
         f"<div style='width:16px;height:10px;background:{c};flex-shrink:0;border-radius:2px'></div>"
@@ -2071,9 +2558,12 @@ if _show_drift_legend:
             f"</div>"
         )
 
+# Tip banner sits on the SAME row as the zoom control (below the reserved
+# "Filtros" lane) and starts to the right of it, so the three top-left overlays
+# — Filtros pill, zoom buttons, tip — stack instead of piling on each other.
 m.get_root().html.add_child(folium.Element(
-    f"<div style='position:absolute;top:10px;left:60px;z-index:1000;"
-    f"background:rgba(0,96,100,.88);color:#fff;border-radius:10px;"
+    f"<div id='sarg-tip' style='position:absolute;top:{_MAP_TOP_LANE}px;left:60px;"
+    f"z-index:1000;background:rgba(0,96,100,.88);color:#fff;border-radius:10px;"
     f"padding:8px 14px;font-size:12px;font-weight:700;backdrop-filter:blur(4px)'>"
     f"{L['tip']}</div>"
 ))
@@ -2086,11 +2576,18 @@ if _ml_drift_mode:
         f"🤖 {L['ml_note_map']} (+{_days_ahead_g}d)</div>"
     ))
 
-# Render map — stable key preserves pan/zoom between beach selections
+# Render map — stable key preserves pan/zoom between beach selections.
+# center/zoom carry the pending view request (see _request_view); they are None
+# until something asks the map to move, so the first render uses the map's own
+# national default. st_folium re-centres only when these values change, so the
+# user's manual panning survives every rerun in between.
+_view = st.session_state.get("_view")
 map_result = st_folium(
     m,
     width="100%",
     height=900,
+    center=_view["center"] if _view else None,
+    zoom=_view["zoom"] if _view else None,
     returned_objects=["last_object_clicked_tooltip", "last_object_clicked", "last_clicked"],
     key="beach_map",
 )
@@ -2167,14 +2664,15 @@ if legend_html:
 # ---------------------------------------------------------------------------
 # Floating detail bubble — position:fixed in Streamlit DOM (hovers over map)
 # ---------------------------------------------------------------------------
+# No selection → no card. The app opens as a clean national map; the panel
+# appears only once the visitor picks a beach (picker, marker click, or a
+# ?beach= link). A selection that the current filters exclude shows nothing
+# rather than quietly falling back to some other beach.
 _sel_name = st.session_state.get("selected_beach")
-if filtered:
-    _sel_set = {b["name"] for b in filtered}
-    if _sel_name not in _sel_set:
-        _sel_name = sorted(filtered, key=lambda x: x["name"])[0]["name"]
-    _panel_beach: dict | None = next(b for b in filtered if b["name"] == _sel_name)
-else:
-    _panel_beach = None
+_panel_beach: dict | None = (
+    next((b for b in filtered if b["name"] == _sel_name), None)
+    if _sel_name else None
+)
 
 if _panel_beach:
     _pb = _panel_beach
@@ -2353,11 +2851,11 @@ if _panel_beach:
             f"</div>"
         )
 
-    _acts = ", ".join(_pb["activities"]) if _pb["activities"] else "N/A"
-    _wild = ", ".join(_pb["wildlife"]) if _pb["wildlife"] else "N/A"
-    _facs = ", ".join(_pb["facilities"]) if _pb["facilities"] else "N/A"
+    _acts = tr_terms(_pb["activities"])
+    _wild = tr_terms(_pb["wildlife"])
+    _facs = tr_terms(_pb["facilities"])
     _park = ("✅ " + L["yes"]) if _pb["parking"] else ("⚠️ " + L["no_limited"])
-    _desc_raw = _pb.get("description") or ""
+    _desc_raw = tr_text(_pb, "description")
     _desc = _desc_raw[:200] + ("…" if len(_desc_raw) > 200 else "")
 
     # Recommendations — similar beaches in the same region (same activities).
@@ -2380,7 +2878,7 @@ if _panel_beach:
             "<hr style='border:none;border-top:1px solid rgba(255,255,255,.13);margin:9px 0'>"
             f"<div style='color:#80cbc4;font-size:10px;font-weight:700;"
             f"text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px'>"
-            f"✨ {L['recommendations']}</div>"
+            f"{L['recommendations']}</div>"
             + _rec_items
         )
     else:
@@ -2392,23 +2890,24 @@ if _panel_beach:
         f"<div style='font-size:17px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:3px'>"
         f"{_pb['name']}{_turtle}</div>"
         f"<div style='font-size:11px;color:#80cbc4;margin-bottom:4px'>"
-        f"📍 {_pb['province']} · {_pb['region']}</div>"
+        f"📍 {_pb['province']} · {tr_term(_pb['region'])}</div>"
         # Sargassum risk section (rich card)
         + _risk_section +
         # Description
         f"<div style='font-size:11.5px;color:#b2dfdb;line-height:1.5;margin-bottom:11px;"
         f"border-left:3px solid rgba(0,255,180,.25);padding-left:9px'>{_desc}</div>"
         f"<hr style='border:none;border-top:1px solid rgba(255,255,255,.13);margin:9px 0'>"
-        + _brow("🗓️", L["best_time"], _pb["best_time_to_visit"])
-        + _brow("🎟️", L["entrance"], _pb["entrance_fee"])
+        + _brow("🗓️", L["best_time"], tr_term(_pb["best_time_to_visit"]))
+        + _brow("🎟️", L["entrance"], tr_term(_pb["entrance_fee"]))
         + _brow("🅿️", L["parking"], _park)
-        + _brow("🌊", L["water"], _pb["water_conditions"])
-        + _brow("🚪", L["access"], f"{_pb['access_type']} — {_pb['access_description']}")
+        + _brow("🌊", L["water"], tr_text(_pb, "water_conditions"))
+        + _brow("🚪", L["access"],
+                f"{tr_term(_pb['access_type'])} — {tr_text(_pb, 'access_description')}")
         + "<hr style='border:none;border-top:1px solid rgba(255,255,255,.13);margin:9px 0'>"
         + _brow("🏄", L["activities"], _acts)
         + _brow("🐠", L["wildlife"], _wild)
         + _brow("🏗️", L["facilities"], _facs)
-        + _brow("🌿", L["ecosystem"], _pb["ecosystem"])
+        + _brow("🌿", L["ecosystem"], tr_text(_pb, "ecosystem"))
         + f"<a href='{_pb['google_maps_url']}' target='_blank' style='"
         "display:block;text-align:center;margin-top:14px;"
         "background:linear-gradient(135deg,rgba(0,180,130,.4),rgba(0,120,100,.4));"
