@@ -241,6 +241,13 @@ _json_ld_str = _json_mod.dumps(_json_ld, ensure_ascii=False)
 # from "sargapp" to "descubreplayas"; this is the canonical URL.
 REPO_URL = os.environ.get(
     "APP_REPO_URL", "https://github.com/Ayege/descubreplayas")
+# Donation link. Deliberately EMPTY by default: the footer renders nothing
+# when this is unset, so a placeholder or dead payment link can never ship.
+# Set DONATE_URL in the environment once a platform is chosen. Note that
+# Stripe-backed platforms (GitHub Sponsors, most of Buy Me a Coffee) may not
+# pay out to the Dominican Republic; PayPal-backed ones generally do.
+DONATE_URL = os.environ.get("DONATE_URL", "https://buymeacoffee.com/yegeayeshaj").strip()
+
 APACHE_URL = "https://www.apache.org/licenses/LICENSE-2.0"
 CC_BY_URL = "https://creativecommons.org/licenses/by/4.0/"
 
@@ -411,6 +418,10 @@ _T = {
         "goto_help": "Elige una playa y el mapa vuela hasta ella.",
         "goto_placeholder": "Elige una playa…",
         "proudly_dr": "Orgullosamente dominicano · Open source",
+        "donate": "☕ Invítame un café",
+        "disclaimer_title": "⚠️ Aviso importante",
+        "disclaimer_short": "Estimación, no es un aviso oficial.",
+        "disclaimer_body": "Esta herramienta ofrece <b>estimaciones automáticas</b> de sargazo a partir de imágenes satelitales y modelos de corrientes. <b>No es un aviso oficial</b> ni sustituye a las autoridades competentes.<br><br>• Las detecciones pueden tener <b>días de antigüedad</b> por la nubosidad y el ciclo de paso del satélite.<br>• Los pronósticos de llegada son aproximados y pierden fiabilidad más allá de 72 h.<br>• Los datos de playas (acceso, tarifas, servicios) son observaciones que cambian con el tiempo.<br><br><b>No tomes decisiones de seguridad basándote solo en esta información.</b> Consulta a las autoridades locales, los salvavidas y las banderas de la playa. El servicio se ofrece «tal cual», sin garantías de ningún tipo.",
         "license_code": "Código",
         "license_data": "datos",
         "source_code": "Código fuente",
@@ -497,6 +508,10 @@ _T = {
         "goto_help": "Pick a beach and the map flies straight to it.",
         "goto_placeholder": "Choose a beach…",
         "proudly_dr": "Proudly Dominican · Open source",
+        "donate": "☕ Buy me a coffee",
+        "disclaimer_title": "⚠️ Important notice",
+        "disclaimer_short": "An estimate, not an official advisory.",
+        "disclaimer_body": "This tool provides <b>automated estimates</b> of sargassum from satellite imagery and ocean-current models. It is <b>not an official advisory</b> and does not replace the competent authorities.<br><br>• Detections may be <b>several days old</b> because of cloud cover and the satellite revisit cycle.<br>• Arrival forecasts are approximate and lose reliability beyond 72 h.<br>• Beach details (access, fees, facilities) are observations that change over time.<br><br><b>Do not make safety decisions based on this information alone.</b> Check local authorities, lifeguards and beach flags. The service is provided «as is», without warranties of any kind.",
         "license_code": "Code",
         "license_data": "data",
         "source_code": "Source code",
@@ -1844,6 +1859,16 @@ with st.sidebar:
             SEL_HORIZON = None
         st.caption(L["season_note"])
 
+    # Legal notice. Collapsed like the rest, but the short form is repeated in
+    # the beach panel next to the risk badge, which is where someone actually
+    # makes a decision from this data.
+    with st.expander(L["disclaimer_title"], expanded=False):
+        st.markdown(
+            f"<div style='font-size:11px;line-height:1.55;color:#ffe0b2'>"
+            f"{L['disclaimer_body']}</div>",
+            unsafe_allow_html=True,
+        )
+
     # Prediction methodology explainer
     with st.expander(L["prediction_info_title"], expanded=False):
         st.markdown(
@@ -2095,6 +2120,17 @@ with st.sidebar:
         f"<div style='margin-top:5px'>"
         f"<a href='{REPO_URL}' target='_blank' rel='noopener' "
         f"style='{_lnk};white-space:nowrap'>💻 {L['source_code']} ↗</a></div>"
+        # Rendered only when DONATE_URL is configured, so no dead payment link
+        # can ever reach a visitor.
+        + (
+            f"<div style='margin-top:9px'>"
+            f"<a href='{DONATE_URL}' target='_blank' rel='noopener' "
+            f"style='display:inline-block;background:rgba(255,193,7,.16);"
+            f"border:1px solid rgba(255,193,7,.45);border-radius:20px;"
+            f"padding:6px 15px;font-size:11.5px;font-weight:800;color:#ffd54f;"
+            f"text-decoration:none;white-space:nowrap'>{L['donate']}</a></div>"
+            if DONATE_URL else ""
+        ) +
         f"<div style='font-size:10px;color:#5f9ea0;margin-top:6px'>"
         f"© 2026 Ayesha Yege</div>"
         "</div>",
@@ -2941,7 +2977,13 @@ if _panel_beach:
         f"<div style='font-size:11px;color:#80cbc4;margin-bottom:4px'>"
         f"📍 {_pb['province']} · {tr_term(_pb['region'])}</div>"
         # Sargassum risk section (rich card)
-        + _risk_section +
+        + _risk_section
+        # Short legal notice, right under the risk figure — this is the point
+        # where someone actually decides whether to go to a beach. The full
+        # text lives in the sidebar's "Aviso importante" expander.
+        + f"<div style='font-size:9.5px;color:#ffcc80;opacity:.85;"
+          f"margin:-4px 0 9px;line-height:1.35'>⚠️ {L['disclaimer_short']}</div>"
+        +
         # Description
         f"<div style='font-size:11.5px;color:#b2dfdb;line-height:1.5;margin-bottom:11px;"
         f"border-left:3px solid rgba(0,255,180,.25);padding-left:9px'>{_desc}</div>"

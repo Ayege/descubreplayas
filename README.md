@@ -500,6 +500,18 @@ done
 
 ---
 
+## Disclaimer
+
+This tool publishes **automated estimates**, not official advisories, and must
+not be the sole basis for safety decisions. Detections can be days old, drift
+forecasts degrade past 72 h, and risk is computed per monitoring zone rather
+than measured at each beach. Read [`DISCLAIMER.md`](DISCLAIMER.md) in full
+before relying on it, and see
+[Limitations and known gaps](#limitations-and-known-gaps) for the technical
+detail.
+
+---
+
 ## License
 
 This project is licensed in two parts.
