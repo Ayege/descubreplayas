@@ -237,6 +237,13 @@ _json_ld_str = _json_mod.dumps(_json_ld, ensure_ascii=False)
 # patches Streamlit's index.html at container start, so Googlebot gets the tags
 # in the initial HTTP response rather than after hydration.
 
+# Licence + source links shown in the sidebar footer. The repo was renamed
+# from "sargapp" to "descubreplayas"; this is the canonical URL.
+REPO_URL = os.environ.get(
+    "APP_REPO_URL", "https://github.com/Ayege/descubreplayas")
+APACHE_URL = "https://www.apache.org/licenses/LICENSE-2.0"
+CC_BY_URL = "https://creativecommons.org/licenses/by/4.0/"
+
 _OG_TITLE = "Descubre Playas RD 🌴 — 56 Playas + Alertas de Sargazo"
 _TW_TITLE = "Descubre Playas RD — Alertas Sargazo Tiempo Real"
 # BCP-47 for <html lang> and the Open Graph locale, per UI language.
@@ -403,6 +410,10 @@ _T = {
         "goto_beach": "📍 Ir a la playa",
         "goto_help": "Elige una playa y el mapa vuela hasta ella.",
         "goto_placeholder": "Elige una playa…",
+        "proudly_dr": "Orgullosamente dominicano · Open source",
+        "license_code": "Código",
+        "license_data": "datos",
+        "source_code": "Código fuente",
         "zoom_here": "🔍 Acercar a esta playa",
         "popup_sargassum": "Sargazo",
         "popup_no_data": "sin datos",
@@ -485,6 +496,10 @@ _T = {
         "goto_beach": "📍 Go to beach",
         "goto_help": "Pick a beach and the map flies straight to it.",
         "goto_placeholder": "Choose a beach…",
+        "proudly_dr": "Proudly Dominican · Open source",
+        "license_code": "Code",
+        "license_data": "data",
+        "source_code": "Source code",
         "zoom_here": "🔍 Zoom to this beach",
         "popup_sargassum": "Sargassum",
         "popup_no_data": "no data",
@@ -2055,13 +2070,33 @@ with _nav_slot:
     st.caption(L["results"].format(n=len(filtered), total=len(BEACHES)))
 
 with st.sidebar:
+    # Footer: authorship, licence and source. The licence links point at the
+    # canonical texts (always reachable) rather than at files in the repo.
+    _lnk = ("font-size:11px;font-weight:700;color:#4dd0e1;text-decoration:none")
     st.markdown(
         "<div style='margin-top:18px;padding:10px 16px 8px;"
         "border-top:1px solid rgba(255,255,255,.18);text-align:center'>"
-        "<span style='font-size:13px;color:#9edde6'>Made with 🌊 by </span>"
+        "<span style='font-size:13px;color:#9edde6'>Made with ❤️ by </span>"
         "<a href='https://www.linkedin.com/in/ayesha-yege/' target='_blank' "
         "style='font-size:13px;font-weight:800;color:#4dd0e1;text-decoration:none'>"
         "Ayesha Yege ↗</a>"
+        f"<div style='font-size:11.5px;font-weight:800;color:#b2ebf2;"
+        f"margin-top:8px;line-height:1.5'>🇩🇴 {L['proudly_dr']}</div>"
+        f"<div style='font-size:11px;color:#80cbc4;margin-top:6px;line-height:1.6'>"
+        f"{L['license_code']} "
+        f"<a href='{APACHE_URL}' target='_blank' rel='license noopener' "
+        f"style='{_lnk}'>Apache 2.0</a>"
+        f" · {L['license_data']} "
+        f"<a href='{CC_BY_URL}' target='_blank' rel='license noopener' "
+        f"style='{_lnk}'>CC BY 4.0</a>"
+        f"</div>"
+        # Own line: at the sidebar's 295px the icon and label were splitting
+        # across two lines when this sat on the end of the licence line.
+        f"<div style='margin-top:5px'>"
+        f"<a href='{REPO_URL}' target='_blank' rel='noopener' "
+        f"style='{_lnk};white-space:nowrap'>💻 {L['source_code']} ↗</a></div>"
+        f"<div style='font-size:10px;color:#5f9ea0;margin-top:6px'>"
+        f"© 2026 Ayesha Yege</div>"
         "</div>",
         unsafe_allow_html=True,
     )

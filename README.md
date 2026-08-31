@@ -22,8 +22,8 @@ You don't need Earth Engine or Copernicus credentials to run the beach explorer.
 
 ```bash
 # 1 — clone & enter the repo
-git clone https://github.com/your-org/sargapp.git
-cd sargapp
+git clone https://github.com/Ayege/descubreplayas.git
+cd descubreplayas
 
 # 2 — create a Python 3.11 virtual environment
 python3.11 -m venv .venv
