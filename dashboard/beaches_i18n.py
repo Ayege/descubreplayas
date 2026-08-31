@@ -1,3 +1,14 @@
+# Copyright 2026 Ayesha Yege
+#
+# This file is DATA, not code. It is licensed under the Creative Commons
+# Attribution 4.0 International License (CC BY 4.0) -- NOT the Apache License
+# that covers the rest of this repository.
+#
+#     https://creativecommons.org/licenses/by/4.0/
+#
+# Share and adapt it freely, including commercially, provided you give
+# appropriate credit. See LICENSE-DATA.md for the attribution line to use.
+
 """Spanish translations for the beach dataset.
 
 `beaches_data.py` is the canonical dataset and stays in English: it is what the

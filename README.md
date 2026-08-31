@@ -502,18 +502,43 @@ done
 
 ## License
 
-Released under the **[MIT License](LICENSE)** — © 2026 Ayesha Yege.
+This project is licensed in two parts.
 
-You are free to use, copy, modify, merge, publish, distribute, sublicense and
-sell copies of this software, including commercially. The only condition is
-that the copyright notice and the permission notice stay in any copy or
-substantial portion of it. The software is provided "as is", without warranty
-of any kind.
+| What | Licence | File |
+| --- | --- | --- |
+| **Code** — pipeline, API, dashboard, models | [Apache License 2.0](LICENSE) | `LICENSE` + [`NOTICE`](NOTICE) |
+| **Beach dataset** — the 56-beach catalogue and its Spanish translations | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | [`LICENSE-DATA.md`](LICENSE-DATA.md) |
 
-### A note on the data
+© 2026 Ayesha Yege.
 
-The code is MIT. The data it moves is not all ours, and each source carries its
-own terms — check them before redistributing derived datasets:
+### Using the code
+
+Apache 2.0 lets you use, modify and redistribute this software, including
+commercially, and grants you an explicit patent licence. In return, if you
+distribute a derivative you must:
+
+- include a copy of the licence,
+- keep the copyright, patent, trademark and attribution notices,
+- **carry forward the [`NOTICE`](NOTICE) file** — §4(d) requires a readable copy
+  of its attribution notices in your NOTICE file, your documentation, or
+  wherever third-party notices normally appear in your product, and
+- state which files you changed.
+
+### Using the beach data
+
+`dashboard/beaches_data.py` and `dashboard/beaches_i18n.py` are an original
+compilation and are **not** covered by Apache 2.0. They are CC BY 4.0: reuse
+and adapt them freely, including commercially, as long as you credit the
+source. The attribution line to copy:
+
+> Beach data from **Descubre Playas RD** by Ayesha Yege, licensed under
+> [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+> Source: <https://descubreplayas.com.do>
+
+### Data this project consumes
+
+The live data it moves is not ours, and each source carries its own terms —
+check them before redistributing derived datasets:
 
 | Source | Used for | Terms |
 | --- | --- | --- |
@@ -521,7 +546,6 @@ own terms — check them before redistributing derived datasets:
 | **Copernicus Marine Service** | Ocean currents (`uo`, `vo`) | Free with registration; cite the product |
 | **Open-Meteo** | 10 m wind | Free for non-commercial use (CC BY 4.0) |
 | **OpenStreetMap** | Map tiles | © OpenStreetMap contributors, ODbL |
-| **Beach catalogue** (`dashboard/beaches_data.py`) | 56 DR beaches | Compiled from DR Ministry of Tourism guides, national-park data and travel references |
 
 Beach amenity, fee and access notes are local observations that change over
 time. Treat them as a starting point, not an authority — and do not rely on the

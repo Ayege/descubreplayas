@@ -1,0 +1,42 @@
+Descubre Playas RD — Sargassum Detection & Early-Warning System
+Copyright 2026 Ayesha Yege
+
+This product includes software developed by Ayesha Yege
+(https://www.linkedin.com/in/ayesha-yege/).
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+--------------------------------------------------------------------------
+ATTRIBUTION
+--------------------------------------------------------------------------
+Section 4(d) of the Apache License requires that any Derivative Work you
+distribute includes a readable copy of the attribution notices in this
+file — in a NOTICE file, in the documentation, or wherever third-party
+notices normally appear in your product.
+
+--------------------------------------------------------------------------
+BEACH DATASET — SEPARATE LICENSE
+--------------------------------------------------------------------------
+The beach catalogue and its Spanish translations are NOT covered by the
+Apache License. They are licensed under Creative Commons Attribution 4.0
+International (CC BY 4.0) and require attribution when reused:
+
+    dashboard/beaches_data.py    56 Dominican Republic beaches
+    dashboard/beaches_i18n.py    Spanish translations of that catalogue
+
+See LICENSE-DATA.md for the terms and the required attribution string.
+
+--------------------------------------------------------------------------
+THIRD-PARTY DATA SOURCES
+--------------------------------------------------------------------------
+This product retrieves data from external services, each under its own
+terms. They are not licensed by Ayesha Yege and are not covered by the
+Apache License:
+
+  Copernicus Sentinel-2 (ESA)  Satellite imagery for detection.
+                               Free and open; attribution required.
+  Copernicus Marine Service    Ocean current fields (uo, vo).
+                               Free with registration; cite the product.
+  Open-Meteo                   10 m wind. CC BY 4.0, non-commercial tier.
+  OpenStreetMap                Map tiles.
+                               © OpenStreetMap contributors, ODbL.
