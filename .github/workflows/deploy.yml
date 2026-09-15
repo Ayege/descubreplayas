@@ -3,16 +3,20 @@
 # and deploys each to Cloud Run using the gcloud CLI directly (avoids the
 # Node 20 deprecation warning emitted by google-github-actions/deploy-cloudrun).
 #
-# Required GitHub Secrets  (Settings → Secrets and variables → Actions):
+# Required GitHub Secrets  (Settings → Secrets and variables → Actions),
+# read directly via ${{ secrets.X }} below:
 #   GCP_PROJECT_ID        — your GCP project id, e.g. sargapp-123456
 #   GCP_REGION            — Cloud Run region, e.g. us-east1
 #   GCP_SA_KEY            — JSON key of the deploy service account (see gcp-setup.sh)
-#   SUPABASE_URL          — Supabase project URL
-#   SUPABASE_KEY          — Supabase service-role key
-#   TELEGRAM_BOT_TOKEN    — Telegram bot token
 #   API_BASE_URL          — public URL of the API, e.g. https://api.descubreplayas.com.do
 #   APP_CANONICAL_URL     — canonical URL of the dashboard, e.g. https://descubreplayas.com.do
 #   GA_MEASUREMENT_ID     — Google Analytics 4 measurement ID (optional)
+#
+# The following are NOT GitHub secrets — they're pulled at deploy time from
+# GCP Secret Manager (see deploy/gcp-setup.sh) via --update-secrets below, so
+# they never touch GitHub or CI logs:
+#   sargapp-supabase-url, sargapp-supabase-key, sargapp-telegram-bot-token,
+#   sargapp-telegram-webhook-secret
 #
 # The pipeline cron (pipeline.yml) is NOT changed here.
 
@@ -132,7 +136,7 @@ jobs:
             --memory    512Mi \
             --cpu       1 \
             --update-env-vars    "API_BASE_URL=${{ secrets.API_BASE_URL }}" \
-            --update-secrets     "SUPABASE_URL=sargapp-supabase-url:latest,SUPABASE_KEY=sargapp-supabase-key:latest,TELEGRAM_BOT_TOKEN=sargapp-telegram-bot-token:latest" \
+            --update-secrets     "SUPABASE_URL=sargapp-supabase-url:latest,SUPABASE_KEY=sargapp-supabase-key:latest,TELEGRAM_BOT_TOKEN=sargapp-telegram-bot-token:latest,TELEGRAM_WEBHOOK_SECRET=sargapp-telegram-webhook-secret:latest" \
             --update-labels      "managed-by=github-actions,commit-sha=${{ github.sha }}"
 
   # ── Build + deploy Dashboard ────────────────────────────────────────────────

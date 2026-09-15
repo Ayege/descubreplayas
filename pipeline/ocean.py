@@ -69,22 +69,12 @@ def _open_dataset(dataset_id: str, variables: list[str], box: dict, start: dt.da
     )
 
 
-def _fetch_open_meteo_wind(lat: float, lon: float, start: dt.datetime, end: dt.datetime) -> dict[str, list[float]]:
-    """Fetch hourly wind forecasts from Open-Meteo and convert to u/v components."""
-    params = config.open_meteo_params(lat, lon, start.date(), end.date())
-    response = requests.get(
-        config.OPEN_METEO_BASE_URL,
-        params=params,
-        timeout=30,
-        verify=certifi.where(),
-    )
-    response.raise_for_status()
-    payload = response.json()
-
-    if "hourly" not in payload:
+def _parse_open_meteo_entry(entry: dict) -> dict[str, list]:
+    """Convert one Open-Meteo location result into u/v wind components."""
+    if "hourly" not in entry:
         raise ValueError("Open-Meteo response missing hourly data")
 
-    hourly = payload["hourly"]
+    hourly = entry["hourly"]
     times = [dt.datetime.fromisoformat(ts).replace(tzinfo=dt.timezone.utc) for ts in hourly["time"]]
     windspeed = [float(v) for v in hourly["windspeed_10m"]]
     winddir = [float(v) for v in hourly["winddirection_10m"]]
@@ -99,6 +89,47 @@ def _fetch_open_meteo_wind(lat: float, lon: float, start: dt.datetime, end: dt.d
         "u10": u10,
         "v10": v10,
     }
+
+
+def _fetch_open_meteo_wind_batch(
+    points: list[tuple[float, float]], start: dt.datetime, end: dt.datetime
+) -> list[Optional[dict[str, list]]]:
+    """Fetch hourly wind forecasts for many points in a single Open-Meteo request.
+
+    Open-Meteo accepts comma-separated latitude/longitude lists and returns
+    one result per point, in the same order, as a JSON array — a single JSON
+    object (not a one-item array) when only one point is requested. This
+    replaces the old one-request-per-patch loop, which made the pipeline's
+    runtime scale linearly with the number of detected patches. VERIFY the
+    batch parameter format and response shape against the current docs
+    (https://open-meteo.com/en/docs) if this ever starts failing — confirmed
+    against the docs as of writing, but it's a third-party API that can change.
+
+    Returns a list aligned with `points`; an entry is None if that point's
+    data was missing or malformed (currents-only fallback for that point).
+    """
+    params = config.open_meteo_params(points[0][0], points[0][1], start.date(), end.date())
+    params["latitude"] = ",".join(str(lat) for lat, _ in points)
+    params["longitude"] = ",".join(str(lon) for _, lon in points)
+    response = requests.get(
+        config.OPEN_METEO_BASE_URL,
+        params=params,
+        timeout=30,
+        verify=certifi.where(),
+    )
+    response.raise_for_status()
+    payload = response.json()
+
+    # A single-point request comes back as one object, not a one-item list.
+    entries = payload if isinstance(payload, list) else [payload]
+
+    results: list[Optional[dict[str, list]]] = []
+    for entry in entries:
+        try:
+            results.append(_parse_open_meteo_entry(entry))
+        except (KeyError, ValueError, TypeError):
+            results.append(None)
+    return results
 
 
 def _align_wind_to_times(cur_times: list[dt.datetime], wind_data: dict[str, list[float]]) -> tuple[list[Optional[float]], list[Optional[float]]]:
@@ -162,6 +193,18 @@ def get_ocean_forcing(
 
     cur_times = [dt.datetime.fromisoformat(str(t)).replace(tzinfo=dt.timezone.utc) for t in cur_ds["time"].values]
 
+    # One batched Open-Meteo request for every point instead of one request
+    # per point — the pipeline's runtime used to scale linearly with the
+    # number of detected patches.
+    try:
+        wind_batch = _fetch_open_meteo_wind_batch(pts, start, end)
+    except Exception:
+        logger.warning(
+            "Open-Meteo batch wind fetch failed; continuing with currents only.",
+            exc_info=True,
+        )
+        wind_batch = [None] * len(pts)
+
     result: dict[int, dict] = {}
     for i, (lat, lon) in enumerate(pts):
         entry = {
@@ -175,17 +218,13 @@ def get_ocean_forcing(
             "units": {"current": CURRENT_UNITS, "wind": WIND_UNITS},
         }
 
-        try:
-            wind_data = _fetch_open_meteo_wind(lat, lon, start, end)
+        wind_data = wind_batch[i] if i < len(wind_batch) else None
+        if wind_data is None:
+            logger.warning("Open-Meteo wind data missing for point %d; continuing with currents only.", i)
+        else:
             aligned_u, aligned_v = _align_wind_to_times(cur_times, wind_data)
             entry["u_wind"] = aligned_u
             entry["v_wind"] = aligned_v
-        except Exception:
-            logger.warning(
-                "Open-Meteo wind fetch failed for point %d; continuing with currents only.",
-                i,
-                exc_info=True,
-            )
 
         result[i] = entry
 

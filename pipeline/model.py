@@ -96,18 +96,10 @@ def _seasonal_risk_for_zone(zone: dict, target_date: dt.date) -> str:
     pipeline and the dashboard share the same seasonal model.
     """
     try:
-        from dashboard.climatology import seasonal_risk
+        from dashboard.climatology import seasonal_risk, zone_region
 
-        # Map zone coordinates to the nearest dashboard coast region string.
         lat, lon = zone["center_lat"], zone["center_lon"]
-        if lon > -69.5:
-            region = "East (Punta Cana / La Romana)"
-        elif lat > 19.5:
-            region = "North (Puerto Plata / Cabarete)"
-        elif lon < -70.5:
-            region = "Southwest (Barahona / Pedernales)"
-        else:
-            region = "South (Santo Domingo / South Coast)"
+        region = zone_region(lat, lon)
         return seasonal_risk(target_date.month, region)
     except Exception:
         # Last-resort: crude month-based rule

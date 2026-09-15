@@ -17,9 +17,26 @@ fi
 # Backup original if not already done
 [ ! -f "$INDEX_HTML.orig" ] && cp "$INDEX_HTML" "$INDEX_HTML.orig"
 
-# Inject canonical + meta tags right after <head> (before any other tags)
+# GA4 gtag.js, only when a Measurement ID is set. This has to land in the
+# server-rendered index.html (not via st.markdown/unsafe_allow_html — browsers
+# never execute <script> tags inserted through innerHTML, which is how
+# Streamlit renders unsafe markdown, so a client-side-only tag is invisible to
+# Google's tag verification even though the text is technically in the DOM).
+GA_SNIPPET=""
+if [ -n "$GA_ID" ]; then
+  GA_SNIPPET="    <script async src=\"https://www.googletagmanager.com/gtag/js?id=${GA_ID}\"></script>
+    <script>
+      window.dataLayer = window.dataLayer \|\| [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${GA_ID}');
+    </script>"
+fi
+
+# Inject GA + canonical + meta tags right after <head> (before any other tags)
 # Use perl for multi-line replacement (sed has portability issues with -i)
 perl -i -pe 'BEGIN{undef $/;} s|(<head>\s*)|$1
+'"$GA_SNIPPET"'
     <meta http-equiv="content-language" content="es-DO">
     <meta name="description" content="Guía de 56 playas de República Dominicana con alertas de sargazo en tiempo real, riesgo por playa, pronóstico de llegada, actividades y acceso.">
     <meta name="keywords" content="playas República Dominicana, sargazo RD, alerta sargazo, Dominican Republic beaches, sargassum alert, Punta Cana, Samaná, Puerto Plata, Barahona">
@@ -64,8 +81,17 @@ perl -i -pe 's|<title>.*?</title>|<title>Descubre Playas RD 🌴</title>|' "$IND
 # Add lang attribute to <html>
 perl -i -pe 's|<html[^>]*>|<html lang="es-DO">|' "$INDEX_HTML"
 
+# Add viewport-fit=cover so CSS env(safe-area-inset-*) resolves to the real
+# notch/home-indicator insets instead of always being 0. Without this, fixed
+# full-bleed elements (the mobile bottom sheet, the filter drawer) render
+# flush against the physical screen edge on notched phones. Streamlit ships
+# this tag across multiple lines, so the match has to slurp the whole file
+# (BEGIN{undef $/;}) rather than process line-by-line like the -pe default.
+perl -0777 -i -pe 's|<meta\s+name="viewport"\s+content="[^"]*"\s*/?>|<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />|s' "$INDEX_HTML"
+
 echo "✓ SEO tags injected into $INDEX_HTML"
 echo "  Canonical: $CANONICAL_URL"
+echo "  GA: ${GA_ID:-<none>}"
 
 # Start Streamlit
 exec streamlit run dashboard/beaches.py \

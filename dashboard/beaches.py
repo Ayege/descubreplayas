@@ -53,13 +53,12 @@ from dashboard.risk_overlay import (
     haversine_km,
     risk_from_detections,
 )
-from dashboard.climatology import seasonal_index, seasonal_risk
+from dashboard.climatology import seasonal_index, seasonal_risk, zone_region
 from dashboard.beaches_i18n import BEACH_TEXT_ES, TERMS_ES
 
 load_dotenv()
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.descubreplayas.com.do")
-GA_MEASUREMENT_ID = os.environ.get("GA_MEASUREMENT_ID", "")
 
 st.set_page_config(
     page_title="Descubre Playas RD",
@@ -72,25 +71,21 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------------------
-# Google Analytics 4 — inject gtag.js only when a Measurement ID is set.
-# Set GA_MEASUREMENT_ID=G-XXXXXXXXXX in the Cloud Run environment or .env.
+# Google Analytics 4 — gtag.js, only when GA_MEASUREMENT_ID is set.
+#
+# This used to be injected here via st.markdown("<script>…", unsafe_allow_html
+# =True), which never ran: Streamlit renders unsafe markdown through innerHTML,
+# and browsers never execute <script> tags inserted that way (same root cause
+# documented below for the SEO meta tags). Google's tag verification correctly
+# reported the tag as not detected.
+#
+# PRODUCTION (Docker): docker-entrypoint-dashboard.sh patches Streamlit's
+# index.html at container start with the real gtag.js snippet, so it's part
+# of the server-rendered HTML and actually executes.
+#
+# Local `streamlit run` has no entrypoint step, so GA does not fire there —
+# deliberately, so local testing doesn't pollute analytics.
 # ---------------------------------------------------------------------------
-if GA_MEASUREMENT_ID:
-    st.markdown(
-        f"""
-<script async src="https://www.googletagmanager.com/gtag/js?id={GA_MEASUREMENT_ID}"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){{dataLayer.push(arguments);}}
-  gtag('js', new Date());
-  gtag('config', '{GA_MEASUREMENT_ID}', {{
-    page_title: document.title,
-    page_location: window.location.href
-  }});
-</script>
-""",
-        unsafe_allow_html=True,
-    )
 
 # ---------------------------------------------------------------------------
 # SEO — meta tags, Open Graph, JSON-LD structured data
@@ -293,6 +288,15 @@ def _inject_head(ui_lang: str) -> None:
         "<script>(function(){var cfg=" + _json_mod.dumps(cfg) + ";try{"
         "var d=window.parent.document,l=window.parent.location;"
         "d.documentElement.setAttribute('lang',cfg.lang);"
+        # Dev-mode fallback for the production docker-entrypoint patch below:
+        # add viewport-fit=cover so CSS env(safe-area-inset-*) resolves to the
+        # real notch/home-indicator insets under `streamlit run` too, instead
+        # of only in the deployed container. Guarded on 'viewport-fit' already
+        # being present so repeat calls (every language toggle) don't pile up
+        # duplicate suffixes.
+        "var vp=d.querySelector('meta[name=\"viewport\"]');"
+        "if(vp&&vp.getAttribute('content').indexOf('viewport-fit')===-1){"
+        "vp.setAttribute('content',vp.getAttribute('content')+', viewport-fit=cover');}"
         "d.querySelectorAll('[data-sarg-seo]').forEach(function(n){n.remove();});"
         "cfg.tags.forEach(function(t){var m=d.createElement('meta');"
         "if(t.property){m.setAttribute('property',t.property);}"
@@ -367,6 +371,8 @@ _T = {
         "horizon": "⏱️ Horizonte de pronóstico",
         "horizon_note": "El pronóstico de sargazo es confiable solo ~72h. Más allá usa la temporada.",
         "horizon_now": "Ahora",
+        "risk_by_horizon": "Riesgo proyectado en esta playa",
+        "more_details": "Ver más detalles",
         "season_note": "📅 Temporada alta de sargazo en el Caribe: marzo–agosto.",
         "prediction_info_title": "ℹ️ Métodos de predicción",
         "prediction_physics": "Física (0-72h): Deriva lagrangiana + corrientes oceánicas. Preciso.",
@@ -457,6 +463,8 @@ _T = {
         "horizon": "⏱️ Forecast horizon",
         "horizon_note": "Sargassum forecast is reliable only ~72h. Beyond that, use the season.",
         "horizon_now": "Now",
+        "risk_by_horizon": "Projected risk at this beach",
+        "more_details": "See more details",
         "season_note": "📅 Caribbean sargassum peak season: March–August.",
         "prediction_info_title": "ℹ️ Prediction methods",
         "prediction_physics": "Physics (0-72h): Lagrangian drift + ocean currents. Accurate.",
@@ -995,15 +1003,17 @@ iframe[title="streamlit_folium.st_folium"] {
     [data-testid="stSidebar"] h1 { font-size: 1.1rem !important; }
     [data-testid="stSidebar"] label,
     [data-testid="stSidebar"] .stMarkdown p { font-size: 13px !important; }
+    /* Map height on mobile is set once, unconditionally, further down (see
+       "map always fills the screen" block) — it used to be split 57vh
+       map / 43vh sheet here, which relied on both halves adding up to
+       exactly 100dvh through several layers of Streamlit's own wrapper
+       divs. Any mismatch there (and there was one) left a visible gap
+       between the map and the sheet. Letting the map fill the whole
+       screen and float the sheet on top removes that shared budget
+       entirely — nothing to add up, so nothing to leave a gap. */
     .stIframe,
-    [data-testid="stIFrame"] iframe,
-    iframe[title="streamlit_folium.st_folium"] {
-        height: 57vh !important;
+    [data-testid="stIFrame"] iframe {
         min-height: 280px !important;
-    }
-    [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]),
-    [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]) > div {
-        height: 57vh !important;
     }
     .risk-banner { font-size: 12px; padding: 7px 10px; }
 
@@ -1065,9 +1075,12 @@ iframe[title="streamlit_folium.st_folium"] {
         opacity: 1 !important;
     }
 
-    /* Detail panel → full-width bottom sheet.
-       43vh gives ~260px of content on a 600px phone while 57vh map stays dominant.
-       padding-top:22px clears the ::before drag-handle element. */
+    /* Detail panel → full-width bottom sheet, floating over the always-100dvh
+       map (see the "map always fills the whole screen" block below) rather
+       than sharing a fixed height split with it.
+       43vh gives ~260px of content on a 600px phone while leaving the top of
+       the map visible above the sheet. padding-top:22px clears the ::before
+       drag-handle element. */
     .beach-detail {
         right: 0 !important; left: 0 !important;
         top: auto !important; bottom: 0 !important;
@@ -1151,14 +1164,8 @@ iframe[title="streamlit_folium.st_folium"] {
 @media (max-width: 480px) {
     [data-testid="stSidebar"] h1 { font-size: 1rem !important; }
     .stIframe,
-    [data-testid="stIFrame"] iframe,
-    iframe[title="streamlit_folium.st_folium"] {
-        height: 54vh !important;
+    [data-testid="stIFrame"] iframe {
         min-height: 260px !important;
-    }
-    [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]),
-    [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]) > div {
-        height: 54vh !important;
     }
     /* On 480px screens keep the panel at 42vh; the extra 2vh vs 768px slightly
        increases content visibility on the tallest compact phones (667px). */
@@ -1166,25 +1173,29 @@ iframe[title="streamlit_folium.st_folium"] {
     .map-legend { max-height: 18vh !important; font-size: 10px; }
 }
 
-/* ── Mobile: no card open → the map takes the whole screen ──
-   The 57vh / 54vh map heights above assume the detail panel fills the bottom
-   of the screen as a sheet. The app now opens with NO beach selected, so that
-   sheet does not exist and its share of the screen showed as a blank band
-   under the map. `:not(:has(.beach-detail))` matches exactly that state.
+/* ── Mobile: the map always fills the whole screen ──
+   This used to apply only when no beach was selected, on the theory that a
+   selected beach's sheet would take a fixed 43vh and the map the remaining
+   57vh. In practice the two never quite added up — Streamlit wraps the
+   iframe in a couple of its own divs, and getting every one of them to
+   collapse to exactly the right vh left a visible gap between the map and
+   the sheet. The fix: stop splitting the height at all. The map is always
+   100dvh (full screen); `.beach-detail` is `position: fixed` (see its base
+   rule and the mobile override below), so it simply floats on top of the
+   map instead of sharing a height budget with it. Nothing to add up means
+   nothing can leave a gap.
    Placed after the media blocks above and carrying higher specificity, so it
    wins over both the 768px and 480px rules.
    dvh, not vh: on phones `vh` is measured against the viewport WITHOUT the
    browser's collapsing URL bar, which leaves its own gap at the bottom. */
 @media (max-width: 768px) {
-    html:has(body:not(:has(.beach-detail))),
-    body:not(:has(.beach-detail)),
-    body:not(:has(.beach-detail)) .stApp {
+    html, body, body .stApp {
         height: 100dvh !important;
         max-height: 100dvh !important;
     }
-    body:not(:has(.beach-detail)) iframe[title="streamlit_folium.st_folium"],
-    body:not(:has(.beach-detail)) [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]),
-    body:not(:has(.beach-detail)) [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]) > div {
+    body iframe[title="streamlit_folium.st_folium"],
+    body [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]),
+    body [data-testid="stElementContainer"]:has(> div > iframe[title="streamlit_folium.st_folium"]) > div {
         height: 100dvh !important;
         min-height: 100dvh !important;
     }
@@ -1398,6 +1409,63 @@ def _ml_risk_for_zone(
     return best["risk_level"], float(best.get("confidence", 0.4)), best.get("method", "seasonal")
 
 
+def _masses_shifted_to(masses: list[dict], horizon: int) -> list[dict]:
+    """Return `masses` with every position advected `horizon` hours ahead.
+
+    horizon=0 returns the masses unshifted (their current detected position).
+    """
+    if horizon <= 0:
+        return masses
+    _wu, _wv = _WIND_UV
+    shifted: list[dict] = []
+    for _m in masses:
+        try:
+            _plat, _plon = _predict_position(
+                float(_m["lat"]), float(_m["lon"]), horizon, _wu, _wv
+            )
+            shifted.append({**_m, "lat": _plat, "lon": _plon})
+        except Exception:
+            shifted.append(_m)
+    return shifted
+
+
+def _beach_risk_with_masses(
+    beach: dict, masses: list[dict], horizon: int, zone, zdist, fc
+) -> tuple[str, float | None]:
+    """Risk level (and nearest-mass distance) for `beach` at a given horizon.
+
+    Shifts `masses` to their +horizon predicted position, then measures risk
+    from those projected positions — same projection the map's drift trails
+    use, so the beach card's numbers match what the map shows.
+    """
+    working_masses = _masses_shifted_to(masses, horizon)
+    d_risk, d_mass, d_km, _ = risk_from_detections(beach, working_masses)
+    if d_mass is not None:
+        return d_risk, d_km
+    return "none", None
+
+
+def _beach_risk_horizons(beach: dict) -> list[tuple[int, str]] | None:
+    """Risk level at each physics checkpoint (0/24/48/72h) for one beach.
+
+    Reuses the same per-mass drift projection as _beach_risk, computed for
+    every horizon at once, so the beach card can show how risk evolves over
+    time independent of whichever single horizon is globally selected in the
+    sidebar. Returns None when there is nothing to project (no zones, or no
+    live detections to shift).
+    """
+    if not zones:
+        return None
+    _, zone, zdist, fc = risk_for_beach(beach, zones, forecast_by_zone_id)
+    masses = _cached_fetch_detections(API_BASE_URL)
+    if not masses:
+        return None
+    return [
+        (h, _beach_risk_with_masses(beach, masses, h, zone, zdist, fc)[0])
+        for h in (0, 24, 48, 72)
+    ]
+
+
 def _beach_risk(beach: dict):
     """Return (risk_level, nearest_zone, dist_km, forecast_dict) or (None,None,None,None).
 
@@ -1413,27 +1481,8 @@ def _beach_risk(beach: dict):
     masses = _cached_fetch_detections(API_BASE_URL)
     if masses:
         horizon = globals().get("SEL_HORIZON") or 0
-        if horizon > 0:
-            # Shift every mass to its predicted position at this horizon so the
-            # per-beach risk reflects the forecast, not just current observations.
-            _wu, _wv = _WIND_UV
-            shifted: list[dict] = []
-            for _m in masses:
-                try:
-                    _plat, _plon = _predict_position(
-                        float(_m["lat"]), float(_m["lon"]), horizon, _wu, _wv
-                    )
-                    shifted.append({**_m, "lat": _plat, "lon": _plon})
-                except Exception:
-                    shifted.append(_m)
-            working_masses = shifted
-        else:
-            working_masses = masses
-
-        d_risk, d_mass, d_km, _ = risk_from_detections(beach, working_masses)
-        if d_mass is not None:
-            return d_risk, zone, d_km, fc
-        return "none", zone, None, fc
+        d_risk, d_km = _beach_risk_with_masses(beach, masses, horizon, zone, zdist, fc)
+        return d_risk, zone, d_km, fc
 
     # No detections available → fall back to zone-box forecast + distance gate.
     if zone is not None and zdist is not None and zdist > COVERAGE_KM:
@@ -1650,6 +1699,39 @@ def _predict_position(lat: float, lon: float, hours: int,
     return cur_lat, cur_lon
 
 
+@st.cache_resource
+def _load_dr_land_polygon():
+    """Load the real DR coastline (Natural Earth 10m admin-0 boundary, ~580
+    vertices) for land/sea checks.
+
+    An earlier version checked distance to the 56 named tourist beaches
+    instead of the actual coastline. That missed stretches of coast with no
+    nearby listed beach (e.g. Bahía de Ocoa, near Azua), letting drift trails
+    sail tens of kilometres inland before ever being flagged as "landed".
+    """
+    from shapely.geometry import shape
+
+    path = Path(__file__).parent / "dr_boundary.geojson"
+    with open(path) as f:
+        return shape(_json_mod.load(f)["geometry"])
+
+
+_DR_LAND_POLYGON = _load_dr_land_polygon()
+
+
+def _reaches_land(lat: float, lon: float) -> bool:
+    """True once (lat, lon) falls on Dominican Republic land.
+
+    The advection model has no coastline barrier, so a naively continued
+    projection would keep sliding a mass's predicted position inland past
+    the point it would actually have beached. Used to truncate drift trails
+    at the shoreline instead of plotting a floating mass sitting on land.
+    """
+    from shapely.geometry import Point
+
+    return _DR_LAND_POLYGON.contains(Point(lon, lat))
+
+
 def _beach_eta_quick(beach: dict, masses: list[dict], max_hours: int = 72,
                      wind_u: float = 0.0, wind_v: float = 0.0) -> int | None:
     """Hours until the nearest approaching mass drifts within ARRIVAL_KM of this beach.
@@ -1663,7 +1745,7 @@ def _beach_eta_quick(beach: dict, masses: list[dict], max_hours: int = 72,
       candidates, then verifies only the best one with an exact hour-by-hour
       simulation for precision.
     """
-    from dashboard.risk_overlay import haversine_km as _hkm
+    from dashboard.risk_overlay import haversine_km as _hkm, BEACH_AREA_MIN_KM2
 
     ARRIVAL_KM = 12.0          # mass is "at the beach" when this close
     MAX_SPEED_KMH = 1.2        # conservative upper bound on drift speed (km/h)
@@ -1677,7 +1759,15 @@ def _beach_eta_quick(beach: dict, masses: list[dict], max_hours: int = 72,
     for m in masses:
         try:
             mlat, mlon = float(m["lat"]), float(m["lon"])
+            m_area = float(m.get("area_km2", 0.0) or 0.0)
         except Exception:
+            continue
+        # Skip masses too small to ever register as risk (risk_from_detections
+        # ignores them below this same area). Without this filter, a speck of
+        # sargassum well under BEACH_AREA_MIN_KM2 could trigger "already near"
+        # here while the risk badge correctly still reads "none" — the two
+        # sections of the card would visibly disagree about the same beach.
+        if m_area < BEACH_AREA_MIN_KM2:
             continue
 
         dist = _hkm(blat, blon, mlat, mlon)
@@ -2209,7 +2299,18 @@ m.get_root().header.add_child(folium.Element(
     # (it becomes a bottom sheet), so only the zoom control needs clearing.
     "#sarg-tip { max-width: calc(100% - 380px); }"
     "@media (max-width: 768px) {"
-    " #sarg-tip { max-width: calc(100% - 72px); white-space: normal; } }"
+    " #sarg-tip { max-width: calc(100% - 72px); white-space: normal; }"
+    # Beach markers carry a hover tooltip (name + province) for desktop
+    # preview. Touch devices have no hover, so a tap fires both the tooltip
+    # AND the click that opens .beach-detail (in the PARENT document) — the
+    # two stack, showing a small white tooltip bubble under the rich teal
+    # card. Desktop is unaffected since hover and click stay distinct there.
+    # Must live in THIS style block (injected into the map iframe's own
+    # <head> via get_root().header) rather than the parent page's <style> —
+    # .leaflet-tooltip only exists inside the iframe's document, which the
+    # parent page's stylesheet never reaches.
+    " .leaflet-tooltip { display: none !important; }"
+    " }"
     "</style>"
 ))
 cluster = MarkerCluster(
@@ -2324,18 +2425,6 @@ for b in filtered:
 # ---------------------------------------------------------------------------
 _ZONE_BOX_DEG = _ZONE_HALF_DEG  # half-width, kept in sync with pipeline/config.py ZONE_BOX_HALF_DEG
 
-def _zone_region(clat: float, clon: float) -> str:
-    """Map a zone's centre coordinates to a DR coastal region for seasonal climatology."""
-    if clon > -69.0:
-        return "East (Punta Cana / La Romana)"
-    if clat > 19.5:
-        return "North (Puerto Plata / Cabarete)"
-    if -69.5 < clon < -69.0 and clat > 18.9:
-        return "Samaná Peninsula"
-    if clon < -70.5:
-        return "Southwest (Barahona / Pedernales)"
-    return "South (Santo Domingo / South Coast)"
-
 
 if show_zones and zones:
     for _z in zones:
@@ -2350,10 +2439,10 @@ if show_zones and zones:
             if _ml_hit:
                 _z_risk, _z_conf, _ = _ml_hit
             else:
-                _z_risk = seasonal_risk(sel_date.month, _zone_region(_clat, _clon))
+                _z_risk = seasonal_risk(sel_date.month, zone_region(_clat, _clon))
                 _z_conf = 0.4
         elif _date_mode == "seasonal":
-            _z_risk = seasonal_risk(sel_date.month, _zone_region(_clat, _clon))
+            _z_risk = seasonal_risk(sel_date.month, zone_region(_clat, _clon))
             _z_conf = 0.0
         else:
             _z_risk = _risk_at_horizon(_fc_z) if _fc_z else "none"
@@ -2487,6 +2576,7 @@ if show_masses:
             _r = max(3.0, min(18.0, 3.0 + (_a ** 0.5) * 4.0))
 
             if _show_drift:
+                _landed = False
                 if _ml_drift_mode:
                     # ML / speculative mode — build a multi-segment trail with
                     # checkpoints every 7 days so the path is visible but not
@@ -2544,12 +2634,18 @@ if show_masses:
                         tooltip=f"🟣 {L['mass_ml_pos']} (+{_drift_h}h ML) · {_a:.2f} km²",
                     ).add_to(_mass_group)
                 else:
-                    # Physics mode — original 4-point trail
+                    # Physics mode — original 4-point trail, truncated at the
+                    # checkpoint (+24/+48/+72h) where the projected position
+                    # reaches land: past that point the mass has beached, so
+                    # continuing to project it drifting over land is wrong.
                     _checkpoints = sorted({24, 48, _drift_h} & {h for h in [24, 48, 72] if h <= _drift_h})
                     _trail = [[_lat0, _lon0]]
                     for _ch in _checkpoints:
                         _pl, _pn = _predict_position(_lat0, _lon0, _ch)
                         _trail.append([_pl, _pn])
+                        if _reaches_land(_pl, _pn):
+                            _landed = True
+                            break
 
                     # Drift trail — thin dashed line
                     folium.PolyLine(
@@ -2561,8 +2657,10 @@ if show_masses:
                         tooltip=f"🟤 {L['mass_route']} · {_a:.2f} km²",
                     ).add_to(_mass_group)
 
-                # Physics ghost circle (only for non-ML mode)
-                if not _ml_drift_mode:
+                # Physics ghost circle (only for non-ML mode, and only while
+                # the projected mass is still at sea — once it has reached
+                # land by this horizon there is no floating position to show).
+                if not _ml_drift_mode and not _landed:
                     _plat, _plon = _trail[-1]
                     folium.CircleMarker(
                         location=[_plat, _plon],
@@ -2765,24 +2863,31 @@ if _panel_beach:
     _turtle = " 🐢" if _pb["protected_area"] else ""
 
     # ── Advisory text per risk level ──────────────────────────────────────
+    # Emoji comes from RISK_EMOJI (the one convention used everywhere else in
+    # the app — map, legends, sidebar, horizon breakdown below) rather than a
+    # bespoke set here: this dict used to carry its own emoji per level (🟢
+    # for "none"), which disagreed with RISK_EMOJI's ⚪ for the same level and
+    # made the badge look like it contradicted the horizon breakdown even
+    # when the underlying risk value was identical.
     _ADVISORY = {
-        "none":   ("🟢", "Sin sargazo detectado en la zona más cercana.",
-                         "No sargassum detected in the nearest monitored zone."),
-        "low":    ("🟡", "Bajo riesgo. Posibles trazas en playa. Condiciones normales.",
-                         "Low risk. Possible traces on shore. Normal conditions."),
-        "medium": ("🟠", "Riesgo medio. Sargazo esperado. Puede afectar el agua.",
-                         "Medium risk. Sargassum incoming. Water may be affected."),
-        "high":   ("🔴", "ALTO RIESGO. Llegada inminente. Planifica con antelación.",
-                         "HIGH RISK. Arrival imminent. Plan your visit accordingly."),
-        "out":    ("⚪", "Fuera del área de monitoreo. Sin datos de sargazo para esta playa.",
-                         "Outside the monitored area. No sargassum data for this beach."),
+        "none":   ("Sin sargazo detectado en la zona más cercana.",
+                   "No sargassum detected in the nearest monitored zone."),
+        "low":    ("Bajo riesgo. Posibles trazas en playa. Condiciones normales.",
+                   "Low risk. Possible traces on shore. Normal conditions."),
+        "medium": ("Riesgo medio. Sargazo esperado. Puede afectar el agua.",
+                   "Medium risk. Sargassum incoming. Water may be affected."),
+        "high":   ("ALTO RIESGO. Llegada inminente. Planifica con antelación.",
+                   "HIGH RISK. Arrival imminent. Plan your visit accordingly."),
+        "out":    ("Fuera del área de monitoreo. Sin datos de sargazo para esta playa.",
+                   "Outside the monitored area. No sargassum data for this beach."),
     }
 
     # ── Build the sargassum section ───────────────────────────────────────
     if _mode == "ml" and _risk_level and _near_zone:
         _rc = RISK_COLORS.get(_risk_level, "#607d8b")
         _rlbl = RISK_LABEL.get(_risk_level, _risk_level.upper())
-        _emoji, _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("⚪", "", ""))
+        _emoji = RISK_EMOJI.get(_risk_level, "⚪")
+        _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("", ""))
         _advice = _advice_en if lang == "en" else _advice_es
         _ml_conf_panel = int((_fc or {}).get("confidence", 0.4) * 100)
         _ml_lead_panel = min([7, 14, 21], key=lambda d: abs(d - _days_ahead_g))
@@ -2816,7 +2921,8 @@ if _panel_beach:
         # a statistical expectation for the month, not a deterministic forecast.
         _rc = RISK_COLORS.get(_risk_level, "#607d8b")
         _rlbl = RISK_LABEL.get(_risk_level, _risk_level.upper())
-        _emoji, _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("⚪", "", ""))
+        _emoji = RISK_EMOJI.get(_risk_level, "⚪")
+        _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("", ""))
         _advice = _advice_en if lang == "en" else _advice_es
         _seasonal_note = L["seasonal_advisory"]
         _risk_section = (
@@ -2840,7 +2946,8 @@ if _panel_beach:
     elif _risk_level and _near_zone:
         _rc = RISK_COLORS.get(_risk_level, "#607d8b")
         _rlbl = RISK_LABEL.get(_risk_level, _risk_level.upper())
-        _emoji, _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("⚪", "", ""))
+        _emoji = RISK_EMOJI.get(_risk_level, "⚪")
+        _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("", ""))
         _advice = _advice_en if lang == "en" else _advice_es
 
         # ETA lines — per-beach drift estimate (primary) + zone run timestamp
@@ -2897,13 +3004,51 @@ if _panel_beach:
             f" &nbsp;·&nbsp; sargazo ~{_dist_km:.0f} km"
             if _dist_km is not None else ""
         )
+
+        # Risk projected forward at each physics checkpoint, independent of
+        # whichever single horizon is globally selected in the sidebar — so
+        # this beach's card always shows how its risk evolves over 0-72h.
+        # Which horizon the badge above reflects — shown next to it and
+        # matched with a highlighted cell below so the two never look like
+        # they disagree: the badge is just this one cell, pulled out.
+        _sel_h = globals().get("SEL_HORIZON") or 0
+        _sel_h_label = L["horizon_now"] if _sel_h == 0 else f"+{_sel_h}h"
+
+        _horizons_bd = _beach_risk_horizons(_pb)
+        if _horizons_bd:
+            _hb_cells = []
+            for _h, _h_risk in _horizons_bd:
+                _h_label = L["horizon_now"] if _h == 0 else f"+{_h}h"
+                _h_color = RISK_COLORS.get(_h_risk, "#607d8b")
+                _h_emoji = RISK_EMOJI.get(_h_risk, "⚪")
+                _h_border = (
+                    "border:2px solid #fff" if _h == _sel_h else "border:2px solid transparent"
+                )
+                _hb_cells.append(
+                    f"<div style='flex:1;text-align:center;background:{_h_color};"
+                    f"border-radius:8px;padding:4px 2px;{_h_border};box-sizing:border-box'>"
+                    f"<div style='font-size:9px;color:#fff;opacity:.85'>{_h_label}</div>"
+                    f"<div style='font-size:11px;color:#fff'>{_h_emoji}</div>"
+                    f"</div>"
+                )
+            _horizon_bd_html = (
+                f"<div style='margin:8px 0 2px'>"
+                f"<div style='color:#80cbc4;font-size:10px;font-weight:700;"
+                f"text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px'>"
+                f"⏱️ {L['risk_by_horizon']}</div>"
+                f"<div style='display:flex;gap:5px'>{''.join(_hb_cells)}</div>"
+                f"</div>"
+            )
+        else:
+            _horizon_bd_html = ""
+
         _risk_section = (
             f"<div style='background:rgba(0,0,0,.25);border-radius:12px;"
             f"padding:10px 12px;margin:9px 0;border-left:4px solid {_rc}'>"
-            # Header row: badge + zone
+            # Header row: badge (labelled with its horizon) + zone
             f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px'>"
             f"<span style='background:{_rc};color:#fff;border-radius:16px;"
-            f"padding:2px 10px;font-size:11px;font-weight:800'>{_emoji} {_rlbl}</span>"
+            f"padding:2px 10px;font-size:11px;font-weight:800'>{_emoji} {_rlbl} · {_sel_h_label}</span>"
             f"<span style='color:#80cbc4;font-size:11px'>{_zone_name}"
             f"{_mass_dist_txt}</span></div>"
             # Advisory
@@ -2911,6 +3056,8 @@ if _panel_beach:
             f"margin-bottom:6px'>{_advice}</div>"
             # ETA rows
             + _eta_line +
+            # Projected risk by horizon
+            _horizon_bd_html +
             f"<div style='color:#80cbc4;font-size:10px;border-top:1px solid "
             f"rgba(255,255,255,.1);padding-top:5px;margin-top:5px'>"
             f"{L['method_physics']}</div>"
@@ -2969,6 +3116,21 @@ if _panel_beach:
     else:
         _recs_html = ""
 
+    # Secondary info — nice-to-know but not what decides "should I go right
+    # now": water conditions, activities, wildlife, facilities, ecosystem,
+    # plus the "other beaches" recommendations. Tucked behind a native
+    # <details> disclosure (no JS, no extra widget) instead of always-open,
+    # so the card leads with risk + practical basics instead of a 15-field
+    # wall of text.
+    _more_html = (
+        _brow("🌊", L["water"], tr_text(_pb, "water_conditions"))
+        + _brow("🏄", L["activities"], _acts)
+        + _brow("🐠", L["wildlife"], _wild)
+        + _brow("🏗️", L["facilities"], _facs)
+        + _brow("🌿", L["ecosystem"], tr_text(_pb, "ecosystem"))
+        + _recs_html
+    )
+
     _bubble = (
         "<div class='beach-detail'>"
         # Beach name + location
@@ -2991,22 +3153,24 @@ if _panel_beach:
         + _brow("🗓️", L["best_time"], tr_term(_pb["best_time_to_visit"]))
         + _brow("🎟️", L["entrance"], tr_term(_pb["entrance_fee"]))
         + _brow("🅿️", L["parking"], _park)
-        + _brow("🌊", L["water"], tr_text(_pb, "water_conditions"))
         + _brow("🚪", L["access"],
                 f"{tr_term(_pb['access_type'])} — {tr_text(_pb, 'access_description')}")
-        + "<hr style='border:none;border-top:1px solid rgba(255,255,255,.13);margin:9px 0'>"
-        + _brow("🏄", L["activities"], _acts)
-        + _brow("🐠", L["wildlife"], _wild)
-        + _brow("🏗️", L["facilities"], _facs)
-        + _brow("🌿", L["ecosystem"], tr_text(_pb, "ecosystem"))
         + f"<a href='{_pb['google_maps_url']}' target='_blank' style='"
-        "display:block;text-align:center;margin-top:14px;"
+        "display:block;text-align:center;margin-top:12px;"
         "background:linear-gradient(135deg,rgba(0,180,130,.4),rgba(0,120,100,.4));"
         "color:#fff;"
         "border:1px solid rgba(0,255,180,.3);border-radius:25px;"
         "padding:9px;font-size:12px;font-weight:800;text-decoration:none'>"
         f"📍 {L['open_maps']} ↗</a>"
-        + _recs_html
+        + (
+            f"<details style='margin-top:10px'>"
+            f"<summary style='color:#80cbc4;font-size:11px;font-weight:700;"
+            f"cursor:pointer;text-transform:uppercase;"
+            f"letter-spacing:.5px'>{L['more_details']}</summary>"
+            f"<div style='margin-top:8px'>{_more_html}</div>"
+            f"</details>"
+            if _more_html else ""
+        )
         + "</div>"
     )
     st.markdown(_bubble, unsafe_allow_html=True)

@@ -19,6 +19,8 @@ import hmac
 import json
 import logging
 import os
+import time
+from collections import defaultdict, deque
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,10 +46,11 @@ app = FastAPI(
     title="Sargassum Early Warning API",
     description="Coastal sargassum arrival risk forecasts for the Dominican Republic.",
     version="0.1.0",
-    # Hide the /redoc and /openapi.json routes in production to reduce attack surface.
-    # Remove these two lines if you want interactive docs on the deployed instance.
-    # redoc_url=None,
-    # openapi_url=None,
+    # Hide /docs, /redoc and /openapi.json in production to reduce attack
+    # surface — they publicly map every route, including /telegram/webhook.
+    # Comment these back out if you want interactive docs on the deployed instance.
+    redoc_url=None,
+    openapi_url=None,
 )
 
 # ---------------------------------------------------------------------------
@@ -88,6 +91,37 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
+
+
+# ---------------------------------------------------------------------------
+# Rate limiting — simple in-memory sliding window for the write endpoints
+# (/subscribe, /telegram/webhook). No new dependency, so it is per-process
+# rather than global: Cloud Run can run up to a few instances, so this caps
+# abuse per-instance, not across the whole service. Good enough to blunt
+# casual abuse on a free-tier POC; swap for a shared store (e.g. Redis) if
+# it ever needs to be a hard global limit.
+# ---------------------------------------------------------------------------
+_RATE_LIMIT_WINDOW_S = 60.0
+_RATE_LIMIT_MAX_REQUESTS = 10
+_rate_limit_hits: dict[str, deque[float]] = defaultdict(deque)
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _enforce_rate_limit(request: Request) -> None:
+    ip = _client_ip(request)
+    now = time.monotonic()
+    hits = _rate_limit_hits[ip]
+    while hits and now - hits[0] > _RATE_LIMIT_WINDOW_S:
+        hits.popleft()
+    if len(hits) >= _RATE_LIMIT_MAX_REQUESTS:
+        raise HTTPException(status_code=429, detail="Too many requests. Try again shortly.")
+    hits.append(now)
 
 
 # ---------------------------------------------------------------------------
@@ -134,12 +168,9 @@ def list_zones() -> list[ZoneResponse]:
 # ---------------------------------------------------------------------------
 
 def _format_forecast(row: dict) -> ForecastResponse:
-    zone_name = row.get("zones") or {}
-    if isinstance(zone_name, dict):
-        zone_name = zone_name.get("name", "")
     return ForecastResponse(
         zone_id=row["zone_id"],
-        name=zone_name,
+        name=row.get("zone_name", ""),
         risk_level=row["risk_level"],
         eta_hours=row.get("eta_hours"),
         eta_timestamp=row.get("eta_timestamp"),
@@ -183,11 +214,9 @@ def list_extended_forecasts(
     rows = db.list_ml_forecasts(lead_days=lead_days)
     out = []
     for r in rows:
-        zone_obj = r.get("zones") or {}
-        zone_name = zone_obj.get("name", "") if isinstance(zone_obj, dict) else ""
         out.append(ExtendedForecastResponse(
             zone_id=r["zone_id"],
-            zone_name=zone_name,
+            zone_name=r.get("zone_name", ""),
             lead_days=r["lead_days"],
             risk_level=r["risk_level"],
             confidence=r["confidence"],
@@ -257,7 +286,8 @@ def list_detections(
 # ---------------------------------------------------------------------------
 
 @app.post("/subscribe", response_model=SubscribeResponse, status_code=201, tags=["subscribe"])
-def subscribe(body: SubscribeRequest) -> SubscribeResponse:
+def subscribe(body: SubscribeRequest, request: Request) -> SubscribeResponse:
+    _enforce_rate_limit(request)
     row = db.insert_subscriber(
         channel=body.channel,
         chat_id=body.chat_id,
@@ -282,6 +312,7 @@ async def telegram_webhook(update: dict, request: Request) -> dict:
     (configured when the webhook is registered). Requests without the correct
     secret are rejected to prevent spoofed updates from triggering the bot.
     """
+    _enforce_rate_limit(request)
     expected = config.TELEGRAM_WEBHOOK_SECRET
     if expected:
         provided = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")

@@ -24,6 +24,7 @@
 #   export SUPABASE_URL=https://...
 #   export SUPABASE_KEY=service_role_key
 #   export TELEGRAM_BOT_TOKEN=...
+#   export TELEGRAM_WEBHOOK_SECRET=...    # any random string; see README
 #   bash deploy/gcp-setup.sh
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -34,6 +35,7 @@ set -euo pipefail
 : "${SUPABASE_URL:?Set SUPABASE_URL}"
 : "${SUPABASE_KEY:?Set SUPABASE_KEY}"
 : "${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN}"
+: "${TELEGRAM_WEBHOOK_SECRET:?Set TELEGRAM_WEBHOOK_SECRET (any random string)}"
 
 API_BASE_URL="https://api.${DOMAIN}"
 
@@ -93,10 +95,11 @@ _upsert_secret() {
   echo "  ✅ $name"
 }
 
-_upsert_secret "sargapp-supabase-url"       "$SUPABASE_URL"
-_upsert_secret "sargapp-supabase-key"       "$SUPABASE_KEY"
-_upsert_secret "sargapp-telegram-bot-token" "$TELEGRAM_BOT_TOKEN"
-_upsert_secret "sargapp-api-base-url"       "$API_BASE_URL"
+_upsert_secret "sargapp-supabase-url"            "$SUPABASE_URL"
+_upsert_secret "sargapp-supabase-key"            "$SUPABASE_KEY"
+_upsert_secret "sargapp-telegram-bot-token"      "$TELEGRAM_BOT_TOKEN"
+_upsert_secret "sargapp-telegram-webhook-secret" "$TELEGRAM_WEBHOOK_SECRET"
+_upsert_secret "sargapp-api-base-url"            "$API_BASE_URL"
 
 # Grant the deploy SA access to read secrets at deploy time
 gcloud secrets add-iam-policy-binding sargapp-supabase-url \
@@ -219,18 +222,23 @@ echo "  www.${DOMAIN}     A  ${LB_IP}"
 echo "  api.${DOMAIN}     A  ${LB_IP}"
 echo ""
 echo "ACTION 2 — Add these GitHub Secrets"
-echo "  (Settings → Secrets and variables → Actions → New repository secret):"
+echo "  (Settings → Secrets and variables → Actions → New repository secret)."
+echo "  Only these — SUPABASE_URL/KEY, TELEGRAM_BOT_TOKEN and the webhook"
+echo "  secret live in GCP Secret Manager instead (already stored above) and"
+echo "  are NOT GitHub secrets, so don't add them there:"
 echo ""
 echo "  GCP_PROJECT_ID    = ${PROJECT_ID}"
 echo "  GCP_REGION        = ${REGION}"
 echo "  GCP_SA_KEY        = (contents of ${KEY_FILE})"
-echo "  SUPABASE_URL      = (your Supabase URL — already in Secret Manager)"
-echo "  SUPABASE_KEY      = (your Supabase key — already in Secret Manager)"
-echo "  TELEGRAM_BOT_TOKEN= (already in Secret Manager)"
 echo "  API_BASE_URL      = https://api.${DOMAIN}"
 echo "  CUSTOM_DOMAIN     = ${DOMAIN}"
 echo ""
 echo "ACTION 3 — Push to main branch to trigger first deploy."
+echo ""
+echo "ACTION 4 — After the API is deployed, register the Telegram webhook so"
+echo "  Telegram starts sending TELEGRAM_WEBHOOK_SECRET on every update:"
+echo "    python -c \"from api.telegram import register_webhook; \\"
+echo "      register_webhook('https://api.${DOMAIN}/telegram/webhook')\""
 echo ""
 echo "  SSL cert takes 10–30 min to provision after DNS propagates."
 echo "  Check: gcloud compute ssl-certificates describe sargapp-cert --global"

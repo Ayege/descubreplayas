@@ -74,6 +74,29 @@ REGION_EXPOSURE: dict[str, float] = {
 # Default exposure when a region is unknown (treat as moderately exposed).
 _DEFAULT_EXPOSURE = 0.7
 
+
+def zone_region(lat: float, lon: float) -> str:
+    """Map a coastal zone's centre coordinates to a DR region string.
+
+    The single canonical version of this classification — dashboard/beaches.py
+    and pipeline/model.py each used to carry their own copy, and they had
+    drifted apart: model.py's had no branch for Samaná Peninsula at all, so
+    the Samana zone (19.20, -69.33) fell through to "East" and was scored at
+    full Atlantic exposure (1.00) instead of Samaná's sheltered-bay exposure
+    (0.70) whenever the ML model's seasonal fallback ran. Both call sites now
+    import this one function instead of maintaining their own copy.
+    """
+    if lon > -69.0:
+        return "East (Punta Cana / La Romana)"
+    if lat > 19.5:
+        return "North (Puerto Plata / Cabarete)"
+    if -69.5 < lon < -69.0 and lat > 18.9:
+        return "Samaná Peninsula"
+    if lon < -70.5:
+        return "Southwest (Barahona / Pedernales)"
+    return "South (Santo Domingo / South Coast)"
+
+
 # ---------------------------------------------------------------------------
 # Risk thresholds on the combined index (monthly * regional exposure).
 # Tuned so a peak-season Atlantic coast reads 'high' and a winter Caribbean

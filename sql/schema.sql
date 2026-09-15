@@ -251,3 +251,51 @@ select
 from detections
 where run_at = (select max(run_at) from detections);
 
+-- -------------------------------------------------------------------------
+-- View: forecasts_latest
+-- One row per zone: its most recent forecast, with the zone name joined in
+-- directly (plain column, not a PostgREST embed — views don't carry the
+-- foreign-key metadata PostgREST needs to embed related tables). Moves the
+-- "latest per zone" dedup into SQL instead of over-fetching N rows and
+-- deduplicating in Python against a hardcoded limit that assumed a fixed
+-- zone count and run cadence (see api/db.py history).
+-- -------------------------------------------------------------------------
+create or replace view forecasts_latest as
+select
+    f.id,
+    f.run_at,
+    f.zone_id,
+    z.name as zone_name,
+    f.risk_level,
+    f.eta_hours,
+    f.eta_timestamp,
+    f.horizons
+from forecasts f
+join zones z on z.id = f.zone_id
+where f.run_at = (
+    select max(f2.run_at) from forecasts f2 where f2.zone_id = f.zone_id
+);
+
+-- -------------------------------------------------------------------------
+-- View: ml_forecasts_latest
+-- One row per (zone, lead_days): its most recent ML forecast. Same rationale
+-- as forecasts_latest above.
+-- -------------------------------------------------------------------------
+create or replace view ml_forecasts_latest as
+select
+    m.id,
+    m.run_at,
+    m.zone_id,
+    z.name as zone_name,
+    m.lead_days,
+    m.risk_level,
+    m.confidence,
+    m.method,
+    m.valid_at
+from ml_forecasts m
+join zones z on z.id = m.zone_id
+where m.run_at = (
+    select max(m2.run_at) from ml_forecasts m2
+    where m2.zone_id = m.zone_id and m2.lead_days = m.lead_days
+);
+

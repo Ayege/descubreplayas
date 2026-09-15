@@ -50,36 +50,29 @@ def list_zones() -> list[dict[str, Any]]:
 
 
 def latest_forecasts() -> list[dict[str, Any]]:
-    """Return the single most-recent forecast per zone."""
-    # Supabase / PostgREST doesn't support DISTINCT ON directly, so we fetch
-    # recent rows and deduplicate in Python. 11 zones × 4 runs = 44 worst-case;
-    # limit=50 is enough with a small safety margin.
+    """Return the single most-recent forecast per zone.
+
+    Dedup happens in the forecasts_latest SQL view (DISTINCT ON per zone_id),
+    not in Python — see sql/schema.sql. That avoids both the extra row
+    transfer and the fragile "fetch N rows and hope every zone is still in
+    the window" limit this used to rely on.
+    """
     result = (
         get_client()
-        .table("forecasts")
-        .select("id, run_at, zone_id, risk_level, eta_hours, eta_timestamp, horizons, zones(name)")
-        .order("run_at", desc=True)
-        .limit(50)
+        .table("forecasts_latest")
+        .select("id, run_at, zone_id, zone_name, risk_level, eta_hours, eta_timestamp, horizons")
+        .order("zone_id")
         .execute()
     )
-    rows = result.data or []
-    seen: set[int] = set()
-    deduped = []
-    for row in rows:
-        zid = row["zone_id"]
-        if zid not in seen:
-            seen.add(zid)
-            deduped.append(row)
-    return deduped
+    return result.data or []
 
 
 def latest_forecast_for_zone(zone_id: int) -> dict[str, Any] | None:
     result = (
         get_client()
-        .table("forecasts")
-        .select("id, run_at, zone_id, risk_level, eta_hours, eta_timestamp, horizons, zones(name)")
+        .table("forecasts_latest")
+        .select("id, run_at, zone_id, zone_name, risk_level, eta_hours, eta_timestamp, horizons")
         .eq("zone_id", zone_id)
-        .order("run_at", desc=True)
         .limit(1)
         .execute()
     )
@@ -124,32 +117,18 @@ def list_beaches(province: str | None = None, region: str | None = None) -> list
 def list_ml_forecasts(lead_days: int | None = None) -> list[dict[str, Any]]:
     """Return the latest ML extended forecast per (zone, lead_days).
 
-    Optionally filter to a single lead horizon (7, 14, or 21 days).
+    Optionally filter to a single lead horizon (7, 14, or 21 days). Dedup
+    happens in the ml_forecasts_latest SQL view — see sql/schema.sql.
     """
-    # 11 zones × 3 lead days = 33 rows max; limit=100 is sufficient with buffer.
     query = (
         get_client()
-        .table("ml_forecasts")
-        .select(
-            "id, run_at, zone_id, lead_days, risk_level, confidence, method, valid_at, "
-            "zones(name)"
-        )
-        .order("run_at", desc=True)
-        .limit(100)
+        .table("ml_forecasts_latest")
+        .select("id, run_at, zone_id, zone_name, lead_days, risk_level, confidence, method, valid_at")
+        .order("zone_id")
     )
     if lead_days is not None:
         query = query.eq("lead_days", lead_days)
-    rows = query.execute().data or []
-
-    # Deduplicate: keep only the latest row per (zone_id, lead_days).
-    seen: set[tuple[int, int]] = set()
-    deduped = []
-    for row in rows:
-        key = (row["zone_id"], row["lead_days"])
-        if key not in seen:
-            seen.add(key)
-            deduped.append(row)
-    return deduped
+    return query.execute().data or []
 
 
 def list_detections(limit: int = 2000) -> list[dict[str, Any]]:

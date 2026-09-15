@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc \
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install \
         streamlit streamlit-folium folium \
-        requests httpx certifi python-dotenv
+        requests httpx certifi python-dotenv \
+        shapely
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
 FROM python:3.11-slim
