@@ -62,8 +62,9 @@ def _in_zone(lon: float, lat: float, box: tuple[float, float, float, float]) -> 
     return min_lon <= lon <= max_lon and min_lat <= lat <= max_lat
 
 
-def _classify_risk(area_km2: float, eta_hours: Optional[int], horizon_hours: int) -> str:
-    """Classify sargassum risk from projected area and arrival time.
+def _classify_risk(area_km2: float, significant_eta_hours: Optional[int]) -> str:
+    """Classify sargassum risk from projected area and how soon a
+    significant amount of it arrives.
 
     Both the *amount* of sargassum AND its proximity matter:
 
@@ -71,23 +72,55 @@ def _classify_risk(area_km2: float, eta_hours: Optional[int], horizon_hours: int
     * area_km2 in [min, low_max)    → low   (visible traces likely)
     * area_km2 in [low_max, med_max)→ medium (noticeable accumulation)
     * area_km2 >= med_max           → high  (significant beach impact)
-    * large mass arriving very soon (eta <= HIGH_ETA_HOURS) → high
+    * a significant amount (>= RISK_AREA_LOW_MAX_KM2) arriving very soon
+      (significant_eta_hours <= RISK_HIGH_ETA_HOURS) → high
 
     A tiny speck (e.g. 0.1 km²) arriving in 2 hours is still only 'low',
     not 'high', because there is not enough biomass to matter.
+
+    `significant_eta_hours` must be the hour at which the CUMULATIVE arrived
+    area first reached RISK_AREA_LOW_MAX_KM2 (see `_significant_eta` below) —
+    not simply the nearest patch's own ETA regardless of its size. Using the
+    nearest-ANY-patch ETA here let a negligible trace arriving in 2h combine
+    with an unrelated, much larger mass arriving in 70h to read as "HIGH RISK
+    — arrival imminent", when the significant mass was not imminent at all.
     """
-    if eta_hours is None or eta_hours > horizon_hours:
-        return "none"
     if area_km2 < config.RISK_AREA_MIN_KM2:
         return "none"  # mass too small to produce meaningful beach impact
-    # Large mass that's imminent → high regardless of exact area bracket
-    if area_km2 >= config.RISK_AREA_LOW_MAX_KM2 and eta_hours <= config.RISK_HIGH_ETA_HOURS:
+    # A significant amount that's imminent → high regardless of exact area bracket
+    if (
+        area_km2 >= config.RISK_AREA_LOW_MAX_KM2
+        and significant_eta_hours is not None
+        and significant_eta_hours <= config.RISK_HIGH_ETA_HOURS
+    ):
         return "high"
     if area_km2 >= config.RISK_AREA_MEDIUM_MAX_KM2:
         return "high"
     if area_km2 >= config.RISK_AREA_LOW_MAX_KM2:
         return "medium"
     return "low"  # area >= min but < low_max
+
+
+def _significant_eta(
+    arrivals: list[tuple[int, float]], upto_hour: int, threshold_km2: float
+) -> Optional[int]:
+    """Earliest hour (<= upto_hour) by which the CUMULATIVE arrived area first
+    reaches `threshold_km2`, walking forward through time.
+
+    Returns None if the cumulative area never reaches the threshold within
+    that window. This is deliberately different from "the nearest patch's own
+    ETA" — a zone can have several small patches arriving early and one large
+    one arriving late (or vice versa); this answers "when did a significant
+    amount first show up," which is what the imminent-risk bonus should be
+    gated on.
+    """
+    relevant = sorted((hr, a) for hr, a in arrivals if hr <= upto_hour)
+    cumulative = 0.0
+    for hour, area in relevant:
+        cumulative += area
+        if cumulative >= threshold_km2:
+            return hour
+    return None
 
 
 def _effective_velocity(
@@ -239,10 +272,11 @@ def project_drift(
         horizon_breakdown: list[dict] = []
         for h in horizons:
             area_h = sum(a for hr, a in arrivals if hr <= h)
+            sig_eta_h = _significant_eta(arrivals, h, config.RISK_AREA_LOW_MAX_KM2)
             horizon_breakdown.append(
                 {
                     "horizon_hours": h,
-                    "risk_level": _classify_risk(area_h, eta_h, h),
+                    "risk_level": _classify_risk(area_h, sig_eta_h),
                     "area_km2": round(area_h, 3),
                     "valid_at": (run_at + dt.timedelta(hours=h)).isoformat(),
                 }
@@ -250,7 +284,8 @@ def project_drift(
 
         # Summary risk = worst risk across all horizons (so a zone that turns
         # high at +72h is still surfaced as high in the headline number).
-        summary_risk = _classify_risk(total_area, eta_h, max_hours)
+        summary_sig_eta = _significant_eta(arrivals, max_hours, config.RISK_AREA_LOW_MAX_KM2)
+        summary_risk = _classify_risk(total_area, summary_sig_eta)
 
         eta_ts: Optional[str] = None
         if eta_h is not None:

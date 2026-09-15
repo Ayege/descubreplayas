@@ -104,18 +104,51 @@ BEACH_AREA_LOW_MAX_KM2 = float(_os.environ.get("BEACH_AREA_LOW_MAX_KM2", "3.0"))
 BEACH_AREA_MEDIUM_MAX_KM2 = float(_os.environ.get("BEACH_AREA_MEDIUM_MAX_KM2", "12.0"))
 
 
-def _classify_detection_risk(weighted_area_km2: float, nearest_km: float) -> str:
-    """Classify per-beach risk from proximity-weighted nearby mass area + nearest distance."""
+def _classify_detection_risk(weighted_area_km2: float, significant_km: "Optional[float]") -> str:
+    """Classify per-beach risk from proximity-weighted nearby mass area + how
+    close a significant amount of it actually is.
+
+    `significant_km` must be the distance at which the CUMULATIVE
+    proximity-weighted area first reaches BEACH_AREA_LOW_MAX_KM2, walking
+    outward from the beach (see `_significant_distance` below) — not simply
+    the nearest detection's own distance regardless of its size. Using the
+    nearest-ANY-mass distance here let a negligible speck sitting right
+    offshore combine with an unrelated, much farther medium-sized mass to
+    read as "high risk, arriving imminently", when the significant mass
+    wasn't actually close at all.
+    """
     if weighted_area_km2 < BEACH_AREA_MIN_KM2:
         return "none"
     # A meaningful mass that's already on the doorstep → high regardless of bracket.
-    if weighted_area_km2 >= BEACH_AREA_LOW_MAX_KM2 and nearest_km <= BEACH_IMMINENT_KM:
+    if (
+        weighted_area_km2 >= BEACH_AREA_LOW_MAX_KM2
+        and significant_km is not None
+        and significant_km <= BEACH_IMMINENT_KM
+    ):
         return "high"
     if weighted_area_km2 >= BEACH_AREA_MEDIUM_MAX_KM2:
         return "high"
     if weighted_area_km2 >= BEACH_AREA_LOW_MAX_KM2:
         return "medium"
     return "low"
+
+
+def _significant_distance(
+    nearby: list[tuple[float, float]], threshold_km2: float
+) -> "Optional[float]":
+    """Distance (km) at which cumulative weighted area first reaches
+    `threshold_km2`, walking outward from the beach.
+
+    `nearby` is a list of (distance_km, weighted_area) pairs. Returns None if
+    the cumulative weighted area never reaches the threshold.
+    """
+    ordered = sorted(nearby, key=lambda t: t[0])
+    cumulative = 0.0
+    for dist, weighted in ordered:
+        cumulative += weighted
+        if cumulative >= threshold_km2:
+            return dist
+    return None
 
 
 def risk_from_detections(
@@ -142,6 +175,7 @@ def risk_from_detections(
     nearest: Optional[dict] = None
     nearest_km = math.inf
     weighted_area = 0.0
+    nearby_for_significance: list[tuple[float, float]] = []
 
     for d in detections:
         try:
@@ -157,7 +191,9 @@ def risk_from_detections(
         # weight falls off sharply with distance (squared), so risk tracks
         # proximity. e.g. at 4 km weight ≈ 0.71, at 9 km ≈ 0.41, at 20 km ≈ 0.04.
         weight = max(0.0, 1.0 - dist / radius_km) ** 2
-        weighted_area += area * weight
+        this_weighted = area * weight
+        weighted_area += this_weighted
+        nearby_for_significance.append((dist, this_weighted))
         if dist < nearest_km:
             nearest_km = dist
             nearest = d
@@ -165,7 +201,8 @@ def risk_from_detections(
     if nearest is None:
         return "none", None, math.inf, 0.0
 
-    risk = _classify_detection_risk(weighted_area, nearest_km)
+    significant_km = _significant_distance(nearby_for_significance, BEACH_AREA_LOW_MAX_KM2)
+    risk = _classify_detection_risk(weighted_area, significant_km)
     return risk, nearest, nearest_km, weighted_area
 
 

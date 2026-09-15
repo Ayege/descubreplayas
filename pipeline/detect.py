@@ -154,10 +154,25 @@ def detect_sargassum(
         .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", config.MAX_CLOUD_COVER_PCT))
         .map(_mask_clouds)
         .map(_add_indices)
+        # Most-recent-first so mosaic() below takes each pixel's LATEST clear
+        # observation, falling back to older images only where cloud/shadow
+        # masked the recent ones. date_range spans 7 days (see run.py) to
+        # guarantee enough clear imagery in a cloudy Caribbean week, but
+        # sargassum drifts tens of km/day — a median() composite (the right
+        # choice for a STATIC scene) would blend a moving patch across
+        # several different real-world positions, or wash it out entirely if
+        # it only appears in one of several stacked images. mosaic() instead
+        # shows where the mass actually was on its most recent clear sighting.
+        .sort("system:time_start", False)
     )
 
     # Composite clipped to ocean-only area — eliminates inland detections.
-    composite = collection.select(["FAI", "NDVI"]).median().clip(ocean_aoi)
+    # VERIFY against current Earth Engine docs if this ever misbehaves:
+    # ImageCollection.sort(property, ascending) and .mosaic() (composites by
+    # painting each image in collection order, image N filling only the
+    # pixels image N-1 left masked) are long-stable parts of the API, but EE
+    # methods do change across versions.
+    composite = collection.select(["FAI", "NDVI"]).mosaic().clip(ocean_aoi)
 
     algae = (
         composite.select("FAI").gt(config.FAI_THRESHOLD)
