@@ -147,6 +147,8 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `dashboard/beaches_i18n.py` | Spanish display layer: 183 vocabulary terms + prose for all 56 beaches   |
 | `dashboard/climatology.py`  | Caribbean monthly risk index (seasonal fallback)                         |
 | `dashboard/risk_overlay.py` | Live risk fetch + nearest-zone mapping                                   |
+| `dashboard/surf.py`         | Live surf/kite scoring from Open-Meteo wave + wind (no stored data)      |
+| `dashboard/surf_data.py`    | Per-beach shore orientation and swell/wind windows used to score surf    |
 | `sql/schema.sql`            | PostGIS tables, seed zones (including La Romana), indexes, RLS policies  |
 | `scripts/seed_beaches.py`   | Idempotent Supabase beach seeder                                         |
 | `.github/workflows/`        | `pipeline.yml` (cron every 6 h) + `keepalive.yml` (daily ping)       |
@@ -387,6 +389,46 @@ The `dashboard/beaches.py` app provides an interactive tropical map with:
 
 ---
 
+## Surf & wind conditions
+
+Every beach also gets a live 0–10 surf (or kite/windsurf) rating, computed the
+same way a human surf report would — not stored, not scheduled, fetched on
+demand from [Open-Meteo's free Marine and Forecast APIs](https://open-meteo.com/en/docs/marine-weather-api)
+(global wave model, ~0.08°; no API key).
+
+- **Score = size × direction × period × wind**, multiplied rather than
+  averaged, so any one bad factor sinks the day the way it actually does in
+  the water:
+  - **Size** — offshore swell height against the spot's own rideable window (a
+    shallow reef needs less swell than a deep beach break).
+  - **Direction** — swell angle against the beach's shore normal; a
+    coast-shadowed swell scores near zero however big it is.
+  - **Period** — long-period groundswell (>10 s) beats short wind-chop of the
+    same height.
+  - **Wind** — offshore grooms the face, onshore blows it out; below ~3 kt the
+    water is glassy and direction stops mattering.
+- **Kite/windsurf spots score differently**: wind *strength* is the resource
+  rather than the spoiler, side-shore wind is ideal, and a straight-offshore
+  wind is flagged unsafe (it blows a rider out to sea if they lose power).
+- **All 56 beaches are rated**, not just named spots. 13 curated surf/kite
+  destinations use an individually calibrated shore orientation; every other
+  beach falls back to its coastal region's orientation plus a
+  sheltered/exposed read of its own `water_conditions` text, and the panel
+  labels that reading "approximate" so it is never confused with a calibrated
+  spot.
+- **Bands**: FLAT / POOR / FAIR / GOOD / EPIC — deliberately hard to reach at
+  the top, so GOOD or EPIC actually means something.
+- **3-day outlook** picks the best daylight hour (06:00–18:00 DR local) of
+  each day, so a visitor planning tomorrow isn't judged by this minute's wind.
+- **Surf mode** recolours every beach marker by live surf quality instead of
+  region, with matching filters for surf-only spots and minimum quality.
+- Fully bilingual and fetched lazily: a default page load makes **no** surf
+  request at all; one fires only once surf mode, the quality filter, or a
+  beach panel actually needs it (see `dashboard/surf.py` for the scoring code
+  and honest limits — mainly that shore orientation is estimated to ±15°).
+
+---
+
 ## Development notes
 
 - The beach explorer runs fully offline; live risk badges require `API_BASE_URL`
@@ -400,6 +442,9 @@ The `dashboard/beaches.py` app provides an interactive tropical map with:
 - **SEO tags have two sources.** `docker-entrypoint-dashboard.sh` patches Streamlit's `index.html` at container start, so crawlers get them in the first HTTP response; `_inject_head()` then keeps `lang`, `og:locale` and the description in step with the language toggle for the visitor.
 - **CSS that targets the folium map must match `iframe[title="streamlit_folium.st_folium"]`**, not `[data-testid="stCustomComponentV1"]` — the latter is on *every* custom component, including the zero-height SEO helper, which would then be stretched to `100vh`.
 - streamlit-folium renders the map into its own `#map_div` (not folium's `.folium-map`) and sets an inline pixel height on it from the `height=` argument, so the map is sized by an `!important` rule injected into the iframe's `<head>`.
+- **`marine-api.open-meteo.com` publishes an unreachable AAAA record** on some networks. `curl` falls back to IPv4 via Happy Eyeballs in under a second; Python's `requests`/`urllib3` does not, and will sit on the dead IPv6 address for the *entire* timeout before retrying IPv4 — a 30 s stall per cold request. `dashboard/surf.py` uses a short, separate connect timeout (`(1.5, 15)`) specifically to make that fallback near-instant; don't widen it back to a single flat `timeout=` without re-testing on a network where this bites.
+- **`Retry(total=N, backoff_factor=…)` on a `requests` session delays connection failures, not just retries.** `dashboard/risk_overlay.py`'s live-risk and detection fetches used to retry a connection *refused* instantly with exponential backoff (0+2+4 s), so a sleeping or unreachable API cost ~6 s per fetch regardless of the caller's own timeout. Retries there are now `connect=0` (fail fast on connect errors) with `backoff_factor=0.4`, keeping the retry for the case it helps — a transient 502/503 while a free-tier host wakes up.
+- **Run `python -m tests.test_surf`** (add `--live` to also hit the real Open-Meteo endpoints) after touching `dashboard/surf.py` or `dashboard/surf_data.py` — same pattern as the other `tests/test_*.py` modules, runnable standalone with no pytest dependency.
 
 ---
 
@@ -444,6 +489,15 @@ Understanding these constraints is essential before relying on the system for pl
 | 11 zones, 56 beaches | Each beach is matched to its nearest zone by Haversine distance; no beach has its own independent forecast          |
 | Max zone radius      | The largest gap before La Romana was added was 62 km (Bayahibe / Dominicus). La Romana zone now covers it at ~21 km |
 | Zone geometry        | All zones are simple square bounding boxes; real bay shapes and headlands are not modelled                          |
+
+### Surf & wind ratings
+
+| Limitation             | Detail                                                                                                          | Impact                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Untuned heuristic      | The size/direction/period/wind weighting is physically-grounded but has not been validated against reported surf | Treat the score as "is it worth the drive", not a substitute for looking at the water |
+| Shore-normal estimate  | Each curated spot's shore-facing angle is read off the coastline, accurate to roughly ±15°                       | Direction scoring can be off for spots close to that margin                          |
+| Region-level fallback  | 43 of 56 beaches have no curated spot and inherit their coastal region's orientation, not their own              | Marked "approximate" in the panel; a single cove can still face away from the regional norm |
+| Offshore grid sampling | Open-Meteo's wave grid snaps to the nearest ocean cell, 9–20 km from some beaches                                | Correct for open-water swell, but not a literal beach-front reading; the panel shows the distance |
 
 ---
 

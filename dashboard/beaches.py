@@ -54,6 +54,24 @@ from dashboard.risk_overlay import (
     risk_from_detections,
 )
 from dashboard.climatology import seasonal_index, seasonal_risk, zone_region
+from dashboard.surf import (
+    RATING_COLORS as SURF_COLORS,
+    RATING_EMOJI as SURF_EMOJI,
+    RATING_ORDER as SURF_ORDER,
+    compass_point as surf_compass,
+    conditions_at as surf_conditions_at,
+    daily_outlook as surf_daily_outlook,
+    fetch_surf_conditions as surf_fetch,
+    rate_spot as surf_rate,
+    rating_label as surf_rating_label,
+    reason_label as surf_reason_label,
+)
+from dashboard.surf_data import (
+    SPORT_WIND,
+    is_surf_spot,
+    profile_for_beach as surf_profile,
+    spot_points as surf_spot_points,
+)
 from dashboard.beaches_i18n import BEACH_TEXT_ES, TERMS_ES
 
 load_dotenv()
@@ -355,7 +373,7 @@ st.markdown(
 _T = {
     "es": {
         "title": "🌴 Descubre Playas RD 🇩🇴",
-        "subtitle": "Tu guía completa de playas de la República Dominicana — 56 playas con acceso, actividades, fauna, sargazo en tiempo real y más. Impulsando el ecoturismo responsable mediante un algoritmo propio que cruza datos geoespaciales de acceso y registros de biodiversidad para proteger las costas dominicanas.",
+        "subtitle": "56 playas dominicanas: acceso, actividades, fauna, y sargazo y surf en vivo.",
         "filters_header": "🔎 Filtrar playas",
         "region": "Región",
         "province": "Provincia",
@@ -371,9 +389,9 @@ _T = {
         "horizon": "⏱️ Horizonte de pronóstico",
         "horizon_note": "El pronóstico de sargazo es confiable solo ~72h. Más allá usa la temporada.",
         "horizon_now": "Ahora",
-        "risk_by_horizon": "Riesgo proyectado en esta playa",
-        "more_details": "Ver más detalles",
-        "season_note": "📅 Temporada alta de sargazo en el Caribe: marzo–agosto.",
+        "risk_by_horizon": "Riesgo proyectado",
+        "more_details": "Más detalles",
+        "season_note": "📅 Sargazo: marzo–agosto.",
         "prediction_info_title": "ℹ️ Métodos de predicción",
         "prediction_physics": "Física (0-72h): Deriva lagrangiana + corrientes oceánicas. Preciso.",
         "prediction_ml": "ML (4-21d): Modelo supervisado entrenado en datos históricos. Más preciso que solo climatología.",
@@ -409,7 +427,7 @@ _T = {
         "risk_unavail": "Sin datos (API offline)",
         "nearest_zone": "zona más cercana",
         "away": "de distancia",
-        "recommendations": "✨ También te puede gustar",
+        "recommendations": "✨ Playas similares",
         "view_details": "Ver →",
         "tip": "💡 Haz clic en un marcador para ver detalles",
         "risk_legend": "Riesgo de sargazo",
@@ -444,10 +462,36 @@ _T = {
         "risk_low": "Bajo",
         "risk_medium": "Medio",
         "risk_high": "Alto",
+        # ── Surf / viento (datos en vivo de Open-Meteo) ──────────────────────
+        "surf_header": "🏄 Surf y viento",
+        "surf_section": "Condiciones para surfear",
+        "surf_mode": "🏄 Colorear por surf",
+        "surf_mode_note": "El anillo de cada playa muestra la calidad del surf en vez de la región.",
+        "surf_spots_only": "🏄 Solo spots de surf",
+        "surf_min_rating": "Calidad de surf",
+        "surf_swell": "Oleaje",
+        "surf_period": "Periodo",
+        "surf_wind": "Viento",
+        "surf_height": "Altura de ola",
+        "surf_outlook": "Próximos días",
+        "surf_today": "Hoy",
+        "surf_best_today": "Mejor hora hoy",
+        "surf_unavail": "Sin datos de oleaje.",
+        "surf_sport_surf": "Surf",
+        "surf_sport_wind": "Kite",
+        "surf_grid_note": "~{km} km mar adentro",
+        "surf_precision_region": "orientación aprox.",
+        "surf_precision_spot": "spot calibrado",
+        "surf_source": "Open-Meteo · cada 30 min",
+        "surf_onshore": "entrante",
+        "surf_offshore": "terral",
+        "surf_cross_onshore": "lat. entrante",
+        "surf_cross_offshore": "lat. terral",
+        "surf_wind_unknown": "sin datos",
     },
     "en": {
         "title": "🌴 Discover DR Beaches",
-        "subtitle": "Your complete guide to Dominican Republic beaches — 56 beaches with access info, activities, wildlife, live sargassum risk & more",
+        "subtitle": "56 Dominican beaches: access, activities, wildlife, live sargassum and surf.",
         "filters_header": "🔎 Filter beaches",
         "region": "Region",
         "province": "Province",
@@ -463,9 +507,9 @@ _T = {
         "horizon": "⏱️ Forecast horizon",
         "horizon_note": "Sargassum forecast is reliable only ~72h. Beyond that, use the season.",
         "horizon_now": "Now",
-        "risk_by_horizon": "Projected risk at this beach",
-        "more_details": "See more details",
-        "season_note": "📅 Caribbean sargassum peak season: March–August.",
+        "risk_by_horizon": "Projected risk",
+        "more_details": "More details",
+        "season_note": "📅 Sargassum: March–August.",
         "prediction_info_title": "ℹ️ Prediction methods",
         "prediction_physics": "Physics (0-72h): Lagrangian drift + ocean currents. Accurate.",
         "prediction_ml": "ML (4-21d): Supervised model trained on historical data. More accurate than climatology alone.",
@@ -501,7 +545,7 @@ _T = {
         "risk_unavail": "No data (API offline)",
         "nearest_zone": "nearest zone",
         "away": "away",
-        "recommendations": "✨ You might also like",
+        "recommendations": "✨ Similar beaches",
         "view_details": "View →",
         "tip": "💡 Click a marker to see details",
         "risk_legend": "Sargassum risk",
@@ -536,6 +580,32 @@ _T = {
         "risk_low": "Low",
         "risk_medium": "Medium",
         "risk_high": "High",
+        # ── Surf / wind (live Open-Meteo data) ──────────────────────────────
+        "surf_header": "🏄 Surf & wind",
+        "surf_section": "Surf conditions",
+        "surf_mode": "🏄 Colour by surf",
+        "surf_mode_note": "Each beach's ring shows surf quality instead of its region.",
+        "surf_spots_only": "🏄 Surf spots only",
+        "surf_min_rating": "Surf quality",
+        "surf_swell": "Swell",
+        "surf_period": "Period",
+        "surf_wind": "Wind",
+        "surf_height": "Surf height",
+        "surf_outlook": "Next days",
+        "surf_today": "Today",
+        "surf_best_today": "Best hour today",
+        "surf_unavail": "No wave data.",
+        "surf_sport_surf": "Surf",
+        "surf_sport_wind": "Kite",
+        "surf_grid_note": "~{km} km offshore",
+        "surf_precision_region": "approx. orientation",
+        "surf_precision_spot": "calibrated spot",
+        "surf_source": "Open-Meteo · every 30 min",
+        "surf_onshore": "onshore",
+        "surf_offshore": "offshore",
+        "surf_cross_onshore": "cross-on",
+        "surf_cross_offshore": "cross-off",
+        "surf_wind_unknown": "no data",
     },
 }
 
@@ -1315,6 +1385,30 @@ with st.container(key="seo_head"):
 # screen. Every lookup falls through to the original string, which keeps a
 # newly added beach readable before its Spanish copy is written.
 # ---------------------------------------------------------------------------
+# Region short names, for lines that already carry the province.
+_REGION_SHORT = {
+    "es": {
+        "East (Punta Cana / La Romana)": "Costa Este",
+        "North (Puerto Plata / Cabarete)": "Costa Norte",
+        "Samaná Peninsula": "Samaná",
+        "South (Santo Domingo / South Coast)": "Costa Sur",
+        "Southwest (Barahona / Pedernales)": "Suroeste",
+    },
+    "en": {
+        "East (Punta Cana / La Romana)": "East Coast",
+        "North (Puerto Plata / Cabarete)": "North Coast",
+        "Samaná Peninsula": "Samaná",
+        "South (Santo Domingo / South Coast)": "South Coast",
+        "Southwest (Barahona / Pedernales)": "Southwest",
+    },
+}
+
+
+def region_short(region: str) -> str:
+    """Short region name, falling back to the full translated label."""
+    return _REGION_SHORT.get(lang, {}).get(region) or tr_term(region)
+
+
 def tr_term(value: str) -> str:
     """Translate one closed-vocabulary value (region, activity, species…)."""
     return TERMS_ES.get(value, value) if lang == "es" else value
@@ -1358,7 +1452,7 @@ def _cached_fetch_ml_forecasts(url: str) -> list[dict]:
         import requests, certifi
         resp = requests.get(
             f"{url}/forecast/extended",
-            timeout=15,
+            timeout=(2.5, 12),
             verify=certifi.where(),
         )
         if resp.status_code == 200:
@@ -1366,6 +1460,70 @@ def _cached_fetch_ml_forecasts(url: str) -> list[dict]:
         return []
     except Exception:
         return []
+
+
+# ---------------------------------------------------------------------------
+# Live surf + wind conditions (Open-Meteo)
+#
+# Two batched HTTP requests cover all 56 beaches, cached for 30 minutes — the
+# underlying wave model only publishes a new run every few hours, so a shorter
+# TTL would just re-fetch identical numbers on every beach click.
+#
+# Everything shown in the surf section comes from this fetch. Nothing in
+# surf_data.py is displayed: that file holds only the physical parameters the
+# score is computed FROM (which way each beach faces, what swell size it
+# works on), never prose about the beach.
+# ---------------------------------------------------------------------------
+@st.cache_data(ttl=1800, show_spinner=False)
+def _cached_surf_conditions(names: tuple[str, ...]) -> dict:
+    """Hourly wave + wind series for `names`, or {} if Open-Meteo is unreachable."""
+    if not names:
+        return {}
+    wanted = set(names)
+    points = [pt for pt in surf_spot_points() if pt[0] in wanted]
+    try:
+        return surf_fetch(points, forecast_days=3)
+    except Exception:
+        # fetch_surf_conditions already swallows per-request failures; this is
+        # the last-resort guard so a surf outage can never blank the map.
+        return {}
+
+
+# Populated AFTER the sidebar runs, because what needs fetching depends on
+# which surf controls are on. A default page load needs no surf data at all
+# and so makes no request: the wave fetch used to run unconditionally at
+# module scope and put its full latency in front of the first paint, which is
+# what made the page show its filters and then sit there with no map.
+_SURF_SERIES: dict = {}
+
+# Per-render memo, so clicking a beach doesn't re-rate all 56 every rerun.
+_SURF_RATING_CACHE: dict[str, dict | None] = {}
+
+
+def _surf_now(beach: dict) -> dict | None:
+    """Live rating for one beach right now, or None when there is no series."""
+    name = beach["name"]
+    if name in _SURF_RATING_CACHE:
+        return _SURF_RATING_CACHE[name]
+    series = _SURF_SERIES.get(name)
+    rated = None
+    if series:
+        cond = surf_conditions_at(series)
+        if cond is not None:
+            rated = surf_rate(surf_profile(beach), cond)
+            rated["conditions"] = cond
+    _SURF_RATING_CACHE[name] = rated
+    return rated
+
+
+def _surf_relation_label(relation: str) -> str:
+    """Localised wind-direction wording ('offshore' / 'terral')."""
+    return {
+        "offshore": L["surf_offshore"],
+        "cross-offshore": L["surf_cross_offshore"],
+        "cross-onshore": L["surf_cross_onshore"],
+        "onshore": L["surf_onshore"],
+    }.get(relation, L["surf_wind_unknown"])
 
 
 # ---------------------------------------------------------------------------
@@ -1643,7 +1801,7 @@ def _fetch_wind_uv() -> tuple[float, float]:
                 "wind_speed_unit": "ms",
                 "timezone": "UTC",
             },
-            timeout=5,
+            timeout=(1.5, 5),
             verify=certifi.where(),
         )
         c = resp.json()["current"]
@@ -1949,6 +2107,29 @@ with st.sidebar:
             SEL_HORIZON = None
         st.caption(L["season_note"])
 
+    # Surf & wind. Its own expander rather than more checkboxes in Layers:
+    # this is a second, independent reason to come to the app, and someone
+    # looking for waves is not the same visitor as someone avoiding sargassum.
+    with st.expander(L["surf_header"], expanded=False):
+        surf_mode = st.checkbox(
+            L["surf_mode"], value=False, key="surf_mode",
+            help=L["surf_mode_note"],
+        )
+        surf_spots_only = st.checkbox(
+            L["surf_spots_only"], value=False, key="surf_spots_only",
+        )
+        # Filter by live surf quality. Empty = every quality level.
+        sel_surf = st.multiselect(
+            L["surf_min_rating"],
+            options=["epic", "good", "fair", "poor", "flat"],
+            default=[],
+            format_func=lambda k: f"{SURF_EMOJI.get(k, '')} "
+                                  f"{surf_rating_label(k, lang)}".strip(),
+            placeholder=L["choose_options"],
+            key="surf_rating_filter",
+        )
+        st.caption(L["surf_source"])
+
     # Legal notice. Collapsed like the rest, but the short form is repeated in
     # the beach panel next to the risk badge, which is where someone actually
     # makes a decision from this data.
@@ -1966,11 +2147,29 @@ with st.sidebar:
             f"<div style='margin-bottom:6px'><strong style='color:#4dd0e1'>🔬 {L['prediction_physics']}</strong></div>"
             f"<div style='margin-bottom:6px'><strong style='color:#ce93d8'>🤖 {L['prediction_ml']}</strong></div>"
             f"<div style='margin-bottom:6px'><strong style='color:#4dd0e1'>📊 {L['prediction_seasonal']}</strong></div>"
-            f"<div style='margin-top:8px;padding:6px;background:rgba(255,193,7,.15);border-left:3px solid #ffc107;color:#fff3cd'>"
-            f"{L['prediction_date_note']}</div>"
             f"</div>",
             unsafe_allow_html=True,
         )
+
+
+# ---------------------------------------------------------------------------
+# Surf fetch — scoped to what this render actually needs
+#
+#   colouring by surf, or filtering by it  → every beach, fetched here
+#   a beach selected, nothing else on      → that one beach, fetched LATER,
+#                                            after the map has been drawn
+#   neither                                → nothing, and no request at all
+#
+# The wave endpoint costs a couple of seconds on a cold cache. Paying it only
+# when a surf feature is switched on keeps the default map load free, and
+# deferring the single-beach case until after the map means the panel's data
+# never delays the map appearing.
+# ---------------------------------------------------------------------------
+if surf_mode or sel_surf:
+    # Marker colours and the quality filter both need every beach, and both
+    # are consumed before the map is drawn, so this one has to happen here.
+    _SURF_SERIES = _cached_surf_conditions(
+        tuple(sorted(b["name"] for b in BEACHES)))
 
 
 # Per-render cache: beach name → _beach_risk_dated result WITHOUT ETA.
@@ -2022,6 +2221,17 @@ def _matches(beach: dict) -> bool:
         if _beach_lvl == "out":
             _beach_lvl = "none"
         if _beach_lvl not in sel_risks:
+            return False
+    # Surf filters. "Spots only" narrows to the named surf/kite destinations;
+    # the quality filter works off the live rating, so it changes through the
+    # day as the wind and swell do.
+    if surf_spots_only and not is_surf_spot(beach["name"]):
+        return False
+    if sel_surf:
+        _rated = _surf_now(beach)
+        # No forecast for this beach means we cannot claim it matches a
+        # quality filter, so it drops out rather than being guessed at.
+        if _rated is None or _rated["rating"] not in sel_surf:
             return False
     return True
 
@@ -2320,7 +2530,13 @@ cluster = MarkerCluster(
 for b in filtered:
     # Beach markers are WHITE pins with a COLORED RING (region color).
     # This visually separates beaches from risk zones (filled colored rectangles).
+    # In surf mode the ring switches to the live surf-quality colour instead,
+    # which is the whole point of that mode: the map becomes a surf map.
     region_color = REGION_COLORS.get(b["region"], "#1f77b4")
+    _surf_b = _surf_now(b) if _SURF_SERIES else None
+    if surf_mode:
+        region_color = SURF_COLORS.get(
+            (_surf_b or {}).get("rating", "unknown"), "#455a64")
     risk_level, near_zone, dist_km_b, _, _mode_b, _eta_b = _beach_risk_cached(b)
     turtle_icon = " 🐢" if b["protected_area"] else ""
     _desc_full = tr_text(b, "description")
@@ -2392,15 +2608,44 @@ for b in filtered:
             "</div>"
         )
 
+    # Live surf line for the popup. Only the fetched numbers appear here —
+    # rating, swell height/period and wind — never any canned spot blurb.
+    surf_badge = ""
+    if _surf_b is not None:
+        _sr = _surf_b["rating"]
+        _sc = SURF_COLORS.get(_sr, "#455a64")
+        _sport_lbl = (L["surf_sport_wind"] if _surf_b["sport"] == SPORT_WIND
+                      else L["surf_sport_surf"])
+        surf_badge = (
+            f"<div style='background:{_sc};color:#04242b;display:inline-block;"
+            f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:800;"
+            f"margin:5px 0'>{SURF_EMOJI.get(_sr, '')} {_sport_lbl}: "
+            f"{surf_rating_label(_sr, lang)}</div>"
+        )
+        _cnd = _surf_b.get("conditions") or {}
+        if not _surf_b.get("no_data") and _cnd.get("swell_height_m") is not None:
+            _sw = _cnd["swell_height_m"]
+            _pd = _cnd.get("swell_period_s")
+            _pd_txt = f"@{_pd:.0f}s" if _pd is not None else ""
+            _wd = _cnd.get("wind_speed_kt")
+            _wd_txt = (f" · 💨 {_wd:.0f}kt "
+                       f"{_surf_relation_label(_surf_b['wind_relation'])}"
+                       if _wd is not None else "")
+            surf_badge += (
+                f"<div style='color:#b2ebf2;font-size:10.5px;margin-top:3px'>"
+                f"🌊 {_sw:.1f}m{_pd_txt}{_wd_txt}</div>"
+            )
+
     popup_html = (
         f"<div style='font-family:\"Nunito\",sans-serif;min-width:220px;max-width:280px;"
         f"border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.28)'>"
         # teal header only — no white box
         f"<div style='background:linear-gradient(135deg,#005f73,#0a9396);padding:12px 14px'>"
         f"<div style='color:#fff;font-size:15px;font-weight:900'>{b['name']}{turtle_icon}</div>"
-        f"<div style='color:#b2ebf2;font-size:11px;margin-top:2px'>{b['province']} · {tr_term(b['region'])}</div>"
+        f"<div style='color:#b2ebf2;font-size:11px;margin-top:2px'>{b['province']} · {region_short(b['region'])}</div>"
         f"<div style='margin-top:7px'>{risk_badge}</div>"
-        f"<a href='{b['google_maps_url']}' target='_blank' "
+        + (f"<div>{surf_badge}</div>" if surf_badge else "")
+        + f"<a href='{b['google_maps_url']}' target='_blank' "
         f"style='display:block;text-align:center;background:rgba(255,255,255,.22);"
         f"color:#fff;border-radius:20px;padding:5px;font-size:11px;font-weight:800;"
         f"margin-top:8px;text-decoration:none'>📍 Google Maps ↗</a>"
@@ -2993,15 +3238,20 @@ if _panel_beach:
                 f"<div style='display:flex;justify-content:space-between;"
                 f"align-items:center;margin:3px 0'>"
                 f"<span style='color:#546e7a;font-size:10px;letter-spacing:.4px'>"
-                f"🔄 Actualizado / Updated</span>"
+                f"🔄 {'Actualizado' if lang == 'es' else 'Updated'}</span>"
                 f"<span style='color:#78909c;font-size:10px'>{_ru_fmt} AST</span></div>"
             )
 
         # Coastal zone name for context + nearest DETECTED MASS distance
         # (beach-specific). The km is to the actual sargassum, not the zone.
+        # Zones are named after towns, so the nearest zone is frequently just
+        # the province again — already in the header line two rows above.
+        # Suppress it in that case instead of printing the word twice.
         _zone_name = _near_zone["name"] if _near_zone else ""
+        if _zone_name and _fold(_zone_name) == _fold(_pb["province"]):
+            _zone_name = ""
         _mass_dist_txt = (
-            f" &nbsp;·&nbsp; sargazo ~{_dist_km:.0f} km"
+            f" &nbsp;·&nbsp; {L['popup_sargassum'].lower()} ~{_dist_km:.0f} km"
             if _dist_km is not None else ""
         )
 
@@ -3083,12 +3333,170 @@ if _panel_beach:
             f"</div>"
         )
 
+    # ── Live surf & wind section ──────────────────────────────────────────
+    # Everything in here is fetched, not stored: the rating, the swell, the
+    # wind and the 3-day outlook all come from the Open-Meteo call. The only
+    # thing surf_data.py contributes is the physics needed to interpret those
+    # numbers for this particular beach.
+    _surf_html = ""
+    # Load this beach's series if the pre-map fetch did not already cover it.
+    # We are past st_folium here, so the map is on screen while this runs.
+    if _pb["name"] not in _SURF_SERIES:
+        with st.spinner(""):
+            _SURF_SERIES = {**_SURF_SERIES,
+                            **_cached_surf_conditions((_pb["name"],))}
+        _SURF_RATING_CACHE.pop(_pb["name"], None)
+    _surf_p = _surf_now(_pb)
+    if _surf_p is not None:
+        _sp_profile = surf_profile(_pb)
+        _sr = _surf_p["rating"]
+        _sc = SURF_COLORS.get(_sr, "#455a64")
+        _cnd = _surf_p.get("conditions") or {}
+        _sport_lbl = (L["surf_sport_wind"] if _surf_p["sport"] == SPORT_WIND
+                      else L["surf_sport_surf"])
+
+        # Header: sport, rating badge and the 0-10 score.
+        _rows = (
+            f"<div style='display:flex;align-items:center;gap:8px;"
+            f"flex-wrap:wrap;margin-bottom:7px'>"
+            f"<span style='background:{_sc};color:#04242b;border-radius:16px;"
+            f"padding:2px 10px;font-size:11px;font-weight:800'>"
+            f"{SURF_EMOJI.get(_sr, '')} {surf_rating_label(_sr, lang)}</span>"
+            f"<span style='color:#80cbc4;font-size:10.5px;font-weight:700;"
+            f"text-transform:uppercase;letter-spacing:.5px'>{_sport_lbl}</span>"
+            f"<span style='margin-left:auto;color:#e0f7fa;font-size:13px;"
+            f"font-weight:800'>{_surf_p['score']:.1f}<span style='color:#546e7a;"
+            f"font-size:10px;font-weight:600'>/10</span></span>"
+            f"</div>"
+        )
+
+        # One-line reason, straight from the score's own decisive factor.
+        _reason_txt = surf_reason_label(_surf_p["reason"], lang)
+        if _reason_txt:
+            _rows += (
+                f"<div style='color:#cfd8dc;font-size:11.5px;line-height:1.45;"
+                f"margin-bottom:7px'>{_reason_txt}</div>"
+            )
+
+        # The measured numbers. Rendered only where the model actually
+        # returned a value, so a null never shows up as a confident "0".
+        def _metric(label_: str, value_: str, sub_: str = "") -> str:
+            return (
+                f"<div style='flex:1 1 30%;min-width:74px;background:rgba(0,0,0,.2);"
+                f"border-radius:8px;padding:5px 8px'>"
+                f"<div style='color:#80cbc4;font-size:9px;font-weight:700;"
+                f"text-transform:uppercase;letter-spacing:.4px'>{label_}</div>"
+                f"<div style='color:#e0f7fa;font-size:12.5px;font-weight:800'>{value_}</div>"
+                + (f"<div style='color:#546e7a;font-size:9px'>{sub_}</div>" if sub_ else "")
+                + "</div>"
+            )
+
+        _metrics = ""
+        _swell = _cnd.get("swell_height_m")
+        if _swell is not None:
+            _sdir = _cnd.get("swell_direction_deg")
+            _metrics += _metric(
+                L["surf_swell"], f"{_swell:.1f} m",
+                surf_compass(_sdir) if _sdir is not None else "",
+            )
+        _per = _cnd.get("swell_period_s")
+        if _per is not None:
+            _metrics += _metric(L["surf_period"], f"{_per:.0f} s")
+        _wspd = _cnd.get("wind_speed_kt")
+        if _wspd is not None:
+            _wdir = _cnd.get("wind_direction_deg")
+            _metrics += _metric(
+                L["surf_wind"], f"{_wspd:.0f} kt",
+                f"{surf_compass(_wdir) if _wdir is not None else ''} "
+                f"{_surf_relation_label(_surf_p['wind_relation'])}".strip(),
+            )
+        # Breaking-face estimate. Suppressed when the spot is below its
+        # rideable threshold: quoting a surf height for a wave that is not
+        # breaking is worse than quoting nothing. Small ranges keep a decimal,
+        # since whole-foot rounding turned 1.4-1.9 ft into a flat "2-2 ft".
+        _f_lo, _f_hi = _surf_p.get("face_ft", (0.0, 0.0))
+        if (_f_hi > 0 and _surf_p["sport"] != SPORT_WIND
+                and _surf_p["reason"] != "too_small"):
+            _fmt = "%.1f" if _f_hi < 3 else "%.0f"
+            _metrics += _metric(
+                L["surf_height"], f"{_fmt % _f_lo}–{_fmt % _f_hi} ft")
+        if _metrics:
+            _rows += (f"<div style='display:flex;gap:5px;flex-wrap:wrap;"
+                      f"margin-bottom:7px'>{_metrics}</div>")
+
+        # 3-day outlook: the best daylight hour of each day, so a visitor
+        # planning tomorrow isn't judging by this minute's conditions.
+        _series_p = _SURF_SERIES.get(_pb["name"]) or []
+        _outlook = surf_daily_outlook(_sp_profile, _series_p, days=3)
+        if len(_outlook) > 1:
+            _day_names = {
+                "es": ("lun", "mar", "mié", "jue", "vie", "sáb", "dom"),
+                "en": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
+            }[lang if lang in ("es", "en") else "es"]
+            # DR local date (UTC-4, no DST), not the server's, so "today" is
+            # today for the reader rather than for the host.
+            _dr_today = (_dt_global.datetime.now(_dt_global.timezone.utc)
+                         - _dt_global.timedelta(hours=4)).date()
+            _cells = ""
+            for _od in _outlook:
+                _oc = SURF_COLORS.get(_od["rating"], "#455a64")
+                # Times come back in UTC; the DR is UTC-4 all year.
+                _local_h = (_od["at"] - _dt_global.timedelta(hours=4)).strftime("%H:%M")
+                if _od["score"] <= 0:
+                    _local_h = "—"   # nothing ridable all day: no "best hour"
+                _cells += (
+                    f"<div style='flex:1;text-align:center;background:rgba(0,0,0,.2);"
+                    f"border-radius:8px;padding:5px 3px;border-top:3px solid {_oc}'>"
+                    f"<div style='color:#80cbc4;font-size:9px;font-weight:700;"
+                    f"text-transform:uppercase'>"
+                    f"{L['surf_today'] if _od['day'] == _dr_today else _day_names[_od['day'].weekday()]}</div>"
+                    f"<div style='font-size:13px;line-height:1.3'>"
+                    f"{SURF_EMOJI.get(_od['rating'], '')}</div>"
+                    f"<div style='color:#e0f7fa;font-size:11px;font-weight:800'>"
+                    f"{_od['score']:.1f}</div>"
+                    f"<div style='color:#546e7a;font-size:8.5px'>{_local_h}</div>"
+                    f"</div>"
+                )
+            _rows += (
+                f"<div style='color:#80cbc4;font-size:9.5px;font-weight:700;"
+                f"text-transform:uppercase;letter-spacing:.4px;margin:2px 0 4px'>"
+                f"{L['surf_outlook']}</div>"
+                f"<div style='display:flex;gap:5px'>{_cells}</div>"
+            )
+
+        # Provenance + the two honest caveats: how well this beach is
+        # calibrated, and how far offshore the wave model was sampled.
+        # Provenance on one short line. No surf-specific disclaimer: the card
+        # already carries "⚠️ Estimación, no es un aviso oficial." just above
+        # the surf block, so repeating it spent 148 characters saying nothing new.
+        _prov = [L["surf_precision_spot"] if _surf_p.get("precision") == "spot"
+                 else L["surf_precision_region"]]
+        _grid_km = _cnd.get("sample_km")
+        if _grid_km is not None:
+            _prov.append(L["surf_grid_note"].format(km=round(_grid_km)))
+        _rows += (
+            f"<div style='color:#546e7a;font-size:9px;line-height:1.4;"
+            f"border-top:1px solid rgba(255,255,255,.1);padding-top:5px;"
+            f"margin-top:6px'>{' · '.join(_prov)}</div>"
+        )
+
+        _surf_html = (
+            f"<div style='background:rgba(0,0,0,.25);border-radius:12px;"
+            f"padding:10px 12px;margin:9px 0;border-left:4px solid {_sc}'>{_rows}</div>"
+        )
+
     _acts = tr_terms(_pb["activities"])
     _wild = tr_terms(_pb["wildlife"])
     _facs = tr_terms(_pb["facilities"])
     _park = ("✅ " + L["yes"]) if _pb["parking"] else ("⚠️ " + L["no_limited"])
     _desc_raw = tr_text(_pb, "description")
-    _desc = _desc_raw[:200] + ("…" if len(_desc_raw) > 200 else "")
+    # Trimmed to ~140 chars: the card now leads with live sargassum AND surf,
+    # and a 200-char paragraph pushed the practical rows (fee, parking,
+    # access) below the fold on a phone. Cuts on a word boundary.
+    if len(_desc_raw) > 140:
+        _desc = _desc_raw[:140].rsplit(" ", 1)[0].rstrip(" ,;:–—") + "…"
+    else:
+        _desc = _desc_raw
 
     # Recommendations — similar beaches in the same region (same activities).
     _recs = _recommend_beaches(_pb, BEACHES)
@@ -3137,7 +3545,7 @@ if _panel_beach:
         f"<div style='font-size:17px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:3px'>"
         f"{_pb['name']}{_turtle}</div>"
         f"<div style='font-size:11px;color:#80cbc4;margin-bottom:4px'>"
-        f"📍 {_pb['province']} · {tr_term(_pb['region'])}</div>"
+        f"📍 {_pb['province']} · {region_short(_pb['region'])}</div>"
         # Sargassum risk section (rich card)
         + _risk_section
         # Short legal notice, right under the risk figure — this is the point
@@ -3145,6 +3553,9 @@ if _panel_beach:
         # text lives in the sidebar's "Aviso importante" expander.
         + f"<div style='font-size:9.5px;color:#ffcc80;opacity:.85;"
           f"margin:-4px 0 9px;line-height:1.35'>⚠️ {L['disclaimer_short']}</div>"
+        # Live surf & wind, directly under the live sargassum reading: both
+        # answer "what is the water doing today", and both are fetched.
+        + _surf_html
         +
         # Description
         f"<div style='font-size:11.5px;color:#b2dfdb;line-height:1.5;margin-bottom:11px;"

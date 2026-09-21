@@ -207,7 +207,14 @@ def risk_from_detections(
 
 
 
-def fetch_live_risk(api_base_url: str, timeout: int = 15) -> tuple[list[dict], dict[int, dict]]:
+# (connect, read) seconds. A separate, short connect timeout is what keeps an
+# unreachable API from holding up the first paint of the map.
+_TIMEOUT: tuple[float, float] = (2.5, 12.0)
+
+
+def fetch_live_risk(api_base_url: str,
+                    timeout: "int | tuple[float, float]" = _TIMEOUT
+                    ) -> tuple[list[dict], dict[int, dict]]:
     """Fetch zones and latest forecasts from the API.
 
     Returns (zones, {zone_id: full_forecast_dict}). Returns ([], {}) on any failure so
@@ -228,7 +235,8 @@ def fetch_live_risk(api_base_url: str, timeout: int = 15) -> tuple[list[dict], d
 
     # Configure a session with retries to tolerate transient network issues.
     session = requests.Session()
-    retry = Retry(total=3, backoff_factor=1, status_forcelist=(502, 503, 504))
+    retry = Retry(total=2, connect=0, backoff_factor=0.4,
+                  status_forcelist=(502, 503, 504))
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
@@ -247,7 +255,8 @@ def fetch_live_risk(api_base_url: str, timeout: int = 15) -> tuple[list[dict], d
     return zones or [], forecast_by_zone_id
 
 
-def fetch_detections(api_base_url: str, limit: int = 2000, timeout: int = 15) -> list[dict]:
+def fetch_detections(api_base_url: str, limit: int = 2000,
+                     timeout: "int | tuple[float, float]" = _TIMEOUT) -> list[dict]:
     """Fetch the latest run's sargassum masses from the API.
 
     Returns a list of {id, run_at, lat, lon, area_km2, source} dicts, or [] on
@@ -265,7 +274,8 @@ def fetch_detections(api_base_url: str, limit: int = 2000, timeout: int = 15) ->
         return []
 
     session = requests.Session()
-    retry = Retry(total=3, backoff_factor=1, status_forcelist=(502, 503, 504))
+    retry = Retry(total=2, connect=0, backoff_factor=0.4,
+                  status_forcelist=(502, 503, 504))
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
