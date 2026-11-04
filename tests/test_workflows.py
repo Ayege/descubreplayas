@@ -30,7 +30,7 @@ _REPO = Path(__file__).resolve().parent.parent
 _WORKFLOWS = sorted((_REPO / ".github" / "workflows").glob("*.yml"))
 _FULL_SHA = re.compile(r"[^@\s]+@[0-9a-f]{40}")
 _OFFLINE_SUITES = {
-    "beaches", "conoce", "dispatch", "drift", "fetch_species", "images", "profiles", "risk_overlay", "surf", "workflows",
+    "beaches", "conoce", "dispatch", "drift", "fetch_species", "images", "map_perf", "profiles", "risk_overlay", "surf", "workflows",
 }
 _LIVE_SUITES = {"detect", "ocean", "store"}
 _LOCKS = ("api", "ci-tools", "dashboard", "pipeline")

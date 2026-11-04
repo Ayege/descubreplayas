@@ -31,7 +31,7 @@ jobs:
 
       - name: Run offline test suites
         run: |
-          for suite in beaches conoce dispatch drift fetch_species images profiles risk_overlay surf workflows; do
+          for suite in beaches conoce dispatch drift fetch_species images map_perf profiles risk_overlay surf workflows; do
             echo "::group::test_$suite"
             python -m "tests.test_$suite"
             echo "::endgroup::"

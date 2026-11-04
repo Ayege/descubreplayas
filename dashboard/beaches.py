@@ -19,8 +19,11 @@ Run from repo root:
 """
 from __future__ import annotations
 
+import logging
 import os
 import sys
+from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from pathlib import Path
 
 if __package__ is None:
@@ -50,7 +53,6 @@ from dashboard.risk_overlay import (
     fetch_detections,
     fetch_live_risk,
     risk_for_beach,
-    haversine_km,
     risk_from_detections,
 )
 from dashboard.climatology import seasonal_index, seasonal_risk, zone_region
@@ -74,8 +76,11 @@ from dashboard.surf_data import (
 )
 from dashboard.beaches_i18n import BEACH_TEXT_ES, TERMS_ES
 from dashboard.conoce import conoce_panel
+from dashboard.map_perf import CompactCircles, beach_from_map_click, run_parallel
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.descubreplayas.com.do")
 
@@ -1454,19 +1459,19 @@ def tr_text(beach: dict, field: str) -> str:
 # ---------------------------------------------------------------------------
 # Cached API helpers — TTL 5 min so beach-click reruns don't re-hit the API.
 # ---------------------------------------------------------------------------
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def _cached_fetch_live_risk(url: str):
     return fetch_live_risk(url)
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def _cached_fetch_detections(url: str):
     # Fetch a bounded number of masses; the map only needs the significant
     # ones, and a smaller payload means faster JSON transfer + render.
     return fetch_detections(url, limit=800)
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def _cached_fetch_ml_forecasts(url: str) -> list[dict]:
     """Fetch ML extended forecasts (7/14/21-day) from the API."""
     if not url:
@@ -1548,6 +1553,74 @@ def _surf_relation_label(relation: str) -> str:
         "onshore": L["surf_onshore"],
     }.get(relation, L["surf_wind_unknown"])
 
+
+import math as _m_drift
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _fetch_wind_uv() -> tuple[float, float]:
+    """Fetch current 10 m wind (u_east, v_north) m/s from Open-Meteo (free, no key).
+
+    Cached for 1 hour.  Returns (0, 0) on any network or parse failure so the
+    caller always gets a valid — if zero-wind — drift vector.
+    """
+    try:
+        import requests, certifi
+        resp = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": 19.0, "longitude": -69.8,
+                "current": "wind_speed_10m,wind_direction_10m",
+                "wind_speed_unit": "ms",
+                "timezone": "UTC",
+            },
+            timeout=(1.5, 5),
+            verify=certifi.where(),
+        )
+        c = resp.json()["current"]
+        spd = float(c["wind_speed_10m"])
+        # Meteorological convention: FROM direction.  TO = FROM + 180°.
+        go = _m_drift.radians((float(c["wind_direction_10m"]) + 180) % 360)
+        return spd * _m_drift.sin(go), spd * _m_drift.cos(go)  # (u_east, v_north)
+    except Exception:
+        return 0.0, 0.0
+
+
+# All 56 beaches in one batched request, so opening a card never waits for its own.
+_ALL_SURF_NAMES = tuple(sorted(b["name"] for b in BEACHES))
+# How long a card waits for that request before showing without surf this time.
+_SURF_WAIT_S = 8.0
+
+
+@st.cache_resource(show_spinner=False)
+def _background_pool() -> ThreadPoolExecutor:
+    return ThreadPoolExecutor(max_workers=1, thread_name_prefix="surf")
+
+
+@st.cache_resource(ttl=1800, show_spinner=False)
+def _surf_series_future() -> Future:
+    """Start the surf request once, for every session, without holding up the page."""
+    return _background_pool().submit(_cached_surf_conditions, _ALL_SURF_NAMES)
+
+
+def _all_surf_series() -> dict:
+    try:
+        return _surf_series_future().result(timeout=_SURF_WAIT_S)
+    except FutureTimeoutError:
+        logger.warning("Surf data is still loading; showing the card without it.")
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# Live data: fetched together, so the slowest call sets the wait, not their sum.
+# ---------------------------------------------------------------------------
+_surf_series_future()
+run_parallel([
+    lambda: _cached_fetch_live_risk(API_BASE_URL),
+    lambda: _cached_fetch_ml_forecasts(API_BASE_URL),
+    lambda: _cached_fetch_detections(API_BASE_URL),
+    _fetch_wind_uv,
+])
 
 # ---------------------------------------------------------------------------
 # Live risk fetch
@@ -1770,8 +1843,6 @@ def _fmt_arrival(fc: dict | None) -> str:
 #     component toward the beach are counted as approaching.  A mass moving
 #     away cannot produce a valid arrival estimate.
 # ---------------------------------------------------------------------------
-import math as _m_drift
-
 _DRIFT_METERS_PER_DEG = 111_320.0
 # Windage fraction (same constant as pipeline/config.py WIND_DRIFT_FACTOR).
 _WIND_DRIFT_FACTOR = float(os.environ.get("WIND_DRIFT_FACTOR", "0.02"))
@@ -1805,35 +1876,6 @@ def _regional_current(lat: float, lon: float) -> tuple[float, float]:
     if lon < -70.5 and lat < 19.0:                               # Southwest
         return -0.08,  0.01
     return -0.13,  0.03                                          # South / central default
-
-
-@st.cache_data(ttl=3600)
-def _fetch_wind_uv() -> tuple[float, float]:
-    """Fetch current 10 m wind (u_east, v_north) m/s from Open-Meteo (free, no key).
-
-    Cached for 1 hour.  Returns (0, 0) on any network or parse failure so the
-    caller always gets a valid — if zero-wind — drift vector.
-    """
-    try:
-        import requests, certifi
-        resp = requests.get(
-            "https://api.open-meteo.com/v1/forecast",
-            params={
-                "latitude": 19.0, "longitude": -69.8,
-                "current": "wind_speed_10m,wind_direction_10m",
-                "wind_speed_unit": "ms",
-                "timezone": "UTC",
-            },
-            timeout=(1.5, 5),
-            verify=certifi.where(),
-        )
-        c = resp.json()["current"]
-        spd = float(c["wind_speed_10m"])
-        # Meteorological convention: FROM direction.  TO = FROM + 180°.
-        go = _m_drift.radians((float(c["wind_direction_10m"]) + 180) % 360)
-        return spd * _m_drift.sin(go), spd * _m_drift.cos(go)  # (u_east, v_north)
-    except Exception:
-        return 0.0, 0.0
 
 
 def _effective_uv(lat: float, lon: float, wind_u: float, wind_v: float) -> tuple[float, float]:
@@ -2191,8 +2233,7 @@ with st.sidebar:
 if surf_mode or sel_surf:
     # Marker colours and the quality filter both need every beach, and both
     # are consumed before the map is drawn, so this one has to happen here.
-    _SURF_SERIES = _cached_surf_conditions(
-        tuple(sorted(b["name"] for b in BEACHES)))
+    _SURF_SERIES = _all_surf_series()
 
 
 # Per-render cache: beach name → _beach_risk_dated result WITHOUT ETA.
@@ -2485,7 +2526,7 @@ _ml_drift_mode = (_date_mode == "ml")  # drives mass styling + legend
 # The pill is 10px from the top and ~44px tall, so 60px clears it with a gap.
 _MAP_TOP_LANE = 60
 
-m = folium.Map(location=[19.0, -69.8], zoom_start=7, tiles="OpenStreetMap")
+m = folium.Map(location=[19.0, -69.8], zoom_start=7, tiles="OpenStreetMap", prefer_canvas=True)
 # Make the inner Leaflet map fill the whole component iframe.
 #
 # ROOT CAUSE of the blank strip under the map: streamlit-folium does NOT render
@@ -2834,6 +2875,7 @@ if show_masses:
         _show_drift = _drift_h > 0
 
         _mass_group = folium.FeatureGroup(name="Sargazo", show=True)
+        _mass_rows: list[tuple[float, float, float, float]] = []
         for _d in _masses:
             try:
                 _a = float(_d.get("area_km2", 0.0))
@@ -2943,17 +2985,19 @@ if show_masses:
                     ).add_to(_mass_group)
 
             # Current detected position — fainter in ML mode to signal mass has moved
-            folium.CircleMarker(
-                location=[_lat0, _lon0],
-                radius=_r,
-                color="#5d4037",
-                fill=True,
-                fill_color="#795548",
-                fill_opacity=0.20 if _ml_drift_mode else 0.55,
-                weight=1,
-                tooltip=f"🟤 {L['popup_sargassum']} · {_a:.2f} km²",
-            ).add_to(_mass_group)
+            _mass_rows.append((_lat0, _lon0, _r, _a))
 
+        CompactCircles(
+            _mass_rows,
+            style={
+                "color": "#5d4037",
+                "fill": True,
+                "fillColor": "#795548",
+                "fillOpacity": 0.20 if _ml_drift_mode else 0.55,
+                "weight": 1,
+            },
+            label=f"🟤 {L['popup_sargassum']} · ",
+        ).add_to(_mass_group)
         _mass_group.add_to(m)
     # If no masses came back we silently skip — sidebar caption explains why below.
 
@@ -3033,7 +3077,19 @@ if _ml_drift_mode:
 # national default. st_folium re-centres only when these values change, so the
 # user's manual panning survives every rerun in between.
 _view = st.session_state.get("_view")
-map_result = st_folium(
+_map_click_targets = {b["name"]: (float(b["latitude"]), float(b["longitude"])) for b in filtered}
+
+
+def _on_map_click() -> None:
+    """Runs before the rerun a click causes, so that one rerun already shows the new
+    beach. Handling the click after the map had drawn needed a second full rerun.
+    """
+    picked = beach_from_map_click(st.session_state.get("beach_map"), _map_click_targets)
+    if picked:
+        st.session_state["selected_beach"] = picked
+
+
+st_folium(
     m,
     width="100%",
     height=900,
@@ -3041,62 +3097,9 @@ map_result = st_folium(
     zoom=_view["zoom"] if _view else None,
     returned_objects=["last_object_clicked_tooltip", "last_object_clicked", "last_clicked"],
     key="beach_map",
+    on_change=_on_map_click,
 )
 
-
-# Sync map click → session state (robust: tooltip -> object -> coords fallback)
-def _select_beach_from_map_result(res: dict | None) -> None:
-    if not res:
-        return
-
-    # 1) Prefer tooltip text when available (our standard: '🏖️ Name — Province')
-    tip = res.get("last_object_clicked_tooltip")
-    if tip:
-        try:
-            clicked = tip.replace("🏖️ ", "").split(" — ")[0].strip()
-        except Exception:
-            clicked = tip.strip()
-        if clicked in filtered_names and clicked != st.session_state.get("selected_beach"):
-            st.session_state["selected_beach"] = clicked
-            st.rerun()
-            return
-
-    # 2) Try last_object_clicked (may contain properties/name)
-    obj = res.get("last_object_clicked")
-    if obj and isinstance(obj, dict):
-        # Attempt common property names
-        for key in ("tooltip", "name", "title", "popup"):
-            val = obj.get(key)
-            if isinstance(val, str):
-                cand = val.replace("🏖️ ", "").split(" — ")[0].strip()
-                if cand in filtered_names and cand != st.session_state.get("selected_beach"):
-                    st.session_state["selected_beach"] = cand
-                    st.rerun()
-                    return
-
-    # 3) Fallback: use last_clicked coordinates and pick the nearest filtered beach
-    last = res.get("last_clicked")
-    if last and isinstance(last, dict):
-        try:
-            lat = float(last.get("lat") or last.get("latitude"))
-            lon = float(last.get("lng") or last.get("lon") or last.get("longitude"))
-        except Exception:
-            return
-        # Find nearest beach among the currently filtered set (within ~0.5 km)
-        best = None
-        best_km = float("inf")
-        for b in (b for b in filtered):
-            d = haversine_km(lat, lon, float(b["latitude"]), float(b["longitude"]))
-            if d < best_km:
-                best_km = d
-                best = b
-        if best and best_km <= 0.6:  # ~600 m tolerance to avoid misclicks
-            if best["name"] != st.session_state.get("selected_beach"):
-                st.session_state["selected_beach"] = best["name"]
-                st.rerun()
-
-
-_select_beach_from_map_result(map_result)
 
 # Sync selected beach back to the URL so the current view is shareable via link.
 if st.session_state.get("selected_beach"):
@@ -3365,9 +3368,7 @@ if _panel_beach:
     # Load this beach's series if the pre-map fetch did not already cover it.
     # We are past st_folium here, so the map is on screen while this runs.
     if _pb["name"] not in _SURF_SERIES:
-        with st.spinner(""):
-            _SURF_SERIES = {**_SURF_SERIES,
-                            **_cached_surf_conditions((_pb["name"],))}
+        _SURF_SERIES = {**_SURF_SERIES, **_all_surf_series()}
         _SURF_RATING_CACHE.pop(_pb["name"], None)
     _surf_p = _surf_now(_pb)
     if _surf_p is not None:
