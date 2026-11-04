@@ -57,14 +57,15 @@ from dashboard.conoce_data import (  # noqa: E402
     MAX_ICONIC_GROUP_CHARS,
     MAX_NAME_CHARS,
     METHOD_INATURALIST,
-    PHOTO_LICENSES,
     AutoSpecies,
     AutoTaxon,
+    FORBIDDEN_TEXT_RE,
     BeachTaxon,
     OptionalNames,
     Photo,
+    as_list,
     effective_marine,
-    is_allowed_image_url,
+    photo_problems,
     rank_taxa,
     read_auto_species,
 )
@@ -94,7 +95,8 @@ DEFAULT_MAX_AGE_DAYS = 25
 
 CONNECT_TIMEOUT_S = 10.0
 READ_TIMEOUT_S = 60.0
-REQUEST_DELAY_S = 1.1  # iNaturalist asks for about one request per second.
+INATURALIST_DELAY_S = 1.1  # iNaturalist asks for about one request per second.
+OBIS_DELAY_S = 0.3  # OBIS publishes no limit, so this is only a courtesy pause.
 MAX_ATTEMPTS = 3
 BACKOFF_BASE_S = 3.0
 MAX_RETRY_WAIT_S = 60.0
@@ -102,7 +104,11 @@ RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 HTTP_OK = 200
 
 SENSITIVE_GEOPRIVACY = frozenset({"obscured", "private"})
-DOMINICAN_REPUBLIC_PLACE_ID = 6931  # Read from the API's conservation_statuses.
+# The Dominican Republic and the larger place containing it, from the API's
+# ancestor_place_ids. A status on either one applies to the DR.
+DOMINICAN_REPUBLIC_PLACE_IDS = frozenset({6931, 97394})
+# Only these parts of a /taxa response are used; each response is over 1 MB.
+TAXON_PHOTO_FIELDS = ("id", "license_code", "square_url", "attribution", "attribution_name")
 EXCLUDED_BY_STATUS = "status"
 EXCLUDED_LOOKUP_FAILED = "lookup_failed"
 ORIGIN_DEFAULT_PHOTO = "default_photo"
@@ -111,7 +117,6 @@ MARINE_SOURCE_OBIS = "obis"
 OBIS_NO_MATCH_MARKER = b"NAME_NOT_FOUND"
 
 _TAG_RE = re.compile(r"<[^>]*>")
-_UNSAFE_TEXT_RE = re.compile(r"[<>\x00-\x1f\x7f-\x9f‪-‮⁦-⁩]")
 _WHITESPACE_RE = re.compile(r"\s+")
 
 
@@ -135,10 +140,12 @@ class Api:
 
 @dataclass
 class Caches:
-    """Lookups already made, so a species shared by beaches is fetched once."""
+    """Successful lookups, so a species shared by beaches is fetched once. A failed
+    lookup is not stored, so the next beach tries it again.
+    """
 
-    details: dict[int, dict | None] = field(default_factory=dict)
-    marine: dict[str, MarineTag | None] = field(default_factory=dict)
+    details: dict[int, dict] = field(default_factory=dict)
+    marine: dict[str, MarineTag] = field(default_factory=dict)
 
 
 @dataclass
@@ -183,7 +190,7 @@ def _retry_wait(headers: Mapping[str, str], attempt: int) -> float:
         wait = float(headers.get("Retry-After", ""))
     except ValueError:
         wait = BACKOFF_BASE_S * 2 ** attempt
-    return min(wait + random.random(), MAX_RETRY_WAIT_S)
+    return min(wait + random.random(), MAX_RETRY_WAIT_S)  # noqa: S311 (jitter, not security)
 
 
 def _parse_object(body: bytes) -> dict:
@@ -201,6 +208,7 @@ def get_json(
     url: str,
     params: Mapping[str, Any] | None = None,
     no_match: Callable[[int, bytes], bool] | None = None,
+    delay: float = INATURALIST_DELAY_S,
 ) -> dict:
     """GET one JSON object, retrying only 429 and 5xx, at most MAX_ATTEMPTS times.
 
@@ -208,7 +216,7 @@ def get_json(
     returns an empty object at once instead of being retried.
     """
     for attempt in range(MAX_ATTEMPTS):
-        api.sleep(REQUEST_DELAY_S)
+        api.sleep(delay)
         with api.client.stream("GET", url, params=params) as response:
             body = _read_capped(response)
             status, headers = response.status_code, response.headers
@@ -247,19 +255,33 @@ def _batches(items: list, size: int) -> Iterator[list]:
         yield items[start:start + size]
 
 
-def fetch_taxa_details(api: Api, taxon_ids: Iterable[int], cache: dict[int, dict | None]) -> None:
-    """Fill the cache with /taxa details. A failed batch caches None for its ids."""
-    missing = sorted({taxon_id for taxon_id in taxon_ids if taxon_id not in cache})
-    for batch in _batches(missing, TAXA_BATCH_SIZE):
-        cache.update(dict.fromkeys(batch))
+def _slim_photo_entry(entry: object) -> object:
+    photo = entry.get("photo") if isinstance(entry, Mapping) else None
+    if not isinstance(photo, Mapping):
+        return entry
+    return {"photo": {key: photo[key] for key in TAXON_PHOTO_FIELDS if key in photo}}
+
+
+def _slim_detail(detail: Mapping) -> dict:
+    """Keep only what the privacy check and photo choice read, in their raw shape."""
+    slim = {key: detail[key] for key in ("conservation_statuses", "taxon_photos") if key in detail}
+    if isinstance(slim.get("taxon_photos"), list):
+        slim["taxon_photos"] = [_slim_photo_entry(entry) for entry in slim["taxon_photos"]]
+    return slim
+
+
+def fetch_taxa_details(api: Api, taxon_ids: Iterable[int], cache: dict[int, dict]) -> None:
+    """Add /taxa details to the cache. A failed batch adds nothing."""
+    wanted = {taxon_id for taxon_id in taxon_ids if taxon_id not in cache}
+    for batch in _batches(sorted(wanted), TAXA_BATCH_SIZE):
         try:
             payload = get_json(api, f"{INAT_TAXA_URL}/{','.join(map(str, batch))}")
         except (FetchError, httpx.HTTPError) as exc:
             logger.warning("fetch_species: taxa batch failed: %s", exc)
             continue
-        for detail in _as_list(payload.get("results")):
-            if isinstance(detail, dict) and detail.get("id") in cache:
-                cache[detail["id"]] = detail
+        for detail in as_list(payload.get("results")):
+            if isinstance(detail, dict) and detail.get("id") in wanted:
+                cache[detail["id"]] = _slim_detail(detail)
 
 
 def _obis_no_match(status: int, body: bytes) -> bool:
@@ -271,19 +293,19 @@ def _is_marine_record(record: Mapping) -> bool:
     return record.get("is_marine") is True or record.get("is_brackish") is True
 
 
-def fetch_marine_tags(api: Api, names: Iterable[str], cache: dict[str, MarineTag | None]) -> None:
-    """Tag names through OBIS. Absent from OBIS means not marine; a failed batch
-    caches None, meaning unknown. No coordinates are sent.
+def fetch_marine_tags(api: Api, names: Iterable[str], cache: dict[str, MarineTag]) -> None:
+    """Tag names through OBIS. Absent from OBIS means not marine. A failed batch adds
+    nothing, which means unknown. No coordinates are sent.
     """
     missing = sorted({name for name in names if name not in cache})
     for batch in _batches(missing, OBIS_BATCH_SIZE):
         try:
-            payload = get_json(api, OBIS_CHECKLIST_URL, {"scientificname": ",".join(batch)}, _obis_no_match)
+            params = {"scientificname": ",".join(batch)}
+            payload = get_json(api, OBIS_CHECKLIST_URL, params, _obis_no_match, OBIS_DELAY_S)
         except (FetchError, httpx.HTTPError) as exc:
             logger.warning("fetch_species: OBIS batch failed: %s", exc)
-            cache.update(dict.fromkeys(batch))
             continue
-        results = _as_list(payload.get("results"))
+        results = as_list(payload.get("results"))
         if isinstance(payload.get("total"), int) and payload["total"] > len(results):
             logger.warning("fetch_species: OBIS returned %s of %s results", len(results), payload["total"])
         found = {
@@ -294,15 +316,11 @@ def fetch_marine_tags(api: Api, names: Iterable[str], cache: dict[str, MarineTag
         cache.update({name: MarineTag(found.get(name, False)) for name in batch})
 
 
-def _as_list(value: object) -> list:
-    return value if isinstance(value, list) else []
-
-
 def clean_text(value: object, limit: int) -> str | None:
     """Plain text with no tags or control characters, capped; None if nothing is left."""
     if not isinstance(value, str):
         return None
-    text = _UNSAFE_TEXT_RE.sub(" ", _TAG_RE.sub(" ", value))
+    text = FORBIDDEN_TEXT_RE.sub(" ", _TAG_RE.sub(" ", value))
     text = _WHITESPACE_RE.sub(" ", text).strip()[:limit].strip()
     return text or None
 
@@ -317,29 +335,23 @@ def parse_photo(raw: object, origin: str) -> Photo | None:
     """A photo that passes every check, using only that photo object's own data."""
     if not isinstance(raw, Mapping):
         return None
-    photo_id, url, license_code = raw.get("id"), raw.get("square_url"), raw.get("license_code")
+    photo_id = raw.get("id")
     if not isinstance(photo_id, int) or isinstance(photo_id, bool):
         return None
-    if not isinstance(license_code, str) or license_code not in PHOTO_LICENSES:
-        return None
-    if not is_allowed_image_url(url):
-        return None
-    attribution = clean_text(raw.get("attribution_name") or raw.get("attribution"), MAX_ATTRIBUTION_CHARS)
-    if attribution is None:
-        return None
-    return {
-        "url": url,
-        "license_code": license_code,
-        "attribution": attribution,
+    photo = {
+        "url": raw.get("square_url"),
+        "license_code": raw.get("license_code"),
+        "attribution": clean_text(raw.get("attribution_name") or raw.get("attribution"), MAX_ATTRIBUTION_CHARS),
         "source_url": f"{INAT_PHOTO_PAGE_URL}/{photo_id}",
         "origin": origin,
     }
+    return None if photo_problems(photo) else photo
 
 
 def _taxon_photo_objects(detail: object) -> Iterator[object]:
     """taxon_photos is undocumented, so anything unexpected simply yields nothing."""
     entries = detail.get("taxon_photos") if isinstance(detail, Mapping) else None
-    for entry in _as_list(entries):
+    for entry in as_list(entries):
         if isinstance(entry, Mapping):
             yield entry.get("photo")
 
@@ -356,14 +368,23 @@ def choose_photo(taxon: Mapping, detail: object) -> Photo | None:
     return None
 
 
+def _place_covers_dr(place_id: object) -> bool:
+    if not isinstance(place_id, int) or isinstance(place_id, bool):
+        return True
+    return place_id in DOMINICAN_REPUBLIC_PLACE_IDS
+
+
 def _status_obscures_here(status: Mapping) -> bool:
-    """True for an obscuring status that applies globally or to the DR."""
+    """True for an obscuring status that applies globally or to the DR, or whose
+    place can't be read: an obscuring status that might cover the DR must count.
+    """
     if status.get("geoprivacy") not in SENSITIVE_GEOPRIVACY:
         return False
     place = status.get("place")
     if place is None:
-        return status.get("place_id") in (None, DOMINICAN_REPUBLIC_PLACE_ID)
-    return not isinstance(place, Mapping) or place.get("id") == DOMINICAN_REPUBLIC_PLACE_ID
+        place_id = status.get("place_id")
+        return place_id is None or _place_covers_dr(place_id)
+    return not isinstance(place, Mapping) or _place_covers_dr(place.get("id"))
 
 
 def privacy_exclusion(taxon: Mapping, detail: object) -> str | None:
@@ -409,7 +430,7 @@ def _parse_row(row: object) -> dict | None:
     }
 
 
-def _apply_tags(candidates: Iterable[dict], cache: Mapping[str, MarineTag | None]) -> None:
+def _apply_tags(candidates: Iterable[dict], cache: Mapping[str, MarineTag]) -> None:
     for candidate in candidates:
         tag = cache.get(candidate["scientific_name"])
         candidate["marine_tag"] = tag

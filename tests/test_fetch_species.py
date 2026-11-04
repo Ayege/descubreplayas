@@ -41,7 +41,8 @@ from scripts import fetch_species as fs
 _FIXTURES = Path(__file__).resolve().parent / "fixtures"
 _BEACH = next(b for b in BEACHES if b["name"] == "Playa Bávaro")
 _TODAY = "2026-11-04"
-_DR = fs.DOMINICAN_REPUBLIC_PLACE_ID
+_DR = 6931
+_DR_PARENT = 97394
 _IMAGE = "https://inaturalist-open-data.s3.amazonaws.com/photos/{}/square.jpg"
 _PELICAN, _PALM, _ARDEA = 4328, 48865, 411086
 
@@ -260,6 +261,11 @@ def test_privacy_rule() -> None:
         "global private": [_status("private", None)],
         "DR obscured": [_status("obscured", _DR)],
         "mixed": [_status("open", None), _status("obscured", _DR)],
+        "obscured on a place containing the DR": [_status("obscured", _DR_PARENT)],
+        "place with no id": [{"geoprivacy": "obscured", "place": {}}],
+        "place not an object": [{"geoprivacy": "private", "place": "x"}],
+        "place id not a number": [{"geoprivacy": "obscured", "place": {"id": "6931"}}],
+        "text place_id": [{"geoprivacy": "obscured", "place_id": "x"}],
     }
     for label, statuses in by_status.items():
         _check(fs.privacy_exclusion({}, {"conservation_statuses": statuses}) == fs.EXCLUDED_BY_STATUS, f"by status: {label}")
@@ -330,6 +336,60 @@ def test_skip_beaches() -> None:
     _check("Playa Maimón" not in data["beaches"] and _BEACH["name"] in data["beaches"], "the skipped beach gets no species")
     lats = {r.url.params.get("lat") for r in server.paths("species_counts")}
     _check(str(maimon["latitude"]) not in lats, "no request is made for a skipped beach")
+
+
+def test_failed_lookups_are_retried_for_later_beaches() -> None:
+    server = _one_taxon_server(_taxon_row(default=_allowed_photo()))
+    healthy = {"taxa": False, "obis": False}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/taxa/" in request.url.path and not healthy["taxa"]:
+            return httpx.Response(404)
+        if "checklist" in request.url.path and not healthy["obis"]:
+            return httpx.Response(404)
+        return server(request)
+
+    api, caches = _api(handler), fs.Caches()
+    try:
+        fs.run_beach(api, _BEACH, _profile(), caches, _TODAY)
+    except fs.FetchError:
+        pass
+    else:
+        raise AssertionError("every lookup failing must fail the beach")
+    _check(caches.details == {}, "a failed lookup must not be cached")
+    healthy["taxa"] = True
+    first = fs.run_beach(api, _BEACH, _profile(), caches, _TODAY)
+    _check(first.excluded_lookup_failed == 0 and 1 in first.taxa, "the next beach retries the /taxa lookup")
+    _check(first.taxa[1]["marine_source"] is None and caches.marine == {}, "a failed OBIS batch is unknown, not cached")
+    healthy["obis"] = True
+    second = fs.run_beach(api, _BEACH, _profile(), caches, _TODAY)
+    _check(second.taxa[1]["marine_source"] == "obis", "the next beach retries the OBIS lookup")
+
+
+def test_cached_details_keep_only_what_is_read() -> None:
+    cache: dict = {}
+    detail = _detail(photo_field_noise=1, ancestors=[{"x": 1}], taxon_photos=[
+        {"photo": dict(_allowed_photo(), url="https://x", flags=[], medium_url="https://y"), "taxon": {"big": 1}}, "bad",
+    ])
+    fs.fetch_taxa_details(_api(lambda _: _json({"results": [detail]})), [1], cache)
+    _check(set(cache[1]) == {"conservation_statuses", "taxon_photos"}, f"cached: {set(cache[1])}")
+    _check(set(cache[1]["taxon_photos"][0]["photo"]) == set(fs.TAXON_PHOTO_FIELDS), "only the photo fields used")
+    _check(cache[1]["taxon_photos"][1] == "bad", "malformed entries stay malformed, and are rejected later")
+    _check(fs.choose_photo({}, cache[1])["attribution"] == "Autora", "the slimmed detail still gives a photo")
+    missing: dict = {}
+    fs.fetch_taxa_details(_api(lambda _: _json({"results": [{"id": 1}]})), [1], missing)
+    _check(fs.privacy_exclusion({}, missing[1]) == fs.EXCLUDED_LOOKUP_FAILED, "a missing field still fails closed")
+
+
+def test_request_spacing_per_host() -> None:
+    waits: list[float] = []
+    api = fs.Api(fs.make_client(httpx.MockTransport(lambda _: _json({"total": 0, "results": []}))), sleep=waits.append)
+    fs.fetch_marine_tags(api, ["A b"], {})
+    _check(waits == [fs.OBIS_DELAY_S], f"OBIS spacing: {waits}")
+    waits.clear()
+    fs.fetch_taxa_details(api, [1], {})
+    _check(waits == [fs.INATURALIST_DELAY_S], f"iNaturalist spacing: {waits}")
+    _check(fs.INATURALIST_DELAY_S >= 1, "iNaturalist asks for about one request per second")
 
 
 def test_query_parameters() -> None:

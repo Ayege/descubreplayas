@@ -125,7 +125,7 @@ BEACH_PHOTO_SOURCES = frozenset({"own", "wikimedia_commons"})
 _URL_FORBIDDEN_CHARS = frozenset(' \\<>"')
 
 # Data stays plain text: no markup, control characters or bidirectional overrides.
-_FORBIDDEN_TEXT_RE = re.compile(r"[<>\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]")
+FORBIDDEN_TEXT_RE = re.compile(r"[<>\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]")
 
 INATURALIST_LABEL = "iNaturalist"
 INATURALIST_OBSERVATIONS_URL = "https://www.inaturalist.org/observations"
@@ -373,7 +373,7 @@ def observation_search_url(lat: float, lon: float, radius_km: int, taxon_id: int
 def _text_problems(path: str, value: object, limit: int) -> list[str]:
     if not isinstance(value, str) or not value.strip():
         return [f"{path}: must be non-empty text"]
-    if _FORBIDDEN_TEXT_RE.search(value):
+    if FORBIDDEN_TEXT_RE.search(value):
         return [f"{path}: has markup or control characters"]
     if len(value) > limit:
         return [f"{path}: {len(value)} chars exceeds the {limit} budget"]
@@ -582,7 +582,7 @@ def auto_reference_problems(auto: Mapping) -> list[str]:
         return ["species file: taxa and beaches must be objects"]
     referenced = {
         str(reference.get("taxon_id"))
-        for references in beaches.values() for reference in _as_list(references)
+        for references in beaches.values() for reference in as_list(references)
         if isinstance(reference, Mapping)
     }
     problems = [f"dangling reference to taxon {key}" for key in sorted(referenced - set(taxa))]
@@ -683,7 +683,7 @@ def vida_problems(record: object) -> list[str]:
     return problems
 
 
-def _as_list(value: object) -> list:
+def as_list(value: object) -> list:
     return value if isinstance(value, list) else []
 
 
@@ -701,9 +701,9 @@ def profile_problems(raw: object, units: Mapping[str, object] = COASTAL_UNITS) -
     problems += vida_problems(raw["vida"])
     if not isinstance(raw["historia"], list):
         problems.append("historia: must be a list")
-    for item in _as_list(raw["historia"]):
+    for item in as_list(raw["historia"]):
         problems += history_problems(item)
-    if len(_as_list(raw["historia"])) > MAX_HISTORY_ITEMS:
+    if len(as_list(raw["historia"])) > MAX_HISTORY_ITEMS:
         problems.append(f"historia: more than {MAX_HISTORY_ITEMS} items")
     if "radius_km" in raw and not (_is_int(raw["radius_km"]) and raw["radius_km"] > 0):
         problems.append("profile.radius_km: must be a positive integer")
@@ -851,7 +851,7 @@ def _beach_species(
         return []
     radius = profile.get("radius_km", DEFAULT_RADIUS_KM) if profile else DEFAULT_RADIUS_KM
     merged: list[Species] = []
-    for reference in _valid_records(beach, "beach taxon", _as_list(references), beach_taxon_problems):
+    for reference in _valid_records(beach, "beach taxon", as_list(references), beach_taxon_problems):
         taxon = taxa.get(reference["taxon_id"])
         if taxon is not None:
             url = observation_search_url(*coordinates, radius, taxon["taxon_id"])
@@ -868,7 +868,7 @@ def _valid_profile(beach: str, raw: object, units: Mapping[str, object]) -> Beac
     if _shape_problems("profile", raw, BeachProfile) or vida_problems(raw["vida"]):
         logger.warning("conoce: dropped profile for %r", beach)
         return None
-    historia = _valid_records(beach, "historia", _as_list(raw["historia"]), history_problems)
+    historia = _valid_records(beach, "historia", as_list(raw["historia"]), history_problems)
     teaser = raw["teaser"]
     if teaser is not None and teaser_problems(teaser):
         logger.warning("conoce: dropped teaser for %r", beach)

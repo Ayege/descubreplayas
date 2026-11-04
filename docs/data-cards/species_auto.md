@@ -26,9 +26,10 @@ The caption says "Foto de la especie" so that it doesn't imply otherwise.
 
 ## Requests
 
-Every response is capped at 4 MB and redirects are not followed. Requests are
-spaced about one per second. Only HTTP 429 and 5xx are retried, at most 3 attempts,
-with exponential backoff, jitter and `Retry-After`.
+Every response is capped at 4 MB and redirects are not followed. iNaturalist requests
+are spaced about one per second, and OBIS requests 0.3 s apart. Only HTTP 429 and 5xx
+are retried, at most 3 attempts, with exponential backoff, jitter and `Retry-After`.
+A failed lookup isn't remembered, so the next beach tries it again.
 
 ### iNaturalist: species near a beach (one request per beach)
 
@@ -111,7 +112,8 @@ if either of these is true:
 1. All its observations near the beach have `obscured` or `private` geoprivacy.
    `geoprivacy=open` and `taxon_geoprivacy=open` handle this on the server.
 2. Its `conservation_statuses` has `geoprivacy` of `obscured` or `private`, with no
-   place (global) or place id 6931 (Dominican Republic).
+   place (global), the Dominican Republic (6931), or the larger place containing it
+   (97394, from the API's `ancestor_place_ids`).
 
 If the statuses can't be read, the species is excluded. This is the opposite of
 photos on purpose: a missing photo costs nothing, but a missing privacy answer could

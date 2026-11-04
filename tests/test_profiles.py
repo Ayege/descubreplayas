@@ -119,7 +119,7 @@ def test_file_budgets() -> None:
 
 def test_shipped_text_is_plain() -> None:
     for path, text in _strings([PROFILES, COASTAL_UNITS, _shipped_auto()]):
-        _check(cd._FORBIDDEN_TEXT_RE.search(text) is None, f"markup or control character at {path}")
+        _check(cd.FORBIDDEN_TEXT_RE.search(text) is None, f"markup or control character at {path}")
 
 
 def test_no_placeholder_in_shipped_data() -> None:
