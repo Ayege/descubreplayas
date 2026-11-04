@@ -13,5 +13,7 @@ sargapp-499614-79c16e0890e7.json
 .model_cache.pkl
 .tools/
 info/prompts*.md
+info/sargapp.md
 CLAUDE.md
+.DS_Store
 
