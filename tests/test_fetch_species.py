@@ -14,10 +14,10 @@
 
 """Offline tests for scripts/fetch_species.py. Nothing here touches the network.
 
-The fixtures in tests/fixtures/ are real API responses, trimmed. Run from the
-repo root:
+The fixtures in tests/fixtures/ are real API responses, trimmed. This script imports
+scripts/_images.py, so it needs Pillow 13. Run from the repo root:
 
-    python -m tests.test_fetch_species
+    .venv-ingest/bin/python -m tests.test_fetch_species
 """
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ import datetime as dt
 import io
 import json
 import logging
+import re
 import sys
 import tempfile
 from contextlib import redirect_stdout
@@ -33,6 +34,7 @@ from unittest import mock
 from urllib.parse import unquote
 
 import httpx
+from PIL import Image
 
 from dashboard import conoce_data as cd
 from dashboard.beaches_data import BEACHES
@@ -59,6 +61,12 @@ def _json(payload: dict, status: int = 200) -> httpx.Response:
     return httpx.Response(status, json=payload)
 
 
+def _jpeg(shade: int = 90) -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", (240, 160), (shade, 120, 160)).save(buffer, "JPEG")
+    return buffer.getvalue()
+
+
 class _Server:
     """A fake of the three endpoints, serving the recorded responses by default."""
 
@@ -71,6 +79,9 @@ class _Server:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         path = request.url.path
+        if "/photos/" in path:
+            shade = int(path.split("/")[2]) % 200
+            return httpx.Response(200, content=_jpeg(shade), headers={"Content-Type": "image/jpeg"})
         if path.endswith("/species_counts"):
             return _json(self.counts)
         if "/taxa/" in path:
@@ -130,7 +141,8 @@ def test_real_response_end_to_end() -> None:
     _check(cd.taxon_problems(pelican) == [], f"{cd.taxon_problems(pelican)}")
     _check(pelican["photo"]["origin"] == "taxon_photos", "the pelican's default photo is not allowed")
     _check(pelican["common_name"]["en"] == "Brown Pelican", "english_common_name supplies the English")
-    _check(cd.photo_problems(pelican["photo"]) == [], f"{cd.photo_problems(pelican['photo'])}")
+    _check(cd.remote_photo_problems(pelican["photo"]) == [], f"{cd.remote_photo_problems(pelican['photo'])}")
+    _check("file" not in pelican["photo"], "without a static folder, nothing is downloaded")
 
 
 def test_marine_provenance() -> None:
@@ -320,6 +332,29 @@ def test_flaky_run_cannot_empty_a_beach() -> None:
     results = fs.collect(api, [_BEACH], {_BEACH["name"]: _profile()}, old, dt.date(2026, 11, 4), 25)
     _check(results == {}, "nothing to merge, so the beach's old data stays")
     _check(fs.merge_results(old, results)["beaches"] == old["beaches"], "old references are kept")
+
+
+def test_failed_beach_is_reported_not_silently_missing() -> None:
+    base = _Server()
+    bad = _beach("Playa Macao")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/species_counts") and request.url.params["lat"] == str(bad["latitude"]):
+            raise httpx.RemoteProtocolError("Server disconnected without sending a response.")
+        return base(request)
+
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "auto.json"
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = fs.main(
+                ["--beach", bad["name"], "--beach", _BEACH["name"], "--output", str(path), "--static-dir", str(Path(folder) / "s")],
+                transport=httpx.MockTransport(handler), sleep=lambda _: None,
+            )
+        data = cd.read_auto_species(path)
+    _check(code == 1, "a partial run must not exit as a success")
+    _check(f"FAILED {bad['name']}" in out.getvalue(), "the summary must name the failed beach")
+    _check(_BEACH["name"] in data["beaches"] and bad["name"] not in data["beaches"], "the other beach is still written")
 
 
 def test_skip_beaches() -> None:
@@ -609,6 +644,8 @@ def test_atomic_write_keeps_the_old_file() -> None:
 
 
 def _main(argv: list[str], server: _Server) -> tuple[int, str]:
+    """Run the script, keeping image files beside its --output, never in the repo."""
+    argv = [*argv, "--static-dir", str(Path(argv[argv.index("--output") + 1]).parent / "static")]
     out = io.StringIO()
     with redirect_stdout(out):
         code = fs.main(argv, transport=httpx.MockTransport(server), sleep=lambda _: None)
@@ -616,13 +653,157 @@ def _main(argv: list[str], server: _Server) -> tuple[int, str]:
 
 
 def test_dry_run_writes_nothing_and_reports() -> None:
+    server = _Server()
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "auto.json"
-        code, text = _main(["--dry-run", "--beach", _BEACH["name"], "--output", str(path)], _Server())
+        orphan = Path(folder) / "static" / "species" / ("c" * 64 + ".webp")
+        orphan.parent.mkdir(parents=True)
+        orphan.write_bytes(b"x")
+        code, text = _main(["--dry-run", "--beach", _BEACH["name"], "--output", str(path)], server)
         _check(code == 0 and not path.exists(), "a dry run must not write")
-    for column in ("p_def", "p_tax", "x_st", "x_lk", "marine", "top 3"):
+        _check(orphan.exists() and f"WOULD DELETE species/{orphan.name}" in text, "a dry run lists what it would delete")
+        _check([p.name for p in orphan.parent.iterdir()] == [orphan.name], "a dry run must store no image")
+    _check(server.paths("/photos/") == [], "a dry run must download no image")
+    for column in ("p_def", "p_tax", "x_st", "x_lk", "off", "x_tb", "marine", "top 3"):
         _check(column in text, f"summary is missing {column}")
     _check(_BEACH["name"] in text, "summary lists the beach")
+
+
+def _rows_with_photos(count: int) -> tuple[list[dict], list[dict]]:
+    rows = [_taxon_row(i, f"Testus n{i}", default=_allowed_photo(i), count=100 - i) for i in range(1, count + 1)]
+    return rows, [_detail(i, f"Testus n{i}") for i in range(1, count + 1)]
+
+
+def _run_with_store(server, folder: str, caches: fs.Caches | None = None) -> fs.BeachResult:
+    return fs.run_beach(_api(server), _BEACH, _profile(), caches or fs.Caches(), _TODAY, Path(folder))
+
+
+def test_thumbnails_are_stored_for_the_top_8_only() -> None:
+    rows, details = _rows_with_photos(12)
+    server = _Server(counts={"total_results": 12, "results": rows}, taxa={"results": details}, obis={"total": 0, "results": []})
+    with tempfile.TemporaryDirectory() as folder:
+        result = _run_with_store(server, folder)
+        order = [ref["taxon_id"] for ref in result.references]
+        with_photo = [i for i in order if result.taxa[i]["photo"]]
+        _check(with_photo == order[:fs.THUMBNAILS_PER_BEACH] and fs.THUMBNAILS_PER_BEACH == 8, "the top 8 get thumbnails")
+        _check(len(server.paths("/photos/")) == 8, "no download for the species a beach can't show")
+        first = result.taxa[order[0]]["photo"]
+        _check(cd.photo_problems(first) == [], f"{cd.photo_problems(first)}")
+        stored = Path(folder) / first["file"]
+        _check(stored.is_file() and cd.file_sha256(stored) == first["sha256"], "the file must match its hash")
+        with Image.open(stored) as image:
+            _check(image.format == "WEBP" and image.size == (96, 96), "a 96 px WebP")
+        _check("/small." in str(server.paths("/photos/")[0].url), "download the 240 px size")
+        _check(first["url"].endswith("/square.jpg"), "the API's URL is kept")
+
+
+def test_a_lower_rank_at_one_beach_keeps_the_photo_from_another() -> None:
+    def result_with(photo: dict | None, name: str) -> fs.BeachResult:
+        record = {"taxon_id": 1, "scientific_name": "Testus uno", "photo": photo, "fetched_at": _TODAY}
+        return fs.BeachResult(
+            references=[{"taxon_id": 1, "observation_count": 1}], taxa={1: record}, total=1, returned=1,
+            excluded_by_status=0, excluded_lookup_failed=0, eligible=1, photos_default=0, photos_taxon=0,
+            marine=0, top=[name],
+        )
+
+    stored = {"file": "species/" + "a" * 64 + ".webp"}
+    empty = {"taxa": {}, "beaches": {}}
+    for order in (("A", "B"), ("B", "A")):
+        beaches = {"A": result_with(stored, "A"), "B": result_with(None, "B")}
+        merged = fs.merge_results(empty, {name: beaches[name] for name in order})
+        _check(merged["taxa"]["1"]["photo"] == stored, f"the photo must survive in order {order}")
+    earlier = {"taxa": {"1": {"taxon_id": 1, "photo": stored}}, "beaches": {"A": [{"taxon_id": 1}]}}
+    merged = fs.merge_results(earlier, {"B": result_with(None, "B")})
+    _check(merged["taxa"]["1"]["photo"] == stored, "a later run must not erase it either")
+    _check(fs.referenced_files(merged) == {stored["file"]}, "so its file isn't deleted as unreferenced")
+
+
+def test_shared_images_are_stored_once() -> None:
+    same = _allowed_photo(7)
+    rows = [_taxon_row(1, "Testus uno", default=same), _taxon_row(2, "Testus dos", default=same)]
+    details = [_detail(1, "Testus uno"), _detail(2, "Testus dos")]
+    server = _Server(counts={"total_results": 2, "results": rows}, taxa={"results": details}, obis={"total": 0, "results": []})
+    caches = fs.Caches()
+    with tempfile.TemporaryDirectory() as folder:
+        first = _run_with_store(server, folder, caches)
+        _run_with_store(server, folder, caches)
+        _check(len(server.paths("/photos/")) == 1, "an image shared by species or beaches is downloaded once")
+        _check(len(list((Path(folder) / "species").iterdir())) == 1, "and stored once")
+        _check(first.taxa[1]["photo"]["file"] == first.taxa[2]["photo"]["file"], "both point to it")
+
+
+def test_failed_thumbnail_keeps_the_species() -> None:
+    cases = {
+        "not found": lambda: httpx.Response(404),
+        "wrong type": lambda: httpx.Response(200, content=b"<html>", headers={"Content-Type": "text/html"}),
+        "junk image": lambda: httpx.Response(200, content=b"\xff\xd8\xffjunk", headers={"Content-Type": "image/jpeg"}),
+        "redirect": lambda: httpx.Response(302, headers={"Location": "https://evil.test/x.jpg"}),
+    }
+    for label, reply in cases.items():
+        server = _one_taxon_server(_taxon_row(default=_allowed_photo()))
+
+        def handler(request: httpx.Request, reply=reply) -> httpx.Response:
+            return reply() if "/photos/" in request.url.path else server(request)
+
+        with tempfile.TemporaryDirectory() as folder:
+            result = _run_with_store(handler, folder)
+            _check(1 in result.taxa and result.taxa[1]["photo"] is None, f"{label}: the species stays, with no photo")
+            _check(result.thumbnails_failed == 1, f"{label}: the failure is counted")
+
+
+def test_licence_comes_from_the_api_not_the_host() -> None:
+    not_open = dict(_allowed_photo(), license_code="cc-by-nc")
+    server = _one_taxon_server(_taxon_row(default=not_open))
+    with tempfile.TemporaryDirectory() as folder:
+        result = _run_with_store(server, folder)
+    _check(result.taxa[1]["photo"] is None, "a photo on the bucket with a closed licence must be refused")
+    _check(server.paths("/photos/") == [], "and never downloaded")
+
+
+def test_allowed_photos_elsewhere_are_counted_not_fetched() -> None:
+    elsewhere = dict(_allowed_photo(), square_url="https://static.inaturalist.org/photos/7/square.jpg")
+    closed = dict(elsewhere, license_code=None)
+    detail = _detail(taxon_photos=[{"photo": elsewhere}, {"photo": closed}, {"photo": _allowed_photo(8)}])
+    server = _one_taxon_server(_taxon_row(default=elsewhere), detail)
+    with tempfile.TemporaryDirectory() as folder:
+        result = _run_with_store(server, folder)
+    _check(result.photos_off_bucket == 2, f"open licence, other host: counted {result.photos_off_bucket}")
+    _check(result.taxa[1]["photo"]["url"] == _IMAGE.format(8), "the photo on the bucket is used")
+    hosts = {r.url.host for r in server.paths("/photos/")}
+    _check(hosts == {"inaturalist-open-data.s3.amazonaws.com"}, f"the allowlist isn't widened: {hosts}")
+    _check(" off " in fs.format_summary({"Playa": result}).splitlines()[0], "the summary reports the count")
+
+
+def test_hostile_names_never_reach_a_path() -> None:
+    row = _taxon_row(1, "../../../etc/passwd", default=_allowed_photo())
+    row["taxon"]["preferred_common_name"] = "../../evil"
+    server = _one_taxon_server(row, _detail(1, "../../../etc/passwd"))
+    with tempfile.TemporaryDirectory() as folder:
+        result = _run_with_store(server, folder)
+        files = [p.relative_to(folder).as_posix() for p in Path(folder).rglob("*") if p.is_file()]
+    _check(len(files) == 1 and re.fullmatch(r"species/[0-9a-f]{64}\.webp", files[0]), f"files: {files}")
+    _check(result.taxa[1]["photo"]["file"] == files[0], "the path comes only from the hash")
+
+
+def test_real_run_cleans_up_and_respects_the_budget() -> None:
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "auto.json"
+        species = Path(folder) / "static" / "species"
+        species.mkdir(parents=True)
+        orphan = species / ("c" * 64 + ".webp")
+        orphan.write_bytes(b"x")
+        code, _ = _main(["--beach", _BEACH["name"], "--output", str(path)], _Server())
+        _check(code == 0 and not orphan.exists(), "an unreferenced thumbnail is deleted after the write")
+        data = cd.read_auto_species(path)
+        files = fs.referenced_files({"taxa": data["taxa"]})
+        _check(files and all((Path(folder) / "static" / file).is_file() for file in files), "referenced files stay")
+        for record in data["taxa"].values():
+            if record["photo"]:
+                _check(cd.photo_problems(record["photo"]) == [], "stored photos have their copies")
+        before = path.read_text(encoding="utf-8")
+        with mock.patch.object(fs, "MAX_STATIC_BYTES", 1):
+            code, _ = _main(["--beach", "Playa Macao", "--output", str(path)], _Server())
+        _check(code == 1 and path.read_text(encoding="utf-8") == before, "over the image budget: refuse to write")
 
 
 def test_real_run_writes_a_loadable_file() -> None:

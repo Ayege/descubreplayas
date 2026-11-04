@@ -59,6 +59,19 @@ GET https://api.inaturalist.org/v1/taxa/{id,id,...}
   defensively: if it is missing or malformed, the species stays without a photo.
 - The largest response seen was 1.74 MB.
 
+### iNaturalist open-data bucket: thumbnails (top 8 species per beach)
+
+```
+GET https://inaturalist-open-data.s3.amazonaws.com/photos/{id}/small.{jpg|jpeg|png}
+```
+
+- `small` is 240 px on its longest side; `square` is only 75 px, too small for a 96 px file.
+- Each is centre-cropped to 96×96 and re-encoded as WebP at quality 70. Only JPEG, PNG
+  and WebP are decoded, downloads abort above 2 MB, and both the Content-Type and the
+  file's first bytes are checked.
+- This is the only download host. Photos with an allowed licence on any other host are
+  counted in the run summary (`off`), never fetched. Redirects are refused.
+
 ### OBIS: marine tag (at most 10 names per request)
 
 ```
@@ -87,6 +100,7 @@ beach's species in ranked order, at most 12, with its `observation_count`.
 | `marine_source` | `"obis"`, or null if the lookup failed and the answer is unknown |
 | `marine_tagged_at` | Date of the OBIS lookup, or null if it failed |
 | `photo.origin` | `default_photo` or `taxon_photos` |
+| `photo.file`, `width`, `height`, `sha256` | The self-hosted copy under `dashboard/static/`: 96×96 WebP, named by its hash, with no metadata |
 | `photo.attribution` | The creator's name, from that same photo object |
 | `method`, `fetched_at` | How and when the record was generated |
 

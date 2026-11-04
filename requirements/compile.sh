@@ -11,3 +11,10 @@ compile requirements/dashboard.in requirements/dashboard.lock "${tested[@]}"
 compile requirements/api.in requirements/api.lock "${tested[@]}"
 compile requirements.txt requirements/pipeline.lock "${tested[@]}"
 compile requirements/ci-tools.in requirements/ci-tools.lock
+
+compile requirements/ingest.in requirements/ingest.lock
+header="# Only for the scripts that download and decode images, in .venv-ingest. See README.md.
+# Pillow 13 fixes decoder advisories that Streamlit 1.58 (pillow<13) can't take. The
+# dashboard never decodes untrusted images: it only serves our own re-encoded WebP files."
+printf '%s\n' "$header" | cat - requirements/ingest.lock > requirements/ingest.lock.tmp
+mv requirements/ingest.lock.tmp requirements/ingest.lock

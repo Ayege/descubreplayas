@@ -97,10 +97,11 @@ def audit_images(static_dir: Path, photos: Mapping, taxa: Mapping) -> list[str]:
                                        (entry.get("width"), entry.get("height")))
     for key, record in taxa.items():
         species_photo = record.get("photo") if isinstance(record, Mapping) else None
-        if not isinstance(species_photo, Mapping) or "file" not in species_photo:
+        if species_photo is None:
             continue
         problems += [f"taxon {key}: {p}" for p in cd.photo_problems(species_photo)]
-        if isinstance(species_photo["file"], str) and cd.SPECIES_IMAGE_FILE_RE.fullmatch(species_photo["file"]):
+        file = species_photo.get("file") if isinstance(species_photo, Mapping) else None
+        if isinstance(file, str) and cd.SPECIES_IMAGE_FILE_RE.fullmatch(file):
             referenced.add(species_photo["file"])
             problems += _file_problems(static_dir, species_photo["file"], species_photo.get("sha256"), cd.MAX_THUMBNAIL_BYTES,
                                        (cd.THUMBNAIL_FILE_PX, cd.THUMBNAIL_FILE_PX))
@@ -256,12 +257,15 @@ def test_metadata_is_caught() -> None:
 
 
 def test_thumbnail_contract() -> None:
-    plain = photo()
-    _check(cd.photo_problems(plain) == [], "a photo without a local copy is still valid until F2")
-    partial = dict(plain, file="species/" + "a" * 64 + ".webp")
-    _check(cd.photo_problems(partial) != [], "file, width, height and sha256 go together")
-    good = dict(plain, file="species/" + "a" * 64 + ".webp", width=96, height=96, sha256="a" * 64)
+    good = photo()
     _check(cd.photo_problems(good) == [], "a complete copy is valid")
+    for field in ("file", "width", "height", "sha256"):
+        partial = {k: v for k, v in good.items() if k != field}
+        _check(cd.photo_problems(partial) != [], f"a stored photo needs its {field}")
+        _check("file" not in cd.RemotePhoto.__required_keys__, "a photo from the API has no copy yet")
+    remote = {k: good[k] for k in cd.RemotePhoto.__required_keys__}
+    _check(cd.remote_photo_problems(remote) == [], "a photo from the API is valid before its copy exists")
+    _check(cd.remote_photo_problems(good) != [], "the two shapes must not be mixed up")
     for label, change in (
         ("wrong hash", {"sha256": "b" * 64}),
         ("traversal", {"file": "../" + "a" * 64 + ".webp"}),

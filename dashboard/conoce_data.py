@@ -161,22 +161,23 @@ class Sourced(TypedDict):
     verified_at: NotRequired[str]
 
 
-class Photo(TypedDict):
-    """An openly licensed reference photo of the species, not of the beach.
-
-    file, width, height and sha256 describe the self-hosted copy. They are set
-    together or not at all, until the ingest always downloads a copy.
-    """
+class RemotePhoto(TypedDict):
+    """An openly licensed reference photo of the species, not of the beach."""
 
     url: str
     license_code: str
     attribution: str
     source_url: str
     origin: str
-    file: NotRequired[str]
-    width: NotRequired[int]
-    height: NotRequired[int]
-    sha256: NotRequired[str]
+
+
+class Photo(RemotePhoto):
+    """A photo with its self-hosted copy, which is what ships."""
+
+    file: str
+    width: int
+    height: int
+    sha256: str
 
 
 class BeachPhoto(TypedDict):
@@ -447,27 +448,7 @@ def _sourced_problems(path: str, record: Mapping, methods: frozenset[str]) -> li
     return problems
 
 
-def _thumbnail_copy_problems(path: str, photo: Mapping) -> list[str]:
-    fields = ("file", "width", "height", "sha256")
-    if not any(field in photo for field in fields):
-        return []
-    if not all(field in photo for field in fields):
-        return [f"{path}: file, width, height and sha256 go together"]
-    problems: list[str] = []
-    match = SPECIES_IMAGE_FILE_RE.fullmatch(photo["file"]) if isinstance(photo["file"], str) else None
-    if match is None or match.group(1) != photo["sha256"]:
-        problems.append(f"{path}.file: must be species/<sha256>.webp")
-    if photo["width"] != THUMBNAIL_FILE_PX or photo["height"] != THUMBNAIL_FILE_PX:
-        problems.append(f"{path}: thumbnails must be {THUMBNAIL_FILE_PX}x{THUMBNAIL_FILE_PX}")
-    return problems
-
-
-def photo_problems(photo: object) -> list[str]:
-    """Return why a photo cannot be shown; the species stays either way."""
-    path = "photo"
-    shape = _shape_problems(path, photo, Photo)
-    if shape:
-        return shape
+def _photo_field_problems(path: str, photo: Mapping) -> list[str]:
     problems = _text_problems(f"{path}.attribution", photo["attribution"], MAX_ATTRIBUTION_CHARS)
     license_code = photo["license_code"]
     if not isinstance(license_code, str) or license_code not in PHOTO_LICENSES:
@@ -476,7 +457,28 @@ def photo_problems(photo: object) -> list[str]:
         problems.append(f"{path}.url: not an allowed thumbnail URL")
     if not is_safe_url(photo["source_url"]):
         problems.append(f"{path}.source_url: not a safe https URL")
-    return [*problems, *_thumbnail_copy_problems(path, photo)]
+    return problems
+
+
+def remote_photo_problems(photo: object) -> list[str]:
+    """Return why a photo from the API can't be used, before it has a local copy."""
+    shape = _shape_problems("photo", photo, RemotePhoto)
+    return shape or _photo_field_problems("photo", photo)
+
+
+def photo_problems(photo: object) -> list[str]:
+    """Return why a photo cannot be shown; the species stays either way."""
+    path = "photo"
+    shape = _shape_problems(path, photo, Photo)
+    if shape:
+        return shape
+    problems = _photo_field_problems(path, photo)
+    match = SPECIES_IMAGE_FILE_RE.fullmatch(photo["file"]) if isinstance(photo["file"], str) else None
+    if match is None or match.group(1) != photo["sha256"]:
+        problems.append(f"{path}.file: must be species/<sha256>.webp")
+    if photo["width"] != THUMBNAIL_FILE_PX or photo["height"] != THUMBNAIL_FILE_PX:
+        problems.append(f"{path}: thumbnails must be {THUMBNAIL_FILE_PX}x{THUMBNAIL_FILE_PX}")
+    return problems
 
 
 def _beach_photo_file_problems(path: str, record: Mapping) -> list[str]:

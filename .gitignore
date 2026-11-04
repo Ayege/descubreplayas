@@ -12,6 +12,7 @@ patches.geojson
 sargapp-499614-79c16e0890e7.json
 .model_cache.pkl
 .tools/
+.venv-ingest/
 info/prompts*.md
 info/sargapp.md
 CLAUDE.md

@@ -52,6 +52,10 @@ def photo() -> dict:
         "attribution": "Persona de prueba",
         "source_url": "https://www.inaturalist.org/photos/123",
         "origin": "taxon_photos",
+        "file": "species/" + "a" * 64 + ".webp",
+        "width": 96,
+        "height": 96,
+        "sha256": "a" * 64,
     }
 
 

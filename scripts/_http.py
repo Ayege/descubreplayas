@@ -66,12 +66,12 @@ def make_client(transport: httpx.BaseTransport | None = None) -> httpx.Client:
     )
 
 
-def _read_capped(response: httpx.Response) -> bytes:
+def _read_capped(response: httpx.Response, max_bytes: int) -> bytes:
     body = bytearray()
     for chunk in response.iter_bytes():
         body.extend(chunk)
-        if len(body) > MAX_RESPONSE_BYTES:
-            raise FetchError(f"response is over the {MAX_RESPONSE_BYTES} byte cap")
+        if len(body) > max_bytes:
+            raise FetchError(f"response is over the {max_bytes} byte cap")
     return bytes(body)
 
 
@@ -94,6 +94,35 @@ def _parse_object(body: bytes) -> dict:
     return payload
 
 
+def _request(
+    api: Api,
+    url: str,
+    params: Mapping[str, Any] | None,
+    no_match: Callable[[int, bytes], bool] | None,
+    delay: float,
+    max_bytes: int,
+) -> tuple[bytes, str] | None:
+    """One GET, retrying only 429 and 5xx, at most MAX_ATTEMPTS times.
+
+    Returns the body and its Content-Type, or None when no_match recognises a failure
+    response that really means "nothing found", which is not retried.
+    """
+    for attempt in range(MAX_ATTEMPTS):
+        api.sleep(delay)
+        with api.client.stream("GET", url, params=params) as response:
+            body = _read_capped(response, max_bytes)
+            status, headers = response.status_code, response.headers
+        if status == HTTP_OK:
+            return body, headers.get("Content-Type", "")
+        if no_match and no_match(status, body):
+            return None
+        if status not in RETRY_STATUSES:
+            raise FetchError(f"{url} returned HTTP {status}")
+        logger.warning("fetch_species: %s returned HTTP %s, attempt %s", url, status, attempt + 1)
+        api.sleep(_retry_wait(headers, attempt))
+    raise FetchError(f"{url} kept failing after {MAX_ATTEMPTS} attempts")
+
+
 def get_json(
     api: Api,
     url: str,
@@ -101,22 +130,13 @@ def get_json(
     no_match: Callable[[int, bytes], bool] | None = None,
     delay: float = INATURALIST_DELAY_S,
 ) -> dict:
-    """GET one JSON object, retrying only 429 and 5xx, at most MAX_ATTEMPTS times.
+    """GET one JSON object. no_match returns an empty object for "nothing found"."""
+    result = _request(api, url, params, no_match, delay, MAX_RESPONSE_BYTES)
+    return {} if result is None else _parse_object(result[0])
 
-    no_match recognises a failure response that really means "nothing found": it
-    returns an empty object at once instead of being retried.
-    """
-    for attempt in range(MAX_ATTEMPTS):
-        api.sleep(delay)
-        with api.client.stream("GET", url, params=params) as response:
-            body = _read_capped(response)
-            status, headers = response.status_code, response.headers
-        if status == HTTP_OK:
-            return _parse_object(body)
-        if no_match and no_match(status, body):
-            return {}
-        if status not in RETRY_STATUSES:
-            raise FetchError(f"{url} returned HTTP {status}")
-        logger.warning("fetch_species: %s returned HTTP %s, attempt %s", url, status, attempt + 1)
-        api.sleep(_retry_wait(headers, attempt))
-    raise FetchError(f"{url} kept failing after {MAX_ATTEMPTS} attempts")
+
+def get_bytes(api: Api, url: str, delay: float, max_bytes: int) -> tuple[bytes, str]:
+    """GET a binary body and its Content-Type, aborting above max_bytes."""
+    result = _request(api, url, None, None, delay, max_bytes)
+    assert result is not None  # no_match is None, so _request always returns a body
+    return result

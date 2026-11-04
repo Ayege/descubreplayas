@@ -30,10 +30,13 @@ _REPO = Path(__file__).resolve().parent.parent
 _WORKFLOWS = sorted((_REPO / ".github" / "workflows").glob("*.yml"))
 _FULL_SHA = re.compile(r"[^@\s]+@[0-9a-f]{40}")
 _OFFLINE_SUITES = {
-    "beaches", "conoce", "dispatch", "drift", "fetch_species", "images", "map_perf", "profiles", "risk_overlay", "surf", "workflows",
+    "beaches", "conoce", "dispatch", "drift", "images", "map_perf", "profiles", "risk_overlay", "surf", "workflows",
 }
+# These import scripts/_images.py, so they need Pillow 13 and the ingest lockfile.
+_INGEST_SUITES = {"fetch_species", "image_pipeline"}
 _LIVE_SUITES = {"detect", "ocean", "store"}
-_LOCKS = ("api", "ci-tools", "dashboard", "pipeline")
+_LOCKS = ("api", "ci-tools", "dashboard", "ingest", "pipeline")
+_MAIN_LOCKS = ("api", "dashboard", "pipeline")
 
 
 def _check(condition: bool, message: str) -> None:
@@ -74,11 +77,15 @@ def test_ci_runs_before_merge_with_only_offline_suites() -> None:
     triggers = _workflow("ci")[True]
     _check("pull_request" in triggers and "workflow_call" in triggers, "CI must run on pull requests and for deploys")
     text = (_REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    listed = set(re.search(r"for suite in ([^;]+);", text).group(1).split())
-    _check(listed == _OFFLINE_SUITES, f"suites: {listed}")
-    _check(not listed & _LIVE_SUITES, "live suites must stay out of CI")
+    main, ingest = (set(found.split()) for found in re.findall(r"for suite in ([^;]+);", text))
+    _check(main == _OFFLINE_SUITES, f"suites: {main}")
+    _check(ingest == _INGEST_SUITES, f"ingest suites: {ingest}")
+    _check(not (main | ingest) & _LIVE_SUITES, "live suites must stay out of CI")
     on_disk = {p.stem.removeprefix("test_") for p in (_REPO / "tests").glob("test_*.py")}
-    _check(on_disk - listed == _LIVE_SUITES, f"every offline suite must run in CI: {on_disk - listed}")
+    _check(on_disk - main - ingest == _LIVE_SUITES, f"every offline suite must run in CI: {on_disk - main - ingest}")
+    jobs = _workflow("ci")["jobs"]
+    install = [step["run"] for step in jobs["ingest"]["steps"] if "pip install" in step.get("run", "")]
+    _check(install == ["pip install --require-hashes -r requirements/ingest.lock"], "ingest job must use its own lockfile")
     for scanner in ("ruff", "bandit", "pip-audit", "gitleaks"):
         _check(scanner in text, f"CI must run {scanner}")
 
@@ -119,6 +126,27 @@ def test_images_install_locked_dependencies() -> None:
         _check("--hash=sha256:" in text, f"{lock}.lock must have hashes")
     pipeline = (_REPO / ".github" / "workflows" / "pipeline.yml").read_text(encoding="utf-8")
     _check("--require-hashes -r requirements/pipeline.lock" in pipeline, "the pipeline holds production secrets")
+
+
+def _lock_version(lock: str, package: str) -> str | None:
+    text = (_REPO / "requirements" / f"{lock}.lock").read_text(encoding="utf-8")
+    match = re.search(rf"^{package}==([0-9][^ ]*)", text, re.MULTILINE)
+    return match.group(1) if match else None
+
+
+def test_two_pillow_versions_stay_apart() -> None:
+    _check(_lock_version("ingest", "streamlit") is None, "ingest.lock must not hold Streamlit")
+    _check((_lock_version("ingest", "pillow") or "0").split(".")[0] == "13", "ingest.lock must hold Pillow 13")
+    for lock in _MAIN_LOCKS:
+        version = _lock_version(lock, "pillow")
+        _check(version is None or int(version.split(".")[0]) < 13, f"{lock}.lock must not hold Pillow 13")
+    header = (_REPO / "requirements" / "ingest.lock").read_text(encoding="utf-8").split("httpx==")[0]
+    _check("never decodes untrusted images" in header, "ingest.lock must say why it exists")
+    for folder in ("dashboard", "api", "pipeline"):
+        for path in (_REPO / folder).rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            for forbidden in ("from PIL", "import PIL", "scripts._images", "scripts import _images"):
+                _check(forbidden not in text, f"{path.name} must not use {forbidden}")
 
 
 def test_local_and_production_security_settings_match() -> None:
