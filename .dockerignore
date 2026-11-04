@@ -27,6 +27,7 @@ build/
 
 # Large data / runtime files
 *.json
+!dashboard/data/*.json
 !.streamlit/
 .ee-key.runtime.json
 

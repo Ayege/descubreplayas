@@ -1,0 +1,4 @@
+# Scanners that run in CI only, in their own environment. Never shipped.
+ruff
+bandit
+pip-audit

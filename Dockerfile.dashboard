@@ -5,11 +5,8 @@ WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends gcc \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install \
-        streamlit streamlit-folium folium \
-        requests httpx certifi python-dotenv \
-        shapely
+COPY requirements/dashboard.lock .
+RUN pip install --no-cache-dir --require-hashes --prefix=/install -r dashboard.lock
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
 FROM python:3.11-slim

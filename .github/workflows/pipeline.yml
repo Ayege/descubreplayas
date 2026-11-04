@@ -36,9 +36,10 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+          cache-dependency-path: requirements/pipeline.lock
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install --require-hashes -r requirements/pipeline.lock
 
       - name: Authenticate Earth Engine (service account)
         # The EE_SERVICE_ACCOUNT_JSON secret must contain the raw JSON of the

@@ -30,7 +30,7 @@ on:
       - "dashboard/**"
       - "pipeline/**"
       - "Dockerfile.*"
-      - "requirements.txt"
+      - "requirements/*.lock"
   workflow_dispatch:
 
 jobs:
@@ -73,12 +73,12 @@ jobs:
           BASE=$(git rev-parse HEAD~1 2>/dev/null \
                  || git hash-object -t tree /dev/null)
           CHANGED=$(git diff --name-only "$BASE" HEAD)
-          if echo "$CHANGED" | grep -qE '^(api/|pipeline/|Dockerfile\.api|requirements\.txt)'; then
+          if echo "$CHANGED" | grep -qE '^(api/|pipeline/|Dockerfile\.api|requirements/api\.lock)'; then
             echo "api=true"  >> "$GITHUB_OUTPUT"
           else
             echo "api=false" >> "$GITHUB_OUTPUT"
           fi
-          if echo "$CHANGED" | grep -qE '^(dashboard/|Dockerfile\.dashboard|requirements\.txt)'; then
+          if echo "$CHANGED" | grep -qE '^(dashboard/|Dockerfile\.dashboard|requirements/dashboard\.lock)'; then
             echo "dashboard=true"  >> "$GITHUB_OUTPUT"
           else
             echo "dashboard=false" >> "$GITHUB_OUTPUT"

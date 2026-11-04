@@ -360,8 +360,11 @@ def test_serving_is_enabled_for_every_deployment() -> None:
 
 def test_tested_versions_are_pinned() -> None:
     pins = (_REPO / "requirements.txt").read_text(encoding="utf-8").splitlines()
-    for line in ("streamlit==1.58.0", "starlette==1.3.1", "uvicorn[standard]==0.49.0", "pillow==12.2.0"):
+    for line in ("streamlit==1.58.0", "starlette==1.3.1", "uvicorn[standard]==0.49.0", "pillow==12.3.0"):
         _check(line in pins, f"requirements.txt must pin {line}: static files fail on other combinations")
+    lock = (_REPO / "requirements" / "dashboard.lock").read_text(encoding="utf-8")
+    for line in ("streamlit==1.58.0 ", "starlette==1.3.1 ", "uvicorn==0.49.0 ", "pillow==12.3.0 "):
+        _check(f"\n{line}" in f"\n{lock}", f"dashboard.lock must pin {line.strip()}: this is what production installs")
 
 
 def test_static_folder_sits_beside_the_main_script() -> None:
