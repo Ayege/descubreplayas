@@ -5,6 +5,8 @@
 # certain reverse-proxy setups (e.g. Streamlit Community Cloud + custom domain).
 enableXsrfProtection = false
 enableCORS = false
+# Serves dashboard/static/ at /app/static/, for the self-hosted images.
+enableStaticServing = true
 
 [browser]
 # Tell the Streamlit runtime what the public-facing URL is so it builds

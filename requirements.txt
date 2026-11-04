@@ -12,8 +12,8 @@ copernicusmarine
 supabase
 
 # API
-fastapi
-uvicorn[standard]
+fastapi==0.137.1
+uvicorn[standard]==0.49.0
 pydantic
 
 # Telegram bot
@@ -22,6 +22,10 @@ httpx
 
 # Dashboard
 streamlit==1.58.0
+# Streamlit 1.58 returns HTTP 500 for every static file with starlette 1.10.
+# Keep starlette and uvicorn with this exact Streamlit version until it is upgraded on purpose.
+starlette==1.3.1
+pillow==12.2.0
 folium==0.20.0
 pydeck
 

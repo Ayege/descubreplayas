@@ -23,6 +23,7 @@ International (CC BY 4.0) and require attribution when reused:
 
     dashboard/beaches_data.py    56 Dominican Republic beaches
     dashboard/beaches_i18n.py    Spanish translations of that catalogue
+    dashboard/beach_profiles.py  "Conoce esta playa" content per beach
 
 See LICENSE-DATA.md for the terms and the required attribution string.
 
@@ -38,5 +39,8 @@ Apache License:
   Copernicus Marine Service    Ocean current fields (uo, vo).
                                Free with registration; cite the product.
   Open-Meteo                   10 m wind. CC BY 4.0, non-commercial tier.
+  iNaturalist                  Species, common names and photos. Each photo
+                               keeps its own licence and attribution.
+  OBIS                         Marine tag for each species.
   OpenStreetMap                Map tiles.
                                © OpenStreetMap contributors, ODbL.

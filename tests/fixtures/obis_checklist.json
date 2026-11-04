@@ -1,0 +1,25 @@
+{
+ "total": 2,
+ "results": [
+  {
+   "scientificName": "Fregata magnificens",
+   "acceptedNameUsage": "Fregata magnificens",
+   "taxonID": 343999,
+   "is_marine": true,
+   "is_terrestrial": true,
+   "is_brackish": null,
+   "is_freshwater": null,
+   "records": 115054
+  },
+  {
+   "scientificName": "Pelecanus occidentalis",
+   "acceptedNameUsage": "Pelecanus occidentalis",
+   "taxonID": 343935,
+   "is_marine": true,
+   "is_terrestrial": true,
+   "is_brackish": null,
+   "is_freshwater": null,
+   "records": 113686
+  }
+ ]
+}

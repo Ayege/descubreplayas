@@ -73,6 +73,7 @@ from dashboard.surf_data import (
     spot_points as surf_spot_points,
 )
 from dashboard.beaches_i18n import BEACH_TEXT_ES, TERMS_ES
+from dashboard.conoce import conoce_panel
 
 load_dotenv()
 
@@ -488,6 +489,17 @@ _T = {
         "surf_cross_onshore": "lat. entrante",
         "surf_cross_offshore": "lat. terral",
         "surf_wind_unknown": "sin datos",
+        "conoce_title": "🧭 Conoce esta playa",
+        "lens_vida": "🐠 Vida",
+        "lens_roca": "🪨 Roca",
+        "lens_historia": "📜 Historia",
+        "see_more": "Ver más ({n})",
+        "source": "Fuente",
+        "sources": "Fuentes",
+        "photos_credit": "Foto de la especie",
+        "sand": "Arena",
+        "sargassum_why": "¿Por qué llega el sargazo aquí?",
+        "sargassum_note": "🌿 Sargazo",
     },
     "en": {
         "title": "🌴 Discover DR Beaches",
@@ -606,6 +618,17 @@ _T = {
         "surf_cross_onshore": "cross-on",
         "surf_cross_offshore": "cross-off",
         "surf_wind_unknown": "no data",
+        "conoce_title": "🧭 Get to know this beach",
+        "lens_vida": "🐠 Life",
+        "lens_roca": "🪨 Rock",
+        "lens_historia": "📜 History",
+        "see_more": "See more ({n})",
+        "source": "Source",
+        "sources": "Sources",
+        "photos_credit": "Species photo",
+        "sand": "Sand",
+        "sargassum_why": "Why does sargassum arrive here?",
+        "sargassum_note": "🌿 Sargassum",
     },
 }
 
@@ -3486,7 +3509,6 @@ if _panel_beach:
         )
 
     _acts = tr_terms(_pb["activities"])
-    _wild = tr_terms(_pb["wildlife"])
     _facs = tr_terms(_pb["facilities"])
     _park = ("✅ " + L["yes"]) if _pb["parking"] else ("⚠️ " + L["no_limited"])
     _desc_raw = tr_text(_pb, "description")
@@ -3525,17 +3547,16 @@ if _panel_beach:
         _recs_html = ""
 
     # Secondary info — nice-to-know but not what decides "should I go right
-    # now": water conditions, activities, wildlife, facilities, ecosystem,
-    # plus the "other beaches" recommendations. Tucked behind a native
+    # now": water conditions, activities, facilities,
+    # plus the "other beaches" recommendations. Wildlife and ecosystem live in
+    # the Conoce panel's Vida lens instead. Tucked behind a native
     # <details> disclosure (no JS, no extra widget) instead of always-open,
     # so the card leads with risk + practical basics instead of a 15-field
     # wall of text.
     _more_html = (
         _brow("🌊", L["water"], tr_text(_pb, "water_conditions"))
         + _brow("🏄", L["activities"], _acts)
-        + _brow("🐠", L["wildlife"], _wild)
         + _brow("🏗️", L["facilities"], _facs)
-        + _brow("🌿", L["ecosystem"], tr_text(_pb, "ecosystem"))
         + _recs_html
     )
 
@@ -3573,6 +3594,8 @@ if _panel_beach:
         "border:1px solid rgba(0,255,180,.3);border-radius:25px;"
         "padding:9px;font-size:12px;font-weight:800;text-decoration:none'>"
         f"📍 {L['open_maps']} ↗</a>"
+        + conoce_panel(_pb["name"], lang, L, tr_text(_pb, "ecosystem"),
+                       tr_terms(_pb["wildlife"]) if _pb["wildlife"] else "")
         + (
             f"<details style='margin-top:10px'>"
             f"<summary style='color:#80cbc4;font-size:11px;font-weight:700;"
