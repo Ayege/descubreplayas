@@ -1,10 +1,8 @@
 [server]
-# Disable XSRF protection so the streamlit-folium component can load its
-# frontend assets when the app is served behind a custom domain or CDN proxy.
-# Without this, the component's static index.html returns 403/404 through
-# certain reverse-proxy setups (e.g. Streamlit Community Cloud + custom domain).
-enableXsrfProtection = false
-enableCORS = false
+# Same security settings as the Cloud Run image (Dockerfile.dashboard), so local
+# runs test what ships. Streamlit needs CORS protection on when XSRF protection is.
+enableXsrfProtection = true
+enableCORS = true
 # Serves dashboard/static/ at /app/static/, for the self-hosted images.
 enableStaticServing = true
 
