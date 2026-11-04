@@ -62,7 +62,7 @@ jobs:
       - name: Lint the Conoce code strictly
         run: >-
           .tools/bin/ruff check --select E9,F,B,S --ignore S101
-          dashboard/conoce.py dashboard/conoce_data.py scripts/fetch_species.py
+          dashboard/conoce.py dashboard/conoce_data.py dashboard/map_perf.py scripts/_http.py scripts/fetch_species.py
 
       - name: Static security analysis
         run: .tools/bin/bandit -q -ll -r api dashboard pipeline scripts

@@ -30,7 +30,6 @@ import datetime as dt
 import json
 import logging
 import os
-import random
 import re
 import sys
 import tempfile
@@ -40,13 +39,23 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from dashboard.beach_profiles import PROFILES  # noqa: E402  (sys.path set above)
+from scripts._http import (  # noqa: E402
+    INATURALIST_DELAY_S,  # noqa: F401  (part of this script's interface)
+    MAX_ATTEMPTS,  # noqa: F401
+    MAX_RESPONSE_BYTES,  # noqa: F401
+    USER_AGENT,  # noqa: F401
+    Api,
+    FetchError,
+    get_json,
+    make_client,
+)
 from dashboard.beaches_data import BEACHES  # noqa: E402
 from dashboard.conoce_data import (  # noqa: E402
     AUTO_SCHEMA_VERSION,
@@ -72,7 +81,6 @@ from dashboard.conoce_data import (  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-USER_AGENT = "DescubrePlayasRD/1.0 (+https://github.com/Ayege/descubreplayas)"
 INAT_SPECIES_COUNTS_URL = "https://api.inaturalist.org/v1/observations/species_counts"
 INAT_TAXA_URL = "https://api.inaturalist.org/v1/taxa"
 INAT_PHOTO_PAGE_URL = "https://www.inaturalist.org/photos"
@@ -90,18 +98,9 @@ SPECIES_PER_PAGE = 200  # The API's maximum is 500.
 TAXA_BATCH_SIZE = 30  # The API returns at most 30 taxa per request.
 OBIS_BATCH_SIZE = 10  # At or below the 10 results OBIS was seen returning per page.
 MAX_CANDIDATES_PER_BEACH = 12
-MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 DEFAULT_MAX_AGE_DAYS = 25
 
-CONNECT_TIMEOUT_S = 10.0
-READ_TIMEOUT_S = 60.0
-INATURALIST_DELAY_S = 1.1  # iNaturalist asks for about one request per second.
 OBIS_DELAY_S = 0.3  # OBIS publishes no limit, so this is only a courtesy pause.
-MAX_ATTEMPTS = 3
-BACKOFF_BASE_S = 3.0
-MAX_RETRY_WAIT_S = 60.0
-RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
-HTTP_OK = 200
 
 SENSITIVE_GEOPRIVACY = frozenset({"obscured", "private"})
 # The Dominican Republic and the larger place containing it, from the API's
@@ -120,22 +119,10 @@ _TAG_RE = re.compile(r"<[^>]*>")
 _WHITESPACE_RE = re.compile(r"\s+")
 
 
-class FetchError(Exception):
-    """A request failed for good, or its response could not be trusted."""
-
-
 class MarineTag(NamedTuple):
     """OBIS's answer for one name. A failed lookup is stored as None instead."""
 
     marine: bool
-
-
-@dataclass(frozen=True)
-class Api:
-    """The one HTTP client for a run, and how to wait between requests."""
-
-    client: httpx.Client
-    sleep: Callable[[float], None] = time.sleep
 
 
 @dataclass
@@ -163,72 +150,6 @@ class BeachResult:
     photos_taxon: int
     marine: int
     top: list[str]
-
-
-def make_client(transport: httpx.BaseTransport | None = None) -> httpx.Client:
-    """One pooled client with explicit timeouts. TLS checks stay on by default."""
-    return httpx.Client(
-        headers={"User-Agent": USER_AGENT},
-        timeout=httpx.Timeout(READ_TIMEOUT_S, connect=CONNECT_TIMEOUT_S),
-        follow_redirects=False,
-        transport=transport,
-    )
-
-
-def _read_capped(response: httpx.Response) -> bytes:
-    body = bytearray()
-    for chunk in response.iter_bytes():
-        body.extend(chunk)
-        if len(body) > MAX_RESPONSE_BYTES:
-            raise FetchError(f"response is over the {MAX_RESPONSE_BYTES} byte cap")
-    return bytes(body)
-
-
-def _retry_wait(headers: Mapping[str, str], attempt: int) -> float:
-    """Honour Retry-After; otherwise back off exponentially, with jitter."""
-    try:
-        wait = float(headers.get("Retry-After", ""))
-    except ValueError:
-        wait = BACKOFF_BASE_S * 2 ** attempt
-    return min(wait + random.random(), MAX_RETRY_WAIT_S)  # noqa: S311 (jitter, not security)
-
-
-def _parse_object(body: bytes) -> dict:
-    try:
-        payload = json.loads(body)
-    except ValueError as exc:
-        raise FetchError("response is not JSON") from exc
-    if not isinstance(payload, dict):
-        raise FetchError("response is not a JSON object")
-    return payload
-
-
-def get_json(
-    api: Api,
-    url: str,
-    params: Mapping[str, Any] | None = None,
-    no_match: Callable[[int, bytes], bool] | None = None,
-    delay: float = INATURALIST_DELAY_S,
-) -> dict:
-    """GET one JSON object, retrying only 429 and 5xx, at most MAX_ATTEMPTS times.
-
-    no_match recognises a failure response that really means "nothing found": it
-    returns an empty object at once instead of being retried.
-    """
-    for attempt in range(MAX_ATTEMPTS):
-        api.sleep(delay)
-        with api.client.stream("GET", url, params=params) as response:
-            body = _read_capped(response)
-            status, headers = response.status_code, response.headers
-        if status == HTTP_OK:
-            return _parse_object(body)
-        if no_match and no_match(status, body):
-            return {}
-        if status not in RETRY_STATUSES:
-            raise FetchError(f"{url} returned HTTP {status}")
-        logger.warning("fetch_species: %s returned HTTP %s, attempt %s", url, status, attempt + 1)
-        api.sleep(_retry_wait(headers, attempt))
-    raise FetchError(f"{url} kept failing after {MAX_ATTEMPTS} attempts")
 
 
 def fetch_species_counts(api: Api, beach: Mapping, radius_km: int) -> dict:
