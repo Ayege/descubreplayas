@@ -70,15 +70,17 @@ def test_risk_mapping_and_fallback() -> None:
     bavaro = beaches["Playa Bávaro"]
 
     # High risk at Punta Cana (id=1) should propagate to nearby Bávaro.
-    risk, zone, dist = risk_for_beach(bavaro, ZONES, {1: "high"})
+    risk, zone, _dist, fc = risk_for_beach(bavaro, ZONES, {1: {"risk_level": "high"}})
     assert risk in {"high", "none"}, f"Unexpected risk: {risk}"
     if zone["id"] == 1:
         assert risk == "high", "Bávaro nearest Punta Cana should read high"
+        assert fc == {"risk_level": "high"}, "The forecast for the zone should come back"
     assert risk in RISK_COLORS, "Risk must be a known colour key"
 
     # Missing forecast for the nearest zone falls back to 'none'.
-    risk_none, _z, _d = risk_for_beach(bavaro, ZONES, {})
+    risk_none, _z, _d, no_forecast = risk_for_beach(bavaro, ZONES, {})
     assert risk_none == "none", f"Expected fallback 'none', got {risk_none}"
+    assert no_forecast is None, "No forecast should come back"
     print("  risk mapping + fallback: OK")
 
 

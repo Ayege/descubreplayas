@@ -11,6 +11,7 @@ ee-key.json
 patches.geojson
 sargapp-499614-79c16e0890e7.json
 .model_cache.pkl
+.tools/
 info/prompts*.md
 CLAUDE.md
 
