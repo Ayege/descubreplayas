@@ -53,6 +53,20 @@ class ForecastResponse(BaseModel):
     # and the share at each risk level.
     arrival_probability: Optional[float] = None
     risk_probs: Optional[dict[str, float]] = None
+    model_version: Optional[str] = None
+
+
+class BeachForecastResponse(BaseModel):
+    """The pipeline's own 72-h forecast for one catalogue beach."""
+    beach_name: str
+    zone_id: Optional[int] = None
+    risk_level: RiskLevel
+    eta_hours: Optional[int] = None
+    arrival_probability: Optional[float] = None
+    risk_probs: Optional[dict[str, float]] = None
+    horizons: Optional[list[dict]] = None
+    run_at: str
+    model_version: Optional[str] = None
 
 
 class DetectionResponse(BaseModel):
@@ -102,6 +116,7 @@ class ExtendedForecastResponse(BaseModel):
     run_at: str
     # Calibrated probability of each risk level (ML forecasts only).
     probs: Optional[dict[str, float]] = None
+    model_version: Optional[str] = None
 
 
 class SubscribeRequest(BaseModel):

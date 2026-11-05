@@ -215,18 +215,61 @@ def _dr_date(ts: dt.datetime) -> dt.date:
     return (ts + _DR_OFFSET).date()
 
 
-def report_labels(reports: list[dict]) -> dict[tuple[int, dt.date], int]:
-    """(zone_id, DR date) -> median reported amount (0-3), lower median on ties.
-
-    A median, not a max, so one exaggerated report can't flip a zone-day.
-    """
-    groups: dict[tuple[int, dt.date], list[int]] = {}
+def _group_reports(reports: list[dict], key: str) -> dict[tuple, list[int]]:
+    groups: dict[tuple, list[int]] = {}
     for r in reports:
-        if r.get("zone_id") is None or r.get("amount") not in RISK_TO_INT:
+        ident = r.get("zone_id") if key == "zone" else r.get("beach_name")
+        if ident is None or r.get("amount") not in RISK_TO_INT:
             continue
         day = dt.date.fromisoformat(str(r["observed_on"])[:10])
-        groups.setdefault((int(r["zone_id"]), day), []).append(RISK_TO_INT[r["amount"]])
-    return {k: int(statistics.median_low(v)) for k, v in groups.items()}
+        ident = int(ident) if key == "zone" else str(ident)
+        groups.setdefault((ident, day), []).append(RISK_TO_INT[r["amount"]])
+    return groups
+
+
+def report_labels(reports: list[dict], key: str = "zone",
+                  min_reports: int | None = None) -> dict[tuple, int]:
+    """(zone_id or beach_name, DR date) -> median reported amount (0-3).
+
+    Lower median on ties, so one exaggerated report can't flip a day. Days
+    with fewer than `min_reports` reports (default MIN_REPORTS_PER_LABEL) are
+    left out.
+    """
+    need = config.MIN_REPORTS_PER_LABEL if min_reports is None else min_reports
+    return {k: int(statistics.median_low(v))
+            for k, v in _group_reports(reports, key).items() if len(v) >= need}
+
+
+def report_counts(reports: list[dict], key: str = "zone") -> Counter:
+    """How many labels are built from 1, 2, 3… reports (label strength)."""
+    return Counter(len(v) for v in _group_reports(reports, key).values())
+
+
+def _latest_by_day(rows: list[dict], ident_field: str) -> dict[tuple, tuple[dt.datetime, int]]:
+    """Latest run per (ident, DR day, horizon, version), issued before that day ended."""
+    from pipeline.model import parse_ts
+
+    out: dict[tuple, tuple[dt.datetime, int]] = {}
+    for row in rows:
+        try:
+            run_at = parse_ts(row["run_at"])
+            ident = row[ident_field]
+        except Exception:
+            continue
+        version = row.get("model_version") or config.LEGACY_VERSION
+        for h in row.get("horizons") or []:
+            try:
+                day = _dr_date(parse_ts(h["valid_at"]))
+                key = (ident, day, int(h["horizon_hours"]), version)
+                risk = RISK_TO_INT.get(h["risk_level"], 0)
+            except Exception:
+                continue
+            day_end = dt.datetime.combine(day + dt.timedelta(days=1), dt.time(), dt.timezone.utc) - _DR_OFFSET
+            if run_at > day_end:
+                continue  # issued after the day was over: not a forecast
+            if key not in out or run_at > out[key][0]:
+                out[key] = (run_at, risk)
+    return out
 
 
 def score_reports(
@@ -234,38 +277,32 @@ def score_reports(
     zones_by_id: dict[int, dict],
     physics_rows: list[dict],
     extended_rows: list[dict],
+    beach_labels: dict[tuple[str, dt.date], int] | None = None,
+    beach_rows: list[dict] | None = None,
 ) -> dict:
     """Score stored forecasts against report labels (pure; no I/O).
 
-    physics_rows : forecasts rows {run_at, zone_id, horizons:[{horizon_hours,
-                   risk_level, valid_at}]}. For each zone-day the LATEST run
-                   issued before that day ended is used, per horizon.
+    Every score is split by model version ("physics_24h @drift-…"), so the
+    old and new models are never pooled.
+
+    physics_rows : forecasts rows {run_at, zone_id, horizons, model_version};
+                   latest run issued before the reported day ended, per horizon.
     extended_rows: ml_forecasts rows {run_at, zone_id, lead_days, risk_level,
-                   method, valid_at}; latest run per (zone, day, lead).
+                   method, valid_at, model_version}; latest run per (zone, day, lead).
+    beach_rows   : beach_forecasts rows {run_at, beach_name, horizons,
+                   model_version}, scored against beach-level labels — the
+                   most direct comparison, since reports are per beach.
     """
     from pipeline.model import parse_ts
 
-    phys: dict[tuple[int, dt.date, int], tuple[dt.datetime, int]] = {}
-    for row in physics_rows:
-        run_at = parse_ts(row["run_at"])
-        for h in row.get("horizons") or []:
-            try:
-                valid = parse_ts(h["valid_at"])
-                key = (int(row["zone_id"]), _dr_date(valid), int(h["horizon_hours"]))
-                risk = RISK_TO_INT.get(h["risk_level"], 0)
-            except Exception:
-                continue
-            day_end = dt.datetime.combine(key[1] + dt.timedelta(days=1), dt.time(), dt.timezone.utc) - _DR_OFFSET
-            if run_at > day_end:
-                continue  # issued after the day was over: not a forecast
-            if key not in phys or run_at > phys[key][0]:
-                phys[key] = (run_at, risk)
+    phys = _latest_by_day(physics_rows, "zone_id")
+    beach = _latest_by_day(beach_rows or [], "beach_name")
 
-    ext: dict[tuple[int, dt.date, int], tuple[dt.datetime, int, str]] = {}
+    ext: dict[tuple, tuple[dt.datetime, int, str]] = {}
     for row in extended_rows:
         try:
             key = (int(row["zone_id"]), dt.date.fromisoformat(str(row["valid_at"])[:10]),
-                   int(row["lead_days"]))
+                   int(row["lead_days"]), row.get("model_version") or config.LEGACY_VERSION)
             run_at = parse_ts(row["run_at"])
         except Exception:
             continue
@@ -280,21 +317,33 @@ def score_reports(
         t.append(truth)
         p.append(pred)
 
+    by_ident_day: dict[tuple, list[tuple]] = {}
+    for k in phys:
+        by_ident_day.setdefault(("z", k[0], k[1]), []).append(k)
+    for k in ext:
+        by_ident_day.setdefault(("e", k[0], k[1]), []).append(k)
+    for k in beach:
+        by_ident_day.setdefault(("b", k[0], k[1]), []).append(k)
+
     for (zid, day), truth in sorted(labels.items()):
         zone = zones_by_id.get(zid)
         if zone is not None:
             add("seasonal", truth, _seasonal_int(zone, day))
-        for h in sorted({k[2] for k in phys}):
-            if (zid, day, h) in phys:
-                add(f"physics_{h}h", truth, phys[(zid, day, h)][1])
-        for lead in sorted({k[2] for k in ext}):
-            if (zid, day, lead) in ext:
-                _, pred, method = ext[(zid, day, lead)]
-                add(f"extended_{lead}d", truth, pred)
-                methods_used.setdefault(f"extended_{lead}d", Counter())[method] += 1
+        for k in by_ident_day.get(("z", zid, day), []):
+            add(f"physics_{k[2]}h @{k[3]}", truth, phys[k][1])
+        for k in by_ident_day.get(("e", zid, day), []):
+            _, pred, method = ext[k]
+            name = f"extended_{k[2]}d @{k[3]}"
+            add(name, truth, pred)
+            methods_used.setdefault(name, Counter())[method] += 1
+
+    for (bname, day), truth in sorted((beach_labels or {}).items()):
+        for k in by_ident_day.get(("b", bname, day), []):
+            add(f"beach_{k[2]}h @{k[3]}", truth, beach[k][1])
 
     out = {
         "n_reports_zone_days": len(labels),
+        "n_reports_beach_days": len(beach_labels or {}),
         "label_counts": {INT_TO_RISK[k]: int(v) for k, v in sorted(Counter(labels.values()).items())},
         "metrics": {name: score(t, p) for name, (t, p) in pairs.items()},
     }
@@ -308,18 +357,35 @@ def score_against_reports(sb_client) -> dict:
     from pipeline.model import fetch_all, fetch_zones_by_id
 
     reports = fetch_all(lambda: sb_client.table("beach_reports")
-                        .select("observed_on, zone_id, amount").order("id"))
+                        .select("observed_on, zone_id, beach_name, amount").order("id"))
     labels = report_labels(reports)
-    if not labels:
+    beach_labels = report_labels(reports, key="beach")
+    if not labels and not beach_labels:
         return {"n_reports_zone_days": 0, "metrics": {}}
-    first = min(day for _, day in labels)
+    first = min(day for _, day in list(labels) + list(beach_labels))
     since = (first - dt.timedelta(days=4)).isoformat()
-    physics = fetch_all(lambda: sb_client.table("forecasts")
-                        .select("run_at, zone_id, horizons").gte("run_at", since).order("id"))
-    extended = fetch_all(lambda: sb_client.table("ml_forecasts")
-                         .select("run_at, zone_id, lead_days, risk_level, method, valid_at")
-                         .gte("valid_at", first.isoformat()).order("id"))
-    return score_reports(labels, fetch_zones_by_id(sb_client), physics, extended)
+
+    def fetch_optional(build):
+        try:
+            return fetch_all(build)
+        except Exception:  # model_version / beach_forecasts missing before schema.sql
+            logger.warning("evaluate: could not read a forecast table; re-run sql/schema.sql.")
+            return []
+
+    physics = fetch_optional(lambda: sb_client.table("forecasts")
+                             .select("run_at, zone_id, horizons, model_version")
+                             .gte("run_at", since).order("id"))
+    extended = fetch_optional(lambda: sb_client.table("ml_forecasts")
+                              .select("run_at, zone_id, lead_days, risk_level, method, valid_at, "
+                                      "model_version")
+                              .gte("valid_at", first.isoformat()).order("id"))
+    beach_rows = fetch_optional(lambda: sb_client.table("beach_forecasts")
+                                .select("run_at, beach_name, horizons, model_version")
+                                .gte("run_at", since).order("id"))
+    out = score_reports(labels, fetch_zones_by_id(sb_client), physics, extended,
+                        beach_labels, beach_rows)
+    out["reports_per_label"] = {str(k): v for k, v in sorted(report_counts(reports).items())}
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -352,6 +418,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="rebuild zone features in memory from detections + forecasts "
                              "(slow; use before zone_features has been backfilled)")
     parser.add_argument("--no-reports", action="store_true")
+    parser.add_argument("--versions", default=",".join(config.ML_TRAIN_VERSIONS),
+                        help="zone_features drift versions to evaluate on, comma-separated, "
+                             "or 'all' (default: the versions training uses)")
     parser.add_argument("--json", help="also write the full results to this file")
     args = parser.parse_args(argv)
 
@@ -366,7 +435,8 @@ def main(argv: list[str] | None = None) -> int:
         from pipeline.backfill_features import build_history_feature_rows
         feature_rows = build_history_feature_rows(sb, zones)
     else:
-        feature_rows = fetch_zone_features(sb)
+        versions = [] if args.versions == "all" else [v for v in args.versions.split(",") if v]
+        feature_rows = fetch_zone_features(sb, versions)
     rows = build_training_rows(feature_rows, zones)
 
     out = {"walk_forward": walk_forward(rows, n_folds=args.folds)}
@@ -396,7 +466,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             from pipeline.model import MIN_TRAIN_SAMPLES, build_report_training_rows, fetch_all
             reports = fetch_all(lambda: sb.table("beach_reports")
-                                .select("observed_on, zone_id, amount").order("id"))
+                                .select("observed_on, zone_id, beach_name, amount").order("id"))
             rrows = build_report_training_rows(feature_rows, zones, report_labels(reports))
             if len(rrows) >= MIN_TRAIN_SAMPLES:
                 out["walk_forward_reports"] = wf_r = walk_forward(rrows, n_folds=args.folds)
@@ -411,7 +481,10 @@ def main(argv: list[str] | None = None) -> int:
             out["reports"] = score_against_reports(sb)
             print(f"\nVisitor reports: {out['reports']['n_reports_zone_days']} zone-days, "
                   f"labels {out['reports'].get('label_counts', {})}")
-            _print_table("Forecasts vs visitor reports", out["reports"]["metrics"])
+            print(f"  beach-days: {out['reports'].get('n_reports_beach_days', 0)}; "
+                  f"reports per label: {out['reports'].get('reports_per_label', {})}")
+            _print_table("Forecasts vs visitor reports (split by model version)",
+                         out["reports"]["metrics"])
         except Exception as exc:  # table missing before sql/schema.sql is applied
             print(f"\nVisitor reports: could not score ({exc.__class__.__name__}: {exc})")
 

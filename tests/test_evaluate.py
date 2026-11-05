@@ -162,26 +162,47 @@ def test_report_labels_and_scoring() -> None:
 
     physics = [
         # Issued the day before: its +24h horizon is valid on the reported day.
-        {"run_at": "2026-06-30T12:00:00+00:00", "zone_id": 1,
+        {"run_at": "2026-06-30T12:00:00+00:00", "zone_id": 1, "model_version": "drift-new",
          "horizons": [{"horizon_hours": 24, "risk_level": "high",
                        "valid_at": "2026-07-01T12:00:00+00:00"}]},
+        # Same day, older model: scored separately, never pooled.
+        {"run_at": "2026-06-30T12:00:00+00:00", "zone_id": 1,
+         "horizons": [{"horizon_hours": 24, "risk_level": "none",
+                       "valid_at": "2026-07-01T12:00:00+00:00"}]},
         # Issued after the day was over: must be ignored.
-        {"run_at": "2026-07-03T12:00:00+00:00", "zone_id": 1,
+        {"run_at": "2026-07-03T12:00:00+00:00", "zone_id": 1, "model_version": "drift-new",
          "horizons": [{"horizon_hours": 24, "risk_level": "none",
                        "valid_at": "2026-07-01T15:00:00+00:00"}]},
     ]
     extended = [
         {"run_at": "2026-06-24T00:00:00+00:00", "zone_id": 1, "lead_days": 7,
-         "risk_level": "medium", "method": "ml", "valid_at": "2026-07-01"},
+         "risk_level": "medium", "method": "ml", "valid_at": "2026-07-01", "model_version": "ml-new"},
         {"run_at": "2026-06-24T00:00:00+00:00", "zone_id": 2, "lead_days": 7,
-         "risk_level": "low", "method": "seasonal", "valid_at": "2026-07-01"},
+         "risk_level": "low", "method": "seasonal", "valid_at": "2026-07-01", "model_version": "ml-new"},
     ]
-    out = evaluate.score_reports(labels, ZONES, physics, extended)
+    beach_reports = [
+        {"beach_name": "Playa Bávaro", "zone_id": 1, "observed_on": "2026-07-01", "amount": "medium"},
+        {"beach_name": "Playa Sosúa", "zone_id": 2, "observed_on": "2026-07-01", "amount": "none"},
+    ]
+    beach_labels = evaluate.report_labels(beach_reports, key="beach")
+    assert beach_labels == {("Playa Bávaro", day): 2, ("Playa Sosúa", day): 0}
+    beach_rows = [
+        {"run_at": "2026-06-30T18:00:00+00:00", "beach_name": "Playa Bávaro", "model_version": "drift-new",
+         "horizons": [{"horizon_hours": 24, "risk_level": "medium", "valid_at": "2026-07-01T18:00:00+00:00"}]},
+        {"run_at": "2026-06-30T18:00:00+00:00", "beach_name": "Playa Sosúa", "model_version": "drift-new",
+         "horizons": [{"horizon_hours": 24, "risk_level": "low", "valid_at": "2026-07-01T18:00:00+00:00"}]},
+    ]
+    out = evaluate.score_reports(labels, ZONES, physics, extended, beach_labels, beach_rows)
     m = out["metrics"]
-    assert m["physics_24h"]["n"] == 1 and m["physics_24h"]["accuracy"] == 1.0
-    assert m["extended_7d"]["n"] == 2 and m["extended_7d"]["accuracy"] == 0.5
-    assert m["extended_7d"]["published_method"] == {"ml": 1, "seasonal": 1}
+    assert m["physics_24h @drift-new"]["n"] == 1 and m["physics_24h @drift-new"]["accuracy"] == 1.0
+    assert m["physics_24h @legacy"]["accuracy"] == 0.0
+    assert m["extended_7d @ml-new"]["n"] == 2 and m["extended_7d @ml-new"]["accuracy"] == 0.5
+    assert m["extended_7d @ml-new"]["published_method"] == {"ml": 1, "seasonal": 1}
+    assert m["beach_24h @drift-new"]["n"] == 2 and m["beach_24h @drift-new"]["accuracy"] == 0.5
     assert m["seasonal"]["n"] == 2
+    # A label needs MIN reports: with 2 required, only zone 1 (3 reports) stays.
+    assert evaluate.report_labels(reports, min_reports=2) == {(1, day): 3}
+    assert evaluate.report_counts(reports) == {3: 1, 1: 1}
     print("  report labels (median) and forecast scoring: OK")
 
 

@@ -53,6 +53,7 @@ OCEAN_VARS = ("uo", "vo")
 
 _PAD_DEG = 0.5            # margin around the EEZ so edge trajectories stay inside
 _WIND_GRID_DEG = 0.5      # Open-Meteo sampling step
+_HISTORICAL_WIND_URL = "https://historical-forecast-api.open-meteo.com/v1/forecast"
 
 
 @dataclass
@@ -196,9 +197,14 @@ def _fetch_wind(start: dt.datetime, end: dt.datetime, bbox: dict):
     params = config.open_meteo_params(grid[0][0], grid[0][1], start.date(), end.date())
     params["latitude"] = ",".join(str(la) for la, _ in grid)
     params["longitude"] = ",".join(str(lo) for _, lo in grid)
-    resp = requests.post(config.OPEN_METEO_BASE_URL, data=params, timeout=60, verify=certifi.where())
+    # The forecast API only goes ~3 months back; older periods (replays) use
+    # Open-Meteo's Historical Forecast API, which takes the same parameters.
+    url = config.OPEN_METEO_BASE_URL
+    if start < dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=80):
+        url = _HISTORICAL_WIND_URL
+    resp = requests.post(url, data=params, timeout=90, verify=certifi.where())
     if resp.status_code == 405:  # endpoint that only takes GET
-        resp = requests.get(config.OPEN_METEO_BASE_URL, params=params, timeout=60, verify=certifi.where())
+        resp = requests.get(url, params=params, timeout=90, verify=certifi.where())
     resp.raise_for_status()
     payload = resp.json()
     entries = payload if isinstance(payload, list) else [payload]

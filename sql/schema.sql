@@ -203,8 +203,70 @@ do $$ begin
 end $$;
 
 -- -------------------------------------------------------------------------
+-- Model versions, beach-level forecasts, zone coastlines (safe to re-run)
+-- -------------------------------------------------------------------------
+
+-- Which model produced each row, so scores never mix models. Rows from
+-- before versioning are marked 'legacy' (centroid-in-box drift, wind read in
+-- km/h as m/s).
+alter table forecasts     add column if not exists model_version text;
+alter table ml_forecasts  add column if not exists model_version text;
+alter table zone_features add column if not exists model_version text;
+update forecasts     set model_version = 'legacy' where model_version is null;
+update ml_forecasts  set model_version = 'legacy' where model_version is null;
+update zone_features set model_version = 'legacy' where model_version is null;
+alter table zone_features alter column model_version set not null;
+
+-- zone_features can now hold the same run twice: the legacy row and one
+-- regenerated with the current drift model (pipeline/replay.py).
+do $$ begin
+  if exists (
+    select 1 from pg_constraint
+    where conname = 'zone_features_pkey'
+      and pg_get_constraintdef(oid) not like '%model_version%'
+  ) then
+    alter table zone_features drop constraint zone_features_pkey;
+    alter table zone_features add primary key (run_at, zone_id, model_version);
+  end if;
+end $$;
+
+-- When a report was sent (time of day matters: arrivals change within a day).
+-- Null for reports about yesterday.
+alter table beach_reports add column if not exists observed_at timestamptz;
+
+-- The pipeline's own forecast for each catalogue beach: particles stopping
+-- within BEACH_RADIUS_KM of the beach. This is what the beach card shows when
+-- available, and what visitor reports (which are per beach) are scored on.
+create table if not exists beach_forecasts (
+    id                   bigserial primary key,
+    run_at               timestamptz not null default now(),
+    beach_name           text not null,
+    zone_id              int references zones(id) on delete set null,
+    risk_level           text not null check (risk_level in ('none', 'low', 'medium', 'high')),
+    eta_hours            int,
+    arrival_probability  double precision,
+    risk_probs           jsonb,
+    horizons             jsonb,
+    model_version        text not null
+);
+alter table beach_forecasts enable row level security;
+do $$ begin
+  if not exists (
+    select 1 from pg_policies where tablename = 'beach_forecasts' and policyname = 'beach_forecasts_public_read'
+  ) then
+    create policy beach_forecasts_public_read on beach_forecasts for select using (true);
+  end if;
+end $$;
+
+-- The stretch of coast each zone owns (arrivals are counted there). `geom`
+-- keeps the original display boxes, which no longer decide anything.
+alter table zones add column if not exists coast geometry(multilinestring, 4326);
+
+-- -------------------------------------------------------------------------
 -- Indexes
 -- -------------------------------------------------------------------------
+create index if not exists beach_forecasts_run_idx    on beach_forecasts (run_at desc);
+create index if not exists beach_forecasts_beach_idx  on beach_forecasts (beach_name, run_at desc);
 create index if not exists beach_reports_observed_idx on beach_reports (observed_on, zone_id);
 create index if not exists zone_features_run_at_idx   on zone_features (run_at);
 create index if not exists detections_run_at_idx    on detections   (run_at desc);
@@ -256,7 +318,8 @@ do $$ begin
 end $$;
 
 -- -------------------------------------------------------------------------
--- Seed zones (10 coastal zones covering the full DR coastline)
+-- Seed zones (14 coastal zones; the pipeline also inserts any zone in
+-- pipeline/config.py that is missing here)
 -- -------------------------------------------------------------------------
 insert into zones (name, center_lat, center_lon, geom) values
   (
@@ -330,6 +393,27 @@ insert into zones (name, center_lat, center_lon, geom) values
     )
   ),
   (
+    'Punta Rucia', 19.87, -71.21,
+    st_geomfromtext(
+      'POLYGON((-71.56 19.52, -70.86 19.52, -70.86 20.22, -71.56 20.22, -71.56 19.52))',
+      4326
+    )
+  ),
+  (
+    'Santo Domingo', 18.45, -69.95,
+    st_geomfromtext(
+      'POLYGON((-70.30 18.10, -69.60 18.10, -69.60 18.80, -70.30 18.80, -70.30 18.10))',
+      4326
+    )
+  ),
+  (
+    'Miches', 18.99, -68.85,
+    st_geomfromtext(
+      'POLYGON((-69.20 18.64, -68.50 18.64, -68.50 19.34, -69.20 19.34, -69.20 18.64))',
+      4326
+    )
+  ),
+  (
     'La Romana', 18.30, -68.76,
     st_geomfromtext(
       'POLYGON((-69.11 17.95, -68.41 17.95, -68.41 18.65, -69.11 18.65, -69.11 17.95))',
@@ -377,7 +461,8 @@ select
     f.eta_timestamp,
     f.horizons,
     f.arrival_probability,
-    f.risk_probs
+    f.risk_probs,
+    f.model_version
 from forecasts f
 join zones z on z.id = f.zone_id
 where f.run_at = (
@@ -400,7 +485,8 @@ select
     m.confidence,
     m.method,
     m.valid_at,
-    m.probs
+    m.probs,
+    m.model_version
 from ml_forecasts m
 join zones z on z.id = m.zone_id
 where m.run_at = (
@@ -408,3 +494,14 @@ where m.run_at = (
     where m2.zone_id = m.zone_id and m2.lead_days = m.lead_days
 );
 
+
+-- -------------------------------------------------------------------------
+-- View: beach_forecasts_latest
+-- One row per beach: its most recent pipeline forecast.
+-- -------------------------------------------------------------------------
+create or replace view beach_forecasts_latest as
+select b.*
+from beach_forecasts b
+where b.run_at = (
+    select max(b2.run_at) from beach_forecasts b2 where b2.beach_name = b.beach_name
+);

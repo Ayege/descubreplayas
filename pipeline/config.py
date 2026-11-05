@@ -92,6 +92,16 @@ ZONES = [
     # Minitas, and both Saona Island beaches (Mano Juan, Canto de la Playa),
     # all of which were >54 km from any existing zone.
     {"name": "La Romana", "center_lat": 18.30, "center_lon": -68.76},
+    # Coast that belonged to no zone once arrivals were counted at the
+    # coastline (each stretch of coast goes to the nearest centre within
+    # ZONE_COAST_RADIUS_KM):
+    # North coast between Monte Cristi and Puerto Plata — Punta Rucia,
+    # La Ensenada, Estero Hondo.
+    {"name": "Punta Rucia", "center_lat": 19.87, "center_lon": -71.21},
+    # Santo Domingo – Haina waterfront, between Juan Dolio and Azua.
+    {"name": "Santo Domingo", "center_lat": 18.45, "center_lon": -69.95},
+    # Miches / Costa Esmeralda, the south shore of the mouth of Samaná Bay.
+    {"name": "Miches", "center_lat": 18.99, "center_lon": -68.85},
 ]
 
 # Half-width (degrees) of the square box built around each zone center.
@@ -184,6 +194,15 @@ AFAI_FULL_COVER = float(os.environ.get("AFAI_FULL_COVER", "0.0869"))
 AFAI_MATCH_KM = float(os.environ.get("AFAI_MATCH_KM", "15"))
 AFAI_SOURCE = "usf-afai"
 
+# --- Model versions ---------------------------------------------------------
+# Stamped on every stored forecast, so scores never mix models. Bump when the
+# drift or detection logic changes in a way that changes forecasts.
+# "legacy" marks rows from before versioning (centroid-in-box drift, wind
+# read in km/h as m/s).
+DRIFT_MODEL_VERSION = os.environ.get("DRIFT_MODEL_VERSION", "drift-ensemble-2026.11")
+ML_MODEL_VERSION = os.environ.get("ML_MODEL_VERSION", "ml-2026.11")
+LEGACY_VERSION = "legacy"
+
 # --- Drift / risk -------------------------------------------------------------
 # Surface currents: True uses Copernicus' merged product (ocean + tides +
 # wave Stokes drift); False uses the ocean circulation alone.
@@ -234,6 +253,13 @@ RISK_AREA_LOW_MAX_KM2 = float(os.environ.get("RISK_AREA_LOW_MAX_KM2", "5.0"))
 RISK_AREA_MEDIUM_MAX_KM2 = float(os.environ.get("RISK_AREA_MEDIUM_MAX_KM2", "25.0"))
 # ETA threshold that upgrades medium→high when a LARGE mass is imminent.
 RISK_HIGH_ETA_HOURS = int(os.environ.get("RISK_HIGH_ETA_HOURS", "24"))
+# Which patch area the thresholds apply to: "area_km2" (outline, what the
+# thresholds were set on) or "covered_km2" (estimated covered area; falls
+# back to the outline when a patch has none). Compare with pipeline/replay.py.
+RISK_AREA_FIELD = os.environ.get("RISK_AREA_FIELD", "area_km2")
+# A particle stopping within this distance (km) of a beach counts for that
+# beach's own forecast (beach_forecasts table).
+BEACH_RADIUS_KM = float(os.environ.get("BEACH_RADIUS_KM", "10"))
 
 # --- Extended forecast / ML model ----------------------------------------
 # Physics drift is reliable up to FORECAST_HOURS_PHYSICS.  Beyond that the
@@ -250,6 +276,13 @@ ML_EVAL_FOLDS = int(os.environ.get("ML_EVAL_FOLDS", "3"))
 # Switch the training labels from physics risk to visitor reports once the
 # reports give this many (zone, day, lead) rows.
 ML_MIN_REPORT_ROWS = int(os.environ.get("ML_MIN_REPORT_ROWS", "150"))
+# zone_features rows from these drift versions are used for training. Legacy
+# rows carry physics labels from the old drift model's errors; regenerate
+# history with `python -m pipeline.replay --write-features` instead.
+ML_TRAIN_VERSIONS = [v.strip() for v in os.environ.get(
+    "ML_TRAIN_VERSIONS", DRIFT_MODEL_VERSION).split(",") if v.strip()]
+# A zone-day (or beach-day) report label needs at least this many reports.
+MIN_REPORTS_PER_LABEL = int(os.environ.get("MIN_REPORTS_PER_LABEL", "1"))
 # Calibrate the classifier's probabilities (sigmoid, time-ordered folds).
 ML_CALIBRATE = os.environ.get("ML_CALIBRATE", "1") not in ("0", "false", "False", "")
 

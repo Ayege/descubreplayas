@@ -419,6 +419,7 @@ _T = {
         "ml_confidence": "Confianza modelo",
         "ml_probs": "Probabilidad de riesgo medio o alto: {p}%",
         "zone_arrival_prob": "Probabilidad de que llegue sargazo a la costa de la zona en 72 h: {p}%",
+        "beach_arrival_prob": "Probabilidad de que llegue sargazo a {km} km de esta playa en 72 h: {p}%",
         "expo_sheltered": "🧭 Hoy la corriente y el viento alejan el sargazo de esta orilla, así que el sargazo cercano cuenta un nivel menos de riesgo.",
         "expo_exposed": "🧭 Hoy la corriente y el viento empujan el sargazo hacia esta orilla.",
         "ml_note_map": "Vista extendida — ML · posiciones especulativas",
@@ -564,6 +565,7 @@ _T = {
         "ml_confidence": "Model confidence",
         "ml_probs": "Chance of medium or high risk: {p}%",
         "zone_arrival_prob": "Chance of sargassum reaching the zone's coast within 72 h: {p}%",
+        "beach_arrival_prob": "Chance of sargassum arriving within {km} km of this beach in 72 h: {p}%",
         "expo_sheltered": "🧭 Today the current and wind carry sargassum away from this shore, so nearby sargassum counts one risk level lower.",
         "expo_exposed": "🧭 Today the current and wind push sargassum toward this shore.",
         "ml_note_map": "Extended view — ML · speculative positions",
@@ -1601,6 +1603,19 @@ def _cached_fetch_ml_forecasts(url: str) -> list[dict]:
         return []
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_fetch_beach_forecasts(url: str) -> list[dict]:
+    """The pipeline's own per-beach forecasts (GET /forecast/beaches)."""
+    if not url:
+        return []
+    try:
+        import requests, certifi
+        resp = requests.get(f"{url}/forecast/beaches", timeout=(2.5, 12), verify=certifi.where())
+        return resp.json() if resp.status_code == 200 else []
+    except Exception:
+        return []
+
+
 # ---------------------------------------------------------------------------
 # Visitor reports — what people actually see on the beach. They are the only
 # real observations of arrivals, and pipeline/evaluate.py scores every
@@ -1801,6 +1816,7 @@ run_parallel([
     lambda: _cached_fetch_live_risk(API_BASE_URL),
     lambda: _cached_fetch_ml_forecasts(API_BASE_URL),
     lambda: _cached_fetch_detections(API_BASE_URL),
+    lambda: _cached_fetch_beach_forecasts(API_BASE_URL),
     _fetch_wind_uv,
 ])
 
@@ -1813,6 +1829,24 @@ zones, forecast_by_zone_id = _cached_fetch_live_risk(API_BASE_URL)
 
 # ML extended forecasts — fetched once per 5-min cache window
 _ml_forecasts: list[dict] = _cached_fetch_ml_forecasts(API_BASE_URL)
+
+# The pipeline's particle-ensemble forecast per beach, when it has one. The
+# card prefers it over the quick distance estimate below, so what visitors
+# see is the same forecast that is stored and scored against their reports.
+_BEACH_FC: dict[str, dict] = {
+    f["beach_name"]: f for f in _cached_fetch_beach_forecasts(API_BASE_URL)
+    if f.get("beach_name") and f.get("horizons")
+}
+
+
+def _beach_fc_at(beach: dict, horizon: int) -> str | None:
+    """Pipeline beach forecast's level at the checkpoint closest to `horizon`."""
+    bf = _BEACH_FC.get(beach["name"])
+    if not bf:
+        return None
+    best = min(bf["horizons"], key=lambda h: abs(int(h.get("horizon_hours", 0)) - horizon))
+    return best.get("risk_level")
+
 
 # Pre-index ML forecasts by zone_id for O(1) lookups in _ml_risk_for_zone.
 _ml_forecasts_by_zone_id: dict[int, list[dict]] = {}
@@ -1919,6 +1953,8 @@ def _beach_risk_horizons(beach: dict) -> list[tuple[int, str]] | None:
     """
     if not zones:
         return None
+    if beach["name"] in _BEACH_FC:
+        return [(h, _beach_fc_at(beach, h) or "none") for h in (0, 24, 48, 72)]
     _, zone, zdist, fc = risk_for_beach(beach, zones, forecast_by_zone_id)
     masses = _cached_fetch_detections(API_BASE_URL)
     if not masses:
@@ -1940,6 +1976,11 @@ def _beach_risk(beach: dict):
         return None, None, None, None
 
     _lvl, zone, zdist, fc = risk_for_beach(beach, zones, forecast_by_zone_id)
+
+    # The pipeline's own forecast for this beach wins when there is one.
+    if beach["name"] in _BEACH_FC and not (zone is not None and zdist is not None
+                                           and zdist > COVERAGE_KM):
+        return _beach_fc_at(beach, globals().get("SEL_HORIZON") or 0), zone, None, fc
 
     masses = _cached_fetch_detections(API_BASE_URL)
     if masses:
@@ -1996,6 +2037,9 @@ def _beach_risk_dated(beach: dict, skip_eta: bool = False):
             return None, None, None, None, None, None
         if skip_eta:
             return lvl, zone, dist, fc, ("out" if lvl == "out" else "physics"), None
+        bf = _BEACH_FC.get(beach["name"])
+        if bf is not None:
+            return lvl, zone, dist, fc, ("out" if lvl == "out" else "physics"), bf.get("eta_hours")
         masses = _cached_fetch_detections(API_BASE_URL)
         _wu, _wv = _WIND_UV
         eta_h = _beach_eta_quick(beach, masses, wind_u=_wu, wind_v=_wv) if masses else None
@@ -3552,8 +3596,13 @@ if _panel_beach:
         elif _expo is not None and _expo > EXPOSED_ABOVE:
             _physics_extra_html += (f"<div style='color:#ffcc80;font-size:10.5px;margin:5px 0'>"
                                     f"{L['expo_exposed']}</div>")
+        _bfc = _BEACH_FC.get(_pb["name"])
+        _bp = (_bfc or {}).get("arrival_probability")
         _zp = (_fc or {}).get("arrival_probability")
-        if _zp is not None:
+        if _bp is not None:
+            _physics_extra_html += (f"<div style='color:#80cbc4;font-size:10px;margin:3px 0'>"
+                                    f"{L['beach_arrival_prob'].format(p=round(100 * float(_bp)), km=round(_pcfg.BEACH_RADIUS_KM))}</div>")
+        elif _zp is not None:
             _physics_extra_html += (f"<div style='color:#80cbc4;font-size:10px;margin:3px 0'>"
                                     f"{L['zone_arrival_prob'].format(p=round(100 * float(_zp)))}</div>")
 

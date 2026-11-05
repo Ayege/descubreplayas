@@ -121,6 +121,8 @@ def test_small_trace_is_low_or_none() -> None:
     field = ForcingField.uniform(NOW, 96, u=-0.5, v=0.0)
     pc = _zone(project_drift([_patch(18.58, -67.90, area=0.2)], field, now=NOW), "Punta Cana")
     assert pc["risk_level"] == "none", pc
+    # A trace that arrives must not produce an ETA next to a 0 % probability.
+    assert pc["arrival_probability"] == 0.0 and pc["eta_hours"] is None, pc
     print("  a 0.2 km² trace stays 'none': OK")
 
 

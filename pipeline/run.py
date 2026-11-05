@@ -134,14 +134,20 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
     # Step 3: drift / risk — particle ensemble for every patch.
     # ------------------------------------------------------------------
     forecasts: list[dict] = []
+    beach_fcs: list[dict] = []
     t = time.perf_counter()
     try:
-        from pipeline.drift import project_drift
-        forecasts = project_drift(patches, field, hours=[0, 24, 48, horizon], now=now)
-        logger.info("drift: %d zone forecast(s) in %s", len(forecasts), _elapsed(t))
+        from dashboard.beaches_data import BEACHES
+        from pipeline.drift import forecast_zones_and_beaches
+        forecasts, beach_fcs = forecast_zones_and_beaches(
+            patches, field, BEACHES, hours=[0, 24, 48, horizon], now=now)
+        for fc in forecasts + beach_fcs:
+            fc["model_version"] = config.DRIFT_MODEL_VERSION
+        logger.info("drift: %d zone and %d beach forecast(s) in %s",
+                    len(forecasts), len(beach_fcs), _elapsed(t))
     except Exception:
         logger.exception("drift step failed — no forecasts will be stored")
-        forecasts = []
+        forecasts, beach_fcs = [], []
 
     if dry:
         print("\nDRY RUN — zone forecasts (nothing stored, no alerts sent):")
@@ -149,6 +155,11 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
         for fc in forecasts:
             print(f"  {fc['zone_name']:<14}{fc['risk_level']:<8}{fc['arrival_probability']:>10.2f}"
                   f"{fc['eta_hours'] if fc['eta_hours'] is not None else '—':>7}   {fc['risk_probs']}")
+        hit = [b for b in beach_fcs if b["risk_level"] != "none"]
+        print(f"\n  beaches with risk ({len(hit)} of {len(beach_fcs)}):")
+        for b in hit:
+            print(f"    {b['beach_name']:<34}{b['risk_level']:<8}p={b['arrival_probability']:.2f} "
+                  f"eta={b['eta_hours']}")
         logger.info("=== Dry run complete in %s ===", _elapsed(run_start))
         return 0
 
@@ -210,9 +221,20 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
                 patches,
                 {fc["zone_name"]: RISK_TO_INT.get(fc.get("risk_level", "none"), 0)
                  for fc in forecasts},
-            ))
+            ), model_version=config.DRIFT_MODEL_VERSION)
         except Exception:
             logger.exception("store zone features failed")
+
+        # Per-beach forecasts (what the card shows and reports are scored on)
+        # and each zone's owned coastline (for maps).
+        try:
+            from pipeline.drift import zone_coast_wkt
+            from pipeline.store import insert_beach_forecasts, update_zone_coasts, upsert_zones
+            zone_map = upsert_zones(config.ZONES)
+            insert_beach_forecasts(beach_fcs, zone_map)
+            update_zone_coasts(zone_coast_wkt(), zone_map)
+        except Exception:
+            logger.exception("store beach forecasts / zone coasts failed")
 
     # ------------------------------------------------------------------
     # Step 5: dispatch alerts

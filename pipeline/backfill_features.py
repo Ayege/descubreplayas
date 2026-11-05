@@ -65,7 +65,13 @@ def pair_runs(
 
 
 def build_history_feature_rows(sb_client, zones_by_id: dict[int, dict]) -> list[dict]:
-    """zone_features rows for every past forecast run (reads only)."""
+    """zone_features rows for every past forecast run (reads only).
+
+    physics_risk comes from the stored forecasts, i.e. from whichever drift
+    model made them: rows are marked 'legacy' when written. For training, use
+    pipeline/replay.py --write-features to regenerate them with the current
+    model instead.
+    """
     from pipeline.model import fetch_all, parse_ts
 
     logger.info("backfill: reading forecasts …")
@@ -117,7 +123,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"{len(rows)} zone_features rows built.")
     if args.write:
         from pipeline.store import upsert_zone_features
-        upsert_zone_features(rows)
+        # These physics labels came from the old drift model.
+        upsert_zone_features(rows, model_version=config.LEGACY_VERSION)
     else:
         print("Dry run: nothing written. Re-run with --write to store them.")
     return 0

@@ -50,9 +50,9 @@ def list_zones() -> list[dict[str, Any]]:
 
 
 _FC_COLS = "id, run_at, zone_id, zone_name, risk_level, eta_hours, eta_timestamp, horizons"
-_FC_NEW_COLS = ", arrival_probability, risk_probs"
+_FC_NEW_COLS = ", arrival_probability, risk_probs, model_version"
 _ML_COLS = "id, run_at, zone_id, zone_name, lead_days, risk_level, confidence, method, valid_at"
-_ML_NEW_COLS = ", probs"
+_ML_NEW_COLS = ", probs, model_version"
 
 
 def _select(view: str, cols: str, new_cols: str, build):
@@ -153,26 +153,45 @@ def insert_report(
     amount: str,
     observed_on: str,
     source: str = "web",
+    observed_at: str | None = None,
 ) -> dict[str, Any]:
     """Store one visitor report of sargassum on a beach."""
-    result = (
-        get_client()
-        .table("beach_reports")
-        .insert({
-            "beach_name": beach_name,
-            "latitude": latitude,
-            "longitude": longitude,
-            "zone_id": zone_id,
-            "amount": amount,
-            "observed_on": observed_on,
-            "source": source,
-        })
-        .execute()
-    )
+    row = {
+        "beach_name": beach_name,
+        "latitude": latitude,
+        "longitude": longitude,
+        "zone_id": zone_id,
+        "amount": amount,
+        "observed_on": observed_on,
+        "source": source,
+    }
+    if observed_at:
+        row["observed_at"] = observed_at
+    try:
+        result = get_client().table("beach_reports").insert(row).execute()
+    except Exception as exc:
+        if "observed_at" not in str(exc):
+            raise
+        logger.warning("beach_reports.observed_at missing; run sql/schema.sql.")
+        row.pop("observed_at", None)
+        result = get_client().table("beach_reports").insert(row).execute()
     rows = result.data or []
     if not rows:
         raise RuntimeError("Report insert returned no data.")
     return rows[0]
+
+
+def list_beach_forecasts() -> list[dict[str, Any]]:
+    """Latest pipeline forecast per beach (beach_forecasts_latest view)."""
+    result = (
+        get_client()
+        .table("beach_forecasts_latest")
+        .select("beach_name, zone_id, risk_level, eta_hours, arrival_probability, risk_probs, "
+                "horizons, run_at, model_version")
+        .order("beach_name")
+        .execute()
+    )
+    return result.data or []
 
 
 def list_detections(limit: int = 2000) -> list[dict[str, Any]]:

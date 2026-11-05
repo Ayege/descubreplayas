@@ -39,8 +39,8 @@ def _float_or_none(value) -> float | None:
 # losing the whole batch.
 _NEW_COLUMNS = {
     "detections": ("observed_at", "covered_km2"),
-    "forecasts": ("arrival_probability", "risk_probs"),
-    "ml_forecasts": ("probs",),
+    "forecasts": ("arrival_probability", "risk_probs", "model_version"),
+    "ml_forecasts": ("probs", "model_version"),
 }
 
 
@@ -147,6 +147,7 @@ def upsert_forecasts(forecasts: list[dict]) -> list[dict]:
                 "horizons": f.get("horizons"),
                 "arrival_probability": f.get("arrival_probability"),
                 "risk_probs": f.get("risk_probs"),
+                "model_version": f.get("model_version", config.DRIFT_MODEL_VERSION),
             }
         )
 
@@ -189,6 +190,7 @@ def upsert_ml_forecasts(ml_forecasts: list[dict]) -> list[dict]:
             "method": f.get("method", "seasonal"),
             "valid_at": f["valid_at"],
             "probs": f.get("probs"),
+            "model_version": f.get("model_version", config.ML_MODEL_VERSION),
         })
 
     try:
@@ -204,26 +206,59 @@ def upsert_ml_forecasts(ml_forecasts: list[dict]) -> list[dict]:
 # Evaluation tables
 # ---------------------------------------------------------------------------
 
-def upsert_zone_features(rows: list[dict]) -> int:
-    """Store per-zone model inputs for this run (see features.zone_feature_rows).
+def upsert_zone_features(rows: list[dict], model_version: str | None = None) -> int:
+    """Store per-zone model inputs for one or more runs (features.zone_feature_rows).
 
     Each row: {run_at, zone_id, eez_area_km2, zone_area_km2, nearest_km,
-    patch_count, physics_risk}. Upserts on (run_at, zone_id), so re-running a
-    backfill is safe.
+    patch_count, physics_risk}, stamped with `model_version` (the drift model
+    that produced physics_risk; default the current one). Upserts on
+    (run_at, zone_id, model_version), so re-running a backfill is safe.
     """
     if not rows:
         return 0
+    version = model_version or config.DRIFT_MODEL_VERSION
+    rows = [{**r, "model_version": r.get("model_version", version)} for r in rows]
     sb = _client()
     total = 0
     for i in range(0, len(rows), 500):
         result = (
             sb.table("zone_features")
-            .upsert(rows[i:i + 500], on_conflict="run_at,zone_id")
+            .upsert(rows[i:i + 500], on_conflict="run_at,zone_id,model_version")
             .execute()
         )
         total += len(result.data or [])
     logger.info("upsert_zone_features: upserted %d row(s).", total)
     return total
+
+
+def insert_beach_forecasts(forecasts: list[dict], zone_map: dict[str, int]) -> int:
+    """Store this run's per-beach forecasts (drift.summarise_beaches)."""
+    if not forecasts:
+        return 0
+    run_at = dt.datetime.now(dt.timezone.utc).isoformat()
+    rows = [{
+        "run_at": run_at,
+        "beach_name": f["beach_name"],
+        "zone_id": zone_map.get(f.get("zone_name")) if f.get("zone_name") else None,
+        "risk_level": f["risk_level"],
+        "eta_hours": f.get("eta_hours"),
+        "arrival_probability": f.get("arrival_probability"),
+        "risk_probs": f.get("risk_probs"),
+        "horizons": f.get("horizons"),
+        "model_version": f.get("model_version", config.DRIFT_MODEL_VERSION),
+    } for f in forecasts]
+    inserted = _client().table("beach_forecasts").insert(rows).execute().data or []
+    logger.info("insert_beach_forecasts: inserted %d row(s).", len(inserted))
+    return len(inserted)
+
+
+def update_zone_coasts(coasts: dict[str, str], zone_map: dict[str, int]) -> None:
+    """Store each zone's owned coastline (MULTILINESTRING WKT) in zones.coast."""
+    sb = _client()
+    for name, wkt in coasts.items():
+        zid = zone_map.get(name)
+        if zid is not None and wkt:
+            sb.table("zones").update({"coast": f"SRID=4326;{wkt}"}).eq("id", zid).execute()
 
 
 def insert_detection_check(summary: dict) -> None:

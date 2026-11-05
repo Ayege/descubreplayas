@@ -157,10 +157,17 @@ def fetch_zones_by_id(sb_client) -> dict[int, dict]:
     }
 
 
-def fetch_zone_features(sb_client) -> list[dict]:
-    return fetch_all(
-        lambda: sb_client.table("zone_features").select("*").order("run_at").order("zone_id")
-    )
+def fetch_zone_features(sb_client, versions: list[str] | None = None) -> list[dict]:
+    """zone_features rows, only from the drift model versions in `versions`
+    (default config.ML_TRAIN_VERSIONS; pass [] for every version)."""
+    versions = config.ML_TRAIN_VERSIONS if versions is None else versions
+
+    def build():
+        q = sb_client.table("zone_features").select("*")
+        if versions:
+            q = q.in_("model_version", versions)
+        return q.order("run_at").order("zone_id")
+    return fetch_all(build)
 
 
 def build_training_rows(
@@ -315,7 +322,7 @@ def _fetch_training_rows(sb_client) -> tuple[list[dict], str]:
     try:
         from pipeline.evaluate import report_labels
         reports = fetch_all(lambda: sb_client.table("beach_reports")
-                            .select("observed_on, zone_id, amount").order("id"))
+                            .select("observed_on, zone_id, beach_name, amount").order("id"))
         report_rows = build_report_training_rows(feature_rows, zones_by_id, report_labels(reports))
     except Exception:
         logger.warning("Could not read beach reports; training on physics labels.", exc_info=True)

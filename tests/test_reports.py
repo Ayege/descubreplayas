@@ -66,8 +66,8 @@ def test_valid_report_is_stored_with_nearest_zone() -> None:
     assert STORED[0]["beach_name"] == "Playa Bávaro"
     # Nothing personal reaches the database: only these fields are passed.
     assert set(STORED[0]) == {"beach_name", "latitude", "longitude", "zone_id",
-                              "amount", "observed_on", "source"}, set(STORED[0])
-    assert STORED[0]["source"] == "web"
+                              "amount", "observed_on", "source", "observed_at"}, set(STORED[0])
+    assert STORED[0]["source"] == "web" and STORED[0]["observed_at"]
     print("  valid report stored with nearest zone and DR date: OK")
 
 
@@ -83,6 +83,7 @@ def test_rejects_unknown_beach_bad_amount_and_dates() -> None:
     yesterday = (main._dr_today() - dt.timedelta(days=1)).isoformat()
     r = client.post("/reports", json={"beach": "Playa Bávaro", "amount": "none", "observed_on": yesterday})
     assert r.status_code == 201, r.text
+    assert STORED[-1]["observed_at"] is None, "no time of day for a report about yesterday"
     print("  unknown beach 404, bad amount/date 422, yesterday accepted: OK")
 
 
@@ -96,6 +97,24 @@ def test_rate_limited_per_visitor() -> None:
                         headers={"X-Forwarded-For": "203.0.113.8"})
     assert other.status_code == 201, "another visitor must not share the limit"
     print("  rate limit is per visitor: OK")
+
+
+def test_beach_forecasts_endpoint() -> None:
+    client = _client()
+    db.list_beach_forecasts = lambda: [{
+        "beach_name": "Playa Bávaro", "zone_id": 2, "risk_level": "medium", "eta_hours": 20,
+        "arrival_probability": 0.6, "risk_probs": {"none": .4, "low": 0, "medium": .6, "high": 0},
+        "horizons": [], "run_at": "2026-11-05T12:00:00+00:00", "model_version": "drift-x"}]
+    r = client.get("/forecast/beaches")
+    assert r.status_code == 200 and r.json()[0]["beach_name"] == "Playa Bávaro", r.text
+    def boom():
+        raise RuntimeError("relation beach_forecasts_latest does not exist")
+    db.list_beach_forecasts = boom
+    assert client.get("/forecast/beaches").json() == [], "missing table must not break the API"
+    # /forecast/{zone_id} still routes to the zone endpoint, not 'beaches'.
+    db.latest_forecast_for_zone = lambda zid: None
+    assert client.get("/forecast/3").status_code == 404
+    print("  GET /forecast/beaches (and graceful when the table is missing): OK")
 
 
 def test_match_beach() -> None:
@@ -138,6 +157,7 @@ def main_() -> int:
     for t in (test_valid_report_is_stored_with_nearest_zone,
               test_rejects_unknown_beach_bad_amount_and_dates,
               test_rate_limited_per_visitor,
+              test_beach_forecasts_endpoint,
               test_match_beach,
               test_telegram_reporte):
         print(f"\n{t.__name__}")

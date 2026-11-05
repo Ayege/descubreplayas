@@ -35,6 +35,7 @@ from api.models import (
     ExtendedForecastResponse,
     ForecastResponse,
     HealthResponse,
+    BeachForecastResponse,
     ReportRequest,
     ReportResponse,
     SubscribeRequest,
@@ -181,6 +182,7 @@ def _format_forecast(row: dict) -> ForecastResponse:
         horizons=row.get("horizons"),
         arrival_probability=row.get("arrival_probability"),
         risk_probs=row.get("risk_probs"),
+        model_version=row.get("model_version"),
     )
 
 
@@ -229,6 +231,7 @@ def list_extended_forecasts(
             valid_at=str(r["valid_at"]),
             run_at=str(r["run_at"]),
             probs=r.get("probs"),
+            model_version=r.get("model_version"),
         ))
     content = json.dumps([e.model_dump() for e in out])
     return Response(
@@ -238,6 +241,26 @@ def list_extended_forecasts(
     )
 
 
+@app.get("/forecast/beaches", response_model=list[BeachForecastResponse], tags=["data"])
+def list_beach_forecasts() -> list[BeachForecastResponse]:
+    """Latest pipeline forecast for every catalogue beach (particles stopping
+    within BEACH_RADIUS_KM of it). Empty until the pipeline has stored one."""
+    try:
+        rows = db.list_beach_forecasts()
+    except Exception:
+        logger.warning("beach forecasts unavailable (run sql/schema.sql?)", exc_info=True)
+        rows = []
+    out = []
+    for r in rows:
+        out.append(BeachForecastResponse(**{**r, "run_at": str(r["run_at"])}).model_dump())
+    return Response(
+        content=json.dumps(out),
+        media_type="application/json",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+# Declared before /forecast/{zone_id} for the same reason as /forecast/extended.
 @app.get("/forecast/{zone_id}", response_model=ForecastResponse, tags=["data"])
 def get_forecast(zone_id: int) -> ForecastResponse:
     row = db.latest_forecast_for_zone(zone_id)

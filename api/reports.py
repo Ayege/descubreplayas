@@ -89,7 +89,11 @@ def store_report(beach: dict, amount: str, observed_on: dt.date, source: str) ->
     except Exception:
         logger.warning("reports: could not load zones; storing report without zone.", exc_info=True)
         zone_id = None
+    # Time of day only when the report is about today: "yesterday" has none.
+    observed_at = (dt.datetime.now(dt.timezone.utc).isoformat()
+                   if observed_on == dr_today() else None)
     return db.insert_report(
         beach_name=beach["name"], latitude=lat, longitude=lon, zone_id=zone_id,
         amount=amount, observed_on=observed_on.isoformat(), source=source,
+        observed_at=observed_at,
     )

@@ -2,7 +2,7 @@
 
 > **POC** · Dominican Republic EEZ · Free-tier · ~$0/month
 
-Detects floating sargassum from satellite imagery, models its drift with ocean currents and wind, computes an arrival ETA for 11 DR coastal zones, and sends Telegram alerts to fishermen and hotels.
+Detects floating sargassum from satellite imagery, models its drift with ocean currents and wind, computes arrival probabilities and ETAs for 14 DR coastal zones and each of 55 beaches, and sends Telegram alerts to fishermen and hotels.
 Also ships a tourist **beach explorer** — 55 DR beaches with live sargassum risk, per-beach arrival time estimates, a "Conoce esta playa" panel on each beach's wildlife, activities, parking, and Google Maps links.
 An ML extended forecast layer adds 7 / 14 / 21-day outlooks that bridge the gap between the 72-hour physics drift model and monthly seasonal climatology.
 
@@ -108,6 +108,11 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `CLOUD_SCORE_MIN`         | Pipeline (optional)    | Cloud Score+ clear-sky threshold (default `0.6`)                     |
 | `COAST_BUFFER_M`          | Pipeline (optional)    | Shoreline strip excluded from detection (default `300`)              |
 | `ML_MIN_REPORT_ROWS`      | Pipeline (optional)    | Report rows needed to train on visitor reports (default `150`)       |
+| `ML_TRAIN_VERSIONS`       | Pipeline (optional)    | zone_features drift versions used for training (default: current version) |
+| `MIN_REPORTS_PER_LABEL`   | Pipeline (optional)    | Reports needed for a zone-day or beach-day label (default `1`)       |
+| `RISK_AREA_FIELD`         | Pipeline (optional)    | `area_km2` (outline) or `covered_km2` for the risk thresholds (default `area_km2`) |
+| `BEACH_RADIUS_KM`         | Pipeline (optional)    | Arrivals this close count for a beach's own forecast (default `10`)  |
+| `DRIFT_MODEL_VERSION` / `ML_MODEL_VERSION` | Pipeline (optional) | Version stamped on stored forecasts; bump when the model changes |
 | `ZONE_BOX_HALF_DEG`       | Pipeline (optional)    | Half-width of each zone's detection box in degrees (default`0.35`)  |
 | `CORS_ORIGINS`            | API (optional)         | Origins allowed to call the API                                       |
 | `APP_CANONICAL_URL`       | Dashboard (optional)   | Canonical site URL for SEO tags                                       |
@@ -203,6 +208,7 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `GET`  | `/beaches`            | Beach catalog (`?province=` / `?region=` filters)          |
 | `GET`  | `/detections`         | Latest detected sargassum masses (lat/lon + area);`?limit=`  |
 | `POST` | `/subscribe`          | Subscribe a Telegram chat to a zone                            |
+| `GET`  | `/forecast/beaches`   | Latest pipeline forecast for every beach (risk, ETA, probabilities, horizons) |
 | `POST` | `/reports`            | A visitor's own sighting: `{beach, amount, observed_on?}` (today or yesterday) |
 | `POST` | `/telegram/webhook`   | Telegram Bot API update handler                                |
 
@@ -214,7 +220,7 @@ Interactive docs at `/docs` when the API is running.
 
 | Table            | Description                                                                    |
 | ---------------- | ------------------------------------------------------------------------------ |
-| `zones`        | 11 coastal monitoring zones (PostGIS polygons + centre points)                 |
+| `zones`        | 14 coastal monitoring zones (centre points; `coast` = the coastline each zone owns; `geom` = legacy display boxes) |
 | `detections`   | Sargassum patches detected from satellite imagery (polygon + centroid + area)  |
 | `forecasts`    | 72-h physics zone risk + ETA per pipeline run (with optional`horizons` JSON) |
 | `ml_forecasts` | ML extended forecasts per (zone, lead_days); unique on (run_at, zone, lead)    |
@@ -224,10 +230,11 @@ Interactive docs at `/docs` when the API is running.
 | `zone_features` | Per-run, per-zone inputs of the extended model, written each run             |
 | `detection_checks` | Per-run agreement between Sentinel-2 and NOAA/USF AFAI, and AFAI gap fill |
 | `model_evaluations` | Walk-forward scores of the extended model vs its baselines at each training |
+| `beach_forecasts` | The pipeline's 72-h forecast per beach (particles stopping within `BEACH_RADIUS_KM`); what the card shows and reports are scored on |
 
 Risk levels: `none` · `low` · `medium` · `high`
 
-**Monitored zones (11):** Punta Cana · Bavaro · Samana · Puerto Plata · Juan Dolio · Barahona · Pedernales · Monte Cristi · Rio San Juan · Azua · **La Romana** *(added to cover the south-east coast gap)*
+**Monitored zones (14):** Punta Cana · Bavaro · Samana · Puerto Plata · Juan Dolio · Barahona · Pedernales · Monte Cristi · Rio San Juan · Azua · La Romana · **Punta Rucia** · **Santo Domingo** · **Miches** *(the last three cover coast that belonged to no zone once arrivals were counted at the coastline)*
 
 ---
 
@@ -371,7 +378,7 @@ Beyond 72 hours the physics model diverges from reality because small errors in 
 
 **Training data** come from the `zone_features` table: every run stores each zone's model inputs, computed by the same function prediction uses. Each run at time *T* is paired with the zone's physics risk at *T + lead_days* (±12 h tolerance). That label is a model output, not an observation; visitor reports are the ground truth (see [Scoring the forecasts](#scoring-the-forecasts)).
 
-> Before November 2026 training read `forecasts`/`detections` directly with `.limit()`, which Supabase silently caps at 1,000 rows, and parsed detection centroids as WKT while Supabase returns GeoJSON. The model therefore trained on the first weeks of data with every detection at (0, 0). Fill `zone_features` from history once with `python -m pipeline.backfill_features --write`.
+> Before November 2026 training read `forecasts`/`detections` directly with `.limit()`, which Supabase silently caps at 1,000 rows, and parsed detection centroids as WKT while Supabase returns GeoJSON. The model therefore trained on the first weeks of data with every detection at (0, 0). `python -m pipeline.backfill_features --write` copies that history into `zone_features` marked `model_version = 'legacy'`; training ignores it (`ML_TRAIN_VERSIONS`), because its physics labels came from the old drift model. Regenerate history with the current model instead: `python -m pipeline.replay --days 150 --write-features`.
 
 **Skill check:** every training first scores the model walk-forward (below). If it doesn't beat the seasonal fallback, predictions stay seasonal (`ML_REQUIRE_SKILL=0` turns this off), and the scores are saved to `model_evaluations`.
 
@@ -404,7 +411,18 @@ When a beach is selected, the sidebar asks *“¿Estás en la playa? ¿Cuánto s
 python -m pipeline.evaluate                  # reads Supabase, never writes
 python -m pipeline.evaluate --from-history   # before zone_features is backfilled
 python -m pipeline.evaluate --json out.json
+python -m pipeline.evaluate --versions all   # include legacy zone_features
 ```
+
+Every stored forecast carries a `model_version` (`DRIFT_MODEL_VERSION`, `ML_MODEL_VERSION`; rows from before versioning are `legacy`), and every score against reports is split by it, so the old and new models are never pooled. Beach forecasts are scored against beach-level reports directly; zone forecasts against each zone-day's median. A label needs `MIN_REPORTS_PER_LABEL` reports, and the output shows how many labels rest on 1, 2, 3… reports.
+
+### Tuning the drift against reports
+
+```bash
+python -m pipeline.replay --days 60          # reads only
+```
+
+Rebuilds past runs from stored detections, Copernicus' archived currents (back to Nov 2020) and Open-Meteo's historical wind, and scores a grid of settings — windage range, arrival distance, outline vs covered area, risk-threshold scale — against the visitor reports, ranked by the day-ahead beach score. Apply a winner through the env vars once it holds on enough reports. Detections from before November 2026 came from the old detection step and carry no observation time, so treat early results with care.
 
 1. **Extended model vs baselines (walk-forward).** Runs 6 h apart are near-copies, so a random split overstates accuracy. The history is cut into consecutive time blocks; each fold trains only on rows whose label time is before the block (purged) and tests on the block. The model is compared with **seasonal** (the current fallback), **persistence** (today's physics risk will still hold) and **majority** (always the most common class). The headline metric is macro-F1, because `none` dominates and accuracy rewards always saying `none`.
 2. **Forecasts vs visitor reports.** Each zone-day gets the median reported amount, and every stored forecast valid that day is scored: physics per horizon, the published extended forecast per lead, and seasonal.
@@ -567,7 +585,7 @@ demand from [Open-Meteo's free Marine and Forecast APIs](https://open-meteo.com/
 The offline suites make no network calls and are what CI runs:
 
 ```bash
-for s in afai beaches conoce dispatch drift evaluate images map_perf profiles reports risk_overlay surf workflows; do
+for s in afai beaches conoce dispatch drift evaluate images map_perf profiles replay reports risk_overlay surf workflows; do
   python -m tests.test_$s || break
 done
 
@@ -624,9 +642,10 @@ Understanding these constraints is essential before relying on the system for pl
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | Untuned ensemble        | Windage range (0.5–1.5 %), diffusivity (20 m²/s) and the 3 km arrival distance come from the literature and judgement, not from DR data | Probabilities are indicative until tuned against visitor reports |
 | 1/12° currents          | Copernicus currents resolve ~9 km; bays, reefs and harbour mouths are finer than that | Arrival within a bay is approximate; particles stop 3 km from the coast |
-| Coverage gaps           | Coast more than 40 km from every zone centre belongs to no zone (e.g. Santo Domingo–Haina, ~70.0° W) | Arrivals there are not counted for any zone; add a zone to cover them |
+| Coverage gaps           | Isla Beata and the mangrove coast inside Los Haitises (inner Samaná Bay) belong to no zone | Arrivals there count for no zone (no catalogue beaches there) |
 | Isla Catalina missing   | The land polygon (US State Department LSIB) does not include Catalina | Particles can pass through it |
-| Dashboard quick drift   | The beach card's own per-beach ETA still uses fixed regional currents, not the pipeline's gridded field | Card ETA and zone forecast can differ |
+| Dashboard fallback      | When a beach has no pipeline forecast yet, the card falls back to its quick estimate with fixed regional currents | Only until the first pipeline run with `beach_forecasts` |
+| Beach thresholds        | Beach forecasts use the zone thresholds on the smaller area reaching one beach | Beach levels run lower; tune with `pipeline.replay` |
 
 ### ML extended forecast (7–21 days)
 
@@ -642,7 +661,7 @@ Understanding these constraints is essential before relying on the system for pl
 
 | Limitation           | Detail                                                                                                              |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 11 zones, 55 beaches | Each beach is matched to its nearest zone by Haversine distance; no beach has its own independent forecast          |
+| 14 zones, 55 beaches | Each beach has its own particle forecast (`beach_forecasts`); zone matching remains for the extended forecast and alerts |
 | Max zone radius      | The largest gap before La Romana was added was 62 km (Bayahibe / Dominicus). La Romana zone now covers it at ~21 km |
 | Zone geometry        | All zones are simple square bounding boxes; real bay shapes and headlands are not modelled                          |
 

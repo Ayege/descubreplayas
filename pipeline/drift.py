@@ -210,6 +210,18 @@ def _seed(patch: dict, n: int, rng: np.random.Generator) -> tuple[np.ndarray, np
             lon0 + rng.normal(0, r_km / _KM_X, n) if r_km else np.full(n, lon0))
 
 
+def _risk_area(patch: dict) -> float:
+    """The patch area the risk thresholds apply to (config.RISK_AREA_FIELD)."""
+    for key in (config.RISK_AREA_FIELD, "area_km2"):
+        try:
+            v = float(patch.get(key))
+            if v == v:  # not NaN
+                return v
+        except (TypeError, ValueError):
+            continue
+    return 0.0
+
+
 def _observed_ts(patch: dict, now: dt.datetime) -> float:
     """Observation time of a patch (epoch s), clamped to [now - max age, now]."""
     raw = patch.get("observed_at")
@@ -268,12 +280,13 @@ def run_particles(
     total = len(kept) * n
     out = {
         "zone_names": [z["name"] for z in zones],
-        "area": np.array([float(p.get("area_km2", 0.0)) for p in kept]),
+        "area": np.array([_risk_area(p) for p in kept]),
         "member": np.tile(np.arange(n), len(kept)),
         "patch": np.repeat(np.arange(len(kept)), n),
         "zone": np.full(total, -1, dtype=int),
         "hour": np.full(total, np.nan),
         "windage": windage,
+        "kept": kept,  # the patches actually released (for re-summarising)
     }
     if not total:
         out["lat"] = out["lon"] = np.array([])
@@ -332,65 +345,103 @@ def run_particles(
     return out
 
 
-def summarise(raw: dict, now: dt.datetime, hours: list[int]) -> list[dict]:
-    """Turn particle arrivals into one forecast dict per zone."""
+def _summarise_selection(raw: dict, sel: np.ndarray, now: dt.datetime, hours: list[int]) -> dict:
+    """Risk, probabilities, ETA and horizons for the arrivals selected by `sel`.
+
+    Shared by zones and beaches so both follow exactly the same rules.
+    """
     horizons = sorted(set(hours))
     max_h = max(horizons)
-    names = raw["zone_names"]
     n = len(raw["windage"])
     area = raw["area"]
-    results: list[dict] = []
+    sel = sel & ~np.isnan(raw["hour"])
+    per_member: list[list[tuple[int, float]]] = [[] for _ in range(n)]
+    for m, pidx, h in zip(raw["member"][sel], raw["patch"][sel], raw["hour"][sel]):
+        per_member[m].append((int(math.ceil(h)), float(area[pidx])))
 
-    for zi, name in enumerate(names):
-        sel = (raw["zone"] == zi) & ~np.isnan(raw["hour"])
-        per_member: list[list[tuple[int, float]]] = [[] for _ in range(n)]
-        for m, pidx, h in zip(raw["member"][sel], raw["patch"][sel], raw["hour"][sel]):
-            per_member[m].append((int(math.ceil(h)), float(area[pidx])))
+    def levels_at(h: int) -> list[str]:
+        return [
+            _classify_risk(sum(a for hr, a in arr if hr <= h),
+                           _significant_eta(arr, h, config.RISK_AREA_LOW_MAX_KM2))
+            for arr in per_member
+        ]
 
-        def levels_at(h: int) -> list[str]:
-            return [
-                _classify_risk(sum(a for hr, a in arr if hr <= h),
-                               _significant_eta(arr, h, config.RISK_AREA_LOW_MAX_KM2))
-                for arr in per_member
-            ]
+    def headline(levels: list[str]) -> tuple[str, dict]:
+        probs = {lv: levels.count(lv) / n for lv in _LEVELS}
+        level = "none"
+        for k, lv in enumerate(_LEVELS):
+            if sum(probs[x] for x in _LEVELS[k:]) >= config.RISK_PROB_THRESHOLD:
+                level = lv
+        return level, {k: round(v, 3) for k, v in probs.items()}
 
-        def headline(levels: list[str]) -> tuple[str, dict]:
-            probs = {lv: levels.count(lv) / n for lv in _LEVELS}
-            level = "none"
-            for k, lv in enumerate(_LEVELS):
-                if sum(probs[x] for x in _LEVELS[k:]) >= config.RISK_PROB_THRESHOLD:
-                    level = lv
-            return level, {k: round(v, 3) for k, v in probs.items()}
-
-        horizon_breakdown = []
-        for h in horizons:
-            level, probs = headline(levels_at(h))
-            horizon_breakdown.append({
-                "horizon_hours": h,
-                "risk_level": level,
-                "area_km2": round(sum(a for arr in per_member for hr, a in arr if hr <= h) / n, 3),
-                "valid_at": (now + dt.timedelta(hours=h)).isoformat(),
-                "probs": probs,
-            })
-
-        summary_level, summary_probs = headline(levels_at(max_h))
-        first = [min(hr for hr, _ in arr) for arr in per_member if arr]
-        eta_h = None
-        if len(first) / n >= config.RISK_PROB_THRESHOLD:
-            eta_h = int(np.median(first))
-        results.append({
-            "zone_id": zi + 1,
-            "zone_name": name,
-            "risk_level": summary_level,
-            "eta_hours": eta_h,
-            "eta_timestamp": (now + dt.timedelta(hours=eta_h)).isoformat() if eta_h is not None else None,
-            "arrival_probability": round(1.0 - summary_probs["none"], 3),
-            "risk_probs": summary_probs,
-            "horizons": horizon_breakdown,
+    horizon_breakdown = []
+    for h in horizons:
+        level, probs = headline(levels_at(h))
+        horizon_breakdown.append({
+            "horizon_hours": h,
+            "risk_level": level,
+            "area_km2": round(sum(a for arr in per_member for hr, a in arr if hr <= h) / n, 3),
+            "valid_at": (now + dt.timedelta(hours=h)).isoformat(),
+            "probs": probs,
         })
-        logger.info("Zone %s: risk=%s p(arrival)=%.2f eta=%sh probs=%s", name, summary_level,
-                    1.0 - summary_probs["none"], eta_h, summary_probs)
+
+    summary_level, summary_probs = headline(levels_at(max_h))
+    # ETA: per member, when the arrived area first becomes enough to count as
+    # risk (RISK_AREA_MIN_KM2) — the same bar as arrival_probability, so a
+    # trace never produces an ETA for a zone with 0 % arrival probability.
+    first = [t for t in (_significant_eta(arr, max_h, config.RISK_AREA_MIN_KM2)
+                         for arr in per_member) if t is not None]
+    eta_h = int(np.median(first)) if len(first) / n >= config.RISK_PROB_THRESHOLD else None
+    return {
+        "risk_level": summary_level,
+        "eta_hours": eta_h,
+        "eta_timestamp": (now + dt.timedelta(hours=eta_h)).isoformat() if eta_h is not None else None,
+        "arrival_probability": round(1.0 - summary_probs["none"], 3),
+        "risk_probs": summary_probs,
+        "horizons": horizon_breakdown,
+    }
+
+
+def summarise(raw: dict, now: dt.datetime, hours: list[int]) -> list[dict]:
+    """Turn particle arrivals into one forecast dict per zone."""
+    results: list[dict] = []
+    for zi, name in enumerate(raw["zone_names"]):
+        res = {"zone_id": zi + 1, "zone_name": name,
+               **_summarise_selection(raw, raw["zone"] == zi, now, hours)}
+        results.append(res)
+        logger.info("Zone %s: risk=%s p(arrival)=%.2f eta=%sh probs=%s", name, res["risk_level"],
+                    res["arrival_probability"], res["eta_hours"], res["risk_probs"])
     return results
+
+
+def summarise_beaches(raw: dict, beaches: list[dict], now: dt.datetime,
+                      hours: list[int] | None = None) -> list[dict]:
+    """One forecast per beach: particles that STOPPED within BEACH_RADIUS_KM.
+
+    Uses the same thresholds as zones. The area reaching one beach is smaller
+    than a whole zone's, so beach levels run lower until the thresholds are
+    tuned against visitor reports (pipeline/replay.py).
+    """
+    hours = hours or [0, 24, 48, 72]
+    if not len(raw["hour"]):
+        stops = np.zeros((0, 2))
+    else:
+        stops = _to_km(raw["lat"], raw["lon"])
+    zone_names = raw["zone_names"]
+    out = []
+    for b in beaches:
+        here = _to_km([float(b["latitude"])], [float(b["longitude"])])[0]
+        near = (np.linalg.norm(stops - here, axis=1) <= config.BEACH_RADIUS_KM
+                if len(stops) else np.zeros(0, dtype=bool))
+        res = _summarise_selection(raw, near, now, hours)
+        zone_idx = raw["zone"][near & ~np.isnan(raw["hour"])]
+        zone_idx = zone_idx[zone_idx >= 0]
+        res.update({
+            "beach_name": b["name"],
+            "zone_name": zone_names[int(np.bincount(zone_idx).argmax())] if len(zone_idx) else None,
+        })
+        out.append(res)
+    return out
 
 
 def project_drift(
@@ -422,3 +473,56 @@ def project_drift(
                 len(raw["area"]), len(raw["windage"]), arrived,
                 int(((raw["zone"] >= 0) & ~np.isnan(raw["hour"])).sum()))
     return summarise(raw, now, hours)
+
+
+def forecast_zones_and_beaches(
+    patches: list[dict],
+    field,
+    beaches: list[dict],
+    hours: list[int] | None = None,
+    now: dt.datetime | None = None,
+    n_particles: int | None = None,
+    seed: int | None = None,
+) -> tuple[list[dict], list[dict]]:
+    """Zone forecasts and per-beach forecasts from ONE particle run."""
+    hours = hours or [0, 24, 48, 72]
+    now = now or dt.datetime.now(dt.timezone.utc)
+    raw = run_particles(patches, field, now=now, horizon_hours=max(hours),
+                        n_particles=n_particles, seed=seed)
+    logger.info("drift: %d patch(es) × %d particles, %d arrived at a coast.",
+                len(raw["area"]), len(raw["windage"]), int((~np.isnan(raw["hour"])).sum()))
+    return summarise(raw, now, hours), summarise_beaches(raw, beaches, now, hours)
+
+
+def zone_coast_wkt() -> dict[str, str]:
+    """{zone name: MULTILINESTRING WKT} of the coast each zone owns.
+
+    Same coast points and ownership the drift uses, joined into runs of
+    consecutive points with one owner. Stored in zones.coast for maps.
+    """
+    from shapely.geometry import LineString, MultiLineString
+
+    zones = config.ZONES
+    zone_key = tuple((z["name"], float(z["center_lat"]), float(z["center_lon"])) for z in zones)
+    _, owner = _coast(zone_key)
+    land = _land()
+    pts = []
+    for poly in getattr(land, "geoms", [land]):
+        ring = list(poly.exterior.segmentize(0.005).coords)
+        pts.append(ring)
+    lines: dict[int, list] = {}
+    k = 0
+    for ring in pts:
+        run: list = []
+        run_owner = None
+        for xy in ring:
+            o = int(owner[k])
+            k += 1
+            if o != run_owner:
+                if run_owner is not None and run_owner >= 0 and len(run) > 1:
+                    lines.setdefault(run_owner, []).append(LineString(run))
+                run, run_owner = [], o
+            run.append(xy)
+        if run_owner is not None and run_owner >= 0 and len(run) > 1:
+            lines.setdefault(run_owner, []).append(LineString(run))
+    return {zones[i]["name"]: MultiLineString(ls).wkt for i, ls in lines.items()}
