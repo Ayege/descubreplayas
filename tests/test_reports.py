@@ -142,7 +142,10 @@ def test_telegram_reporte() -> None:
     telegram._cmd_reporte(42, "/reporte mucho bávaro")
     assert STORED[-1]["amount"] == "high" and STORED[-1]["source"] == "telegram"
     assert STORED[-1]["beach_name"] == "Playa Bávaro" and STORED[-1]["zone_id"] == 2
-    assert "42" not in str(STORED[-1].values()), "chat id is not stored"
+    # The chat id must not be stored (compared as whole values: a timestamp
+    # can contain the digits "42").
+    assert "chat_id" not in STORED[-1] and all(v not in (42, "42") for v in STORED[-1].values()), \
+        "chat id is not stored"
     telegram._cmd_reporte(42, "/reporte Bávaro nada")       # amount last also works
     assert STORED[-1]["amount"] == "none"
     n = len(STORED)
