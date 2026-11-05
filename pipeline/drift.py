@@ -327,6 +327,18 @@ def run_particles(
 
     t = float(np.floor(t0.min() / 3600.0) * 3600.0)
     end = now_s + horizon_hours * 3600.0
+
+    # Snapshots of every particle at now, +24 h, +48 h… for the map's tracks.
+    snap_hours = [h for h in TRACK_HOURS if h <= horizon_hours]
+    pending = list(snap_hours)
+    snaps: dict[int, tuple] = {}
+
+    def _take_snapshots(t_now: float) -> None:
+        while pending and t_now >= now_s + pending[0] * 3600.0:
+            h = pending.pop(0)
+            snaps[h] = (lat.copy(), lon.copy(), done.copy())
+
+    _take_snapshots(t)
     while t < end:
         active = np.nonzero(~done & (t0 <= t))[0]
         if len(active):
@@ -340,8 +352,72 @@ def run_particles(
             lon[active] += dx / (np.cos(np.radians(lat[active])) * _METERS_PER_DEG)
             _check_arrival(t + 3600.0, active)
         t += 3600.0
+        _take_snapshots(t)
 
     out["lat"], out["lon"] = lat, lon
+    out["snapshots"] = snaps
+    return out
+
+
+TRACK_HOURS = (0, 24, 48, 72)
+
+
+def patch_tracks(raw: dict) -> list[list[dict]]:
+    """Per released patch: where its particles are at now, +24 h, +48 h, +72 h.
+
+    Each point is the median particle position (particles that reached the
+    coast stay where they stopped) and `ashore`, the share of particles that
+    have reached the coast by then. Aligned with raw["kept"].
+    """
+    snaps = raw.get("snapshots") or {}
+    n_patches = len(raw["kept"])
+    tracks: list[list[dict]] = [[] for _ in range(n_patches)]
+    if not snaps or not n_patches:
+        return tracks
+    patch_idx = raw["patch"]
+    for h in sorted(snaps):
+        lat, lon, done = snaps[h]
+        for i in range(n_patches):
+            sel = patch_idx == i
+            tracks[i].append({
+                "h": int(h),
+                "lat": round(float(np.median(lat[sel])), 4),
+                "lon": round(float(np.median(lon[sel])), 4),
+                "ashore": round(float(done[sel].mean()), 2),
+            })
+    return tracks
+
+
+def beach_exposures(field, beaches: list[dict], now: dt.datetime, hours: int = 24) -> dict[str, float | None]:
+    """How squarely the next `hours` of real drift hit each beach's face.
+
+    Mean of current + central windage × wind over the period, at a point
+    5 km offshore along the beach's seaward direction, compared with that
+    direction (dashboard.risk_overlay.shore_exposure: +1 onto the beach,
+    -1 away). Uses the same gridded fields as the forecast, so the card's
+    "pushes toward / away from this shore" line can't contradict it.
+    """
+    from dashboard.risk_overlay import shore_exposure
+    from dashboard.surf_data import profile_for_beach
+
+    times = [now.timestamp() + 3600.0 * k for k in range(0, hours + 1, 3)]
+    out: dict[str, float | None] = {}
+    for b in beaches:
+        try:
+            normal = float(profile_for_beach(b)["shore_normal_deg"])
+            lat0, lon0 = float(b["latitude"]), float(b["longitude"])
+            lat = lat0 + (5.0 / _KM_Y) * math.cos(math.radians(normal))
+            lon = lon0 + (5.0 / (111.32 * math.cos(math.radians(lat0)))) * math.sin(math.radians(normal))
+            us, vs = [], []
+            for t in times:
+                uc, vc = field.current(t, lat, lon)
+                uw, vw = field.wind(t, lat, lon)
+                us.append(float(uc[0] + config.WIND_DRIFT_FACTOR * uw[0]))
+                vs.append(float(vc[0] + config.WIND_DRIFT_FACTOR * vw[0]))
+            e = shore_exposure(normal, float(np.mean(us)), float(np.mean(vs)))
+            out[b["name"]] = None if e is None else round(e, 3)
+        except Exception:
+            out[b["name"]] = None
     return out
 
 
@@ -491,7 +567,15 @@ def forecast_zones_and_beaches(
                         n_particles=n_particles, seed=seed)
     logger.info("drift: %d patch(es) × %d particles, %d arrived at a coast.",
                 len(raw["area"]), len(raw["windage"]), int((~np.isnan(raw["hour"])).sum()))
-    return summarise(raw, now, hours), summarise_beaches(raw, beaches, now, hours)
+    # The map draws these instead of guessing with fixed currents. Patches
+    # too old to release get no track.
+    for patch, track in zip(raw["kept"], patch_tracks(raw)):
+        patch["track"] = track
+    beach_fcs = summarise_beaches(raw, beaches, now, hours)
+    exposure = beach_exposures(field, beaches, now)
+    for bf in beach_fcs:
+        bf["exposure"] = exposure.get(bf["beach_name"])
+    return summarise(raw, now, hours), beach_fcs
 
 
 def zone_coast_wkt() -> dict[str, str]:
@@ -525,4 +609,5 @@ def zone_coast_wkt() -> dict[str, str]:
             run.append(xy)
         if run_owner is not None and run_owner >= 0 and len(run) > 1:
             lines.setdefault(run_owner, []).append(LineString(run))
-    return {zones[i]["name"]: MultiLineString(ls).wkt for i, ls in lines.items()}
+    # ~100 m simplification keeps /zones small for the map.
+    return {zones[i]["name"]: MultiLineString(ls).simplify(0.001).wkt for i, ls in lines.items()}

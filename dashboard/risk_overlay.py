@@ -331,3 +331,27 @@ def adjust_for_exposure(risk: str, exposure: Optional[float]) -> str:
         return risk
     i = _LEVELS.index(risk)
     return _LEVELS[max(i - 1, 1)] if i >= 1 else risk
+
+
+def track_position(mass: dict, hours: int) -> Optional[tuple[float, float, bool]]:
+    """(lat, lon, ashore) of a mass at +hours from the pipeline's drift track.
+
+    The track (detections.track) holds the drift particles' median position
+    now and at +24/+48/+72 h, computed with the real Copernicus currents and
+    wind and caught up from the day the mass was seen. Linear between
+    checkpoints, clamped to the track's range. `ashore` is True once at least
+    half the particles have reached the coast. None when there is no track.
+    """
+    track = mass.get("track")
+    if not track:
+        return None
+    pts = sorted(track, key=lambda p: p["h"])
+    hours = max(pts[0]["h"], min(hours, pts[-1]["h"]))
+    for a, b in zip(pts, pts[1:]):
+        if a["h"] <= hours <= b["h"]:
+            f = 0.0 if b["h"] == a["h"] else (hours - a["h"]) / (b["h"] - a["h"])
+            return (a["lat"] + f * (b["lat"] - a["lat"]),
+                    a["lon"] + f * (b["lon"] - a["lon"]),
+                    (b if f > 0 else a)["ashore"] >= 0.5)
+    p = pts[0]
+    return p["lat"], p["lon"], p["ashore"] >= 0.5

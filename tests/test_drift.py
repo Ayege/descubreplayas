@@ -126,8 +126,30 @@ def test_small_trace_is_low_or_none() -> None:
     print("  a 0.2 km² trace stays 'none': OK")
 
 
+def test_tracks_and_exposure() -> None:
+    """Tracks start where the mass is NOW (caught up from when it was seen) and
+    follow the real field; exposure comes from the same field."""
+    from dashboard.beaches_data import BEACHES
+    from pipeline.drift import forecast_zones_and_beaches
+    field = ForcingField.uniform(NOW, 96, u=+0.3, v=0.0)   # EASTWARD: away from Punta Cana
+    seen = (NOW - dt.timedelta(days=2)).isoformat()
+    patch = _patch(18.58, -67.90, observed_at=seen)
+    zones, beaches = forecast_zones_and_beaches([patch], field, BEACHES, now=NOW, n_particles=12)
+    track = patch["track"]
+    assert [p["h"] for p in track] == [0, 24, 48, 72]
+    # 2 days at 0.3 m/s east ≈ 52 km ≈ 0.49° of longitude before "now".
+    assert track[0]["lon"] > -67.90 + 0.35, track[0]
+    assert track[-1]["lon"] > track[0]["lon"], "moves east, as the field says"
+    assert _zone(zones, "Punta Cana")["risk_level"] == "none"
+    bavaro = next(b for b in beaches if b["beach_name"] == "Playa Bávaro")
+    # East-facing beach, drift heading east: pushed away from it.
+    assert bavaro["exposure"] is not None and bavaro["exposure"] < -0.9, bavaro["exposure"]
+    print(f"  track caught up to lon {track[0]['lon']}, exposure Bávaro {bavaro['exposure']}: OK")
+
+
 def main() -> int:
     tests = [
+        test_tracks_and_exposure,
         test_arrives_at_the_coast_ahead,
         test_offshore_pass_is_not_an_arrival,
         test_land_blocks_crossing,
