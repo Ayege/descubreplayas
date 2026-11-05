@@ -55,7 +55,7 @@ jobs:
       api:       ${{ steps.diff.outputs.api }}
       dashboard: ${{ steps.diff.outputs.dashboard }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0          # a push can hold several commits
 
@@ -92,7 +92,7 @@ jobs:
       IMAGE: us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sargapprepo/sargapp-api
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
@@ -161,7 +161,7 @@ jobs:
       IMAGE: us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sargapprepo/sargapp-dashboard
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
