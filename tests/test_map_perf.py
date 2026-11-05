@@ -154,6 +154,16 @@ def test_smooth_moves_leave_the_visitors_own_zoom_alone() -> None:
     _check("SmoothMapMoves().add_to(m)" in source, "the dashboard's map uses it")
 
 
+def test_loader_hides_once_the_map_exists_with_a_fallback() -> None:
+    source = Path(map_perf.__file__).with_name("beaches.py").read_text(encoding="utf-8")
+    _check('.stApp:has(iframe[title="streamlit_folium.st_folium"]) #sarg-loader' in source, "hide when the map exists")
+    _check("animation: sarg-loader-hide .5s ease 8s forwards;" in source, "the timer stays for browsers without :has()")
+    early = source.split('.stApp:has(iframe[title="streamlit_folium.st_folium"]) #sarg-loader {', 1)[1].split("}", 1)[0]
+    _check("sarg-loader-hide" not in early and "sarg-loader-ready" in early,
+           "the early hide needs its own animation name, or retiming jumps it to the end")
+    _check("@keyframes sarg-loader-ready" in source, "and its keyframes")
+
+
 def test_card_motion_replays_only_when_the_beach_changes() -> None:
     a, b = map_perf.CARD_MOTION_A, map_perf.CARD_MOTION_B
     _check(map_perf.next_card_motion(None, None, "X") == ("X", a), "the first card animates")

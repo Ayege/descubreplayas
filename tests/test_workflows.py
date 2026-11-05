@@ -20,8 +20,12 @@ Run from the repo root:
 """
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -154,6 +158,52 @@ def test_local_and_production_security_settings_match() -> None:
     docker = (_REPO / "Dockerfile.dashboard").read_text(encoding="utf-8")
     for setting in ("enableXsrfProtection = true", "enableCORS = true", "enableStaticServing = true"):
         _check(setting in local and setting in docker, f"both configs need {setting}")
+
+
+def _run_entrypoint(env_extra: dict[str, str]) -> str:
+    """Run the real entrypoint against a stand-in Streamlit page, with a stub in place
+    of the streamlit command, and return the page it produced.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        page = root / "index.html"
+        page.write_text(
+            '<!doctype html><html lang="en"><head>\n<meta name="viewport"\n content="width=device-width">'
+            "<title>Streamlit</title></head><body></body></html>",
+            encoding="utf-8",
+        )
+        stub = root / "bin" / "streamlit"
+        stub.parent.mkdir()
+        stub.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        stub.chmod(0o755)
+        env = {"PATH": f"{stub.parent}:{os.environ['PATH']}", "STREAMLIT_INDEX_HTML": str(page), **env_extra}
+        result = subprocess.run(  # noqa: S603 - fixed local script, test only
+            ["bash", str(_REPO / "docker-entrypoint-dashboard.sh")], env=env, capture_output=True, text=True, timeout=60,
+        )
+        _check(result.returncode == 0, f"entrypoint failed: {result.stderr[-300:]}")
+        return page.read_text(encoding="utf-8")
+
+
+def _inline_scripts(page: str) -> list[str]:
+    return [body for attrs, body in re.findall(r"<script([^>]*)>(.*?)</script>", page, re.DOTALL) if "src=" not in attrs]
+
+
+def test_entrypoint_injects_working_scripts() -> None:
+    page = _run_entrypoint({"GA_MEASUREMENT_ID": "G-TEST123"})
+    scripts = _inline_scripts(page)
+    _check(len(scripts) == 2, f"expected the GA and canonical scripts, found {len(scripts)}")
+    canonical = next(s for s in scripts if "canonical" in s)
+    for piece in ('document.createElement("link")', 'setAttribute("rel", "canonical")', '"og:url"'):
+        _check(piece in canonical, f"the shell must not strip the quotes from {piece}")
+    _check("gtag('config', 'G-TEST123')" in page, "the GA snippet keeps its quotes and ID")
+    _check(page.count('<meta property="og:url"') == 1 and '<html lang="es-DO">' in page, "the other tags are injected")
+    node = shutil.which("node")
+    if node:
+        for script in scripts:
+            check = subprocess.run([node, "--check", "-"], input=script, capture_output=True, text=True, timeout=30)  # noqa: S603
+            _check(check.returncode == 0, f"injected script does not parse: {check.stderr[:200]}")
+    plain = _run_entrypoint({})
+    _check("googletagmanager" not in plain and len(_inline_scripts(plain)) == 1, "no GA without an ID")
 
 
 def main() -> int:

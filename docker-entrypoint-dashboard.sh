@@ -7,7 +7,7 @@ set -e
 
 CANONICAL_URL="${APP_CANONICAL_URL:-https://descubreplayas.com.do}"
 GA_ID="${GA_MEASUREMENT_ID:-}"
-INDEX_HTML="/usr/local/lib/python3.11/site-packages/streamlit/static/index.html"
+INDEX_HTML="${STREAMLIT_INDEX_HTML:-/usr/local/lib/python3.11/site-packages/streamlit/static/index.html}"
 
 if [ ! -f "$INDEX_HTML" ]; then
   echo "ERROR: Streamlit index.html not found at $INDEX_HTML"
@@ -35,6 +35,9 @@ fi
 
 # Inject GA + canonical + meta tags right after <head> (before any other tags)
 # Use perl for multi-line replacement (sed has portability issues with -i)
+# The perl program below is one single-quoted shell string, so a ' inside it ends the
+# string and is silently dropped. JavaScript in it must use double quotes only;
+# tests/test_workflows.py runs this script and checks the result.
 perl -i -pe 'BEGIN{undef $/;} s|(<head>\s*)|$1
 '"$GA_SNIPPET"'
     <meta http-equiv="content-language" content="es-DO">
@@ -51,15 +54,17 @@ perl -i -pe 'BEGIN{undef $/;} s|(<head>\s*)|$1
       // indexed as distinct URLs. This runs early in <head>.
       (function(){
         try {
-          var c = document.createElement('link');
-          c.setAttribute('rel','canonical');
+          var c = document.createElement("link");
+          c.setAttribute("rel", "canonical");
           var u = location.origin + location.pathname + location.search;
-          c.setAttribute('href', u);
+          c.setAttribute("href", u);
           document.head.appendChild(c);
           // Also update any existing og:url meta to reflect the pretty path
           try {
-            var og = document.querySelector('meta[property="og:url"]');
-            if (og) og.setAttribute('content', u);
+            var metas = document.getElementsByTagName("meta");
+            for (var i = 0; i < metas.length; i++) {
+              if (metas[i].getAttribute("property") === "og:url") metas[i].setAttribute("content", u);
+            }
           } catch(e){}
         } catch(e) { /* noop */ }
       })();
