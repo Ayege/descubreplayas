@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import logging
 import os
@@ -74,19 +75,39 @@ def init_earth_engine() -> None:
         raise
 
 
-def _mask_clouds(image: "ee.Image") -> "ee.Image":
-    """Mask clouds/cirrus/shadow using the SCL band, and keep only water pixels.
+_CLOUD_SCORE_COLLECTION = "GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED"
+# SCL classes that are never usable: 0 no data, 1 saturated/defective,
+# 3 cloud shadow, 8/9 cloud medium/high probability, 10 thin cirrus, 11 snow.
+_SCL_BAD = (0, 1, 3, 8, 9, 10, 11)
 
-    SCL classes (Sentinel-2 L2A):
-      3=cloud shadow, 6=water, 8=cloud medium prob, 9=cloud high prob,
-      10=thin cirrus, 11=snow/ice.
-    We keep water (6) and drop the cloud/shadow/cirrus/snow classes.
+
+def _mask_clouds(image: "ee.Image") -> "ee.Image":
+    """Drop cloudy pixels, keeping every cloud-free OCEAN pixel.
+
+    The old mask kept only pixels the scene classification (SCL) called
+    "water" (6). Dense sargassum mats can be labelled vegetation (4), bare
+    soil (5) or unclassified (7) instead, and those were dropped. On real DR
+    scenes that cost 1-3 % of algae pixels, while 30-80 % of algae-flagged
+    pixels were clouds, which FAI also fires on. So: no "water" requirement
+    (land is removed by the ocean-only AOI instead), SCL cloud classes
+    removed as before, plus Google's Cloud Score+ (cs_cdf >= CLOUD_SCORE_MIN)
+    where it is available for the image.
     """
     scl = image.select("SCL")
-    water = scl.eq(6)
-    bad = scl.eq(3).Or(scl.eq(8)).Or(scl.eq(9)).Or(scl.eq(10)).Or(scl.eq(11))
-    mask = water.And(bad.Not())
+    bad = scl.remap(list(_SCL_BAD), [1] * len(_SCL_BAD), 0)
+    mask = bad.Not()
+    cs = image.select("cs_cdf")
+    # cs_cdf is missing (fully masked) when Cloud Score+ has no matching
+    # image; unmask(1) treats that as clear and leaves SCL to decide.
+    mask = mask.And(cs.unmask(1).gte(config.CLOUD_SCORE_MIN))
     return image.updateMask(mask)
+
+
+def _add_obs_time(image: "ee.Image") -> "ee.Image":
+    """Band with the image's acquisition time (ms since epoch), so each
+    detected patch keeps WHEN it was seen, not just where."""
+    t = ee.Image.constant(ee.Number(image.get("system:time_start"))).toDouble().rename("OBS_T")
+    return image.addBands(t.updateMask(image.select("SCL").mask()))
 
 
 def _add_indices(image: "ee.Image") -> "ee.Image":
@@ -131,19 +152,19 @@ def detect_sargassum(
     # that inland water bodies (reservoirs, rivers, lakes) cannot produce false
     # positives.  Floating-algae indices (FAI/NDVI) fire on any inland algae;
     # restricting to ocean pixels ensures we only detect marine sargassum.
-    try:
-        _land = (
-            ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017")
-            .filter(ee.Filter.inList("country_na", ["Dominican Republic", "Haiti"]))
-            .geometry()
-            .simplify(maxError=1000)  # reduce vertex count for performance
-        )
-        ocean_aoi = aoi.difference(_land, maxError=500)
-        logger.info("detect_sargassum: using ocean-only AOI (land subtracted).")
-    except Exception:
-        logger.warning("detect_sargassum: could not build ocean AOI; falling back to full EEZ.",
-                       exc_info=True)
-        ocean_aoi = aoi
+    # Ocean mask as a RASTER: the detailed boundary (not LSIB_SIMPLE
+    # simplified to 1 km) painted into an image and widened by COAST_BUFFER_M,
+    # so surf, river plumes and shallow reefs at the shore don't read as
+    # floating algae. Clipping to the equivalent vector geometry made Earth
+    # Engine time out; a painted mask costs almost nothing per tile.
+    land = ee.FeatureCollection("USDOS/LSIB/2017").filter(
+        ee.Filter.inList("COUNTRY_NA", ["Dominican Republic", "Haiti"])
+    )
+    land_img = ee.Image.constant(0).byte().paint(land, 1)
+    if config.COAST_BUFFER_M > 0:
+        land_img = land_img.focalMax(radius=config.COAST_BUFFER_M, kernelType="circle",
+                                     units="meters")
+    ocean_mask = land_img.Not()
 
     logger.info("Detecting sargassum %s..%s over EEZ.", start, end)
 
@@ -152,8 +173,10 @@ def detect_sargassum(
         .filterBounds(aoi)  # broad filter for image selection
         .filterDate(start, end)
         .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", config.MAX_CLOUD_COVER_PCT))
+        .linkCollection(ee.ImageCollection(_CLOUD_SCORE_COLLECTION), ["cs_cdf"])
         .map(_mask_clouds)
         .map(_add_indices)
+        .map(_add_obs_time)
         # Most-recent-first so mosaic() below takes each pixel's LATEST clear
         # observation, falling back to older images only where cloud/shadow
         # masked the recent ones. date_range spans 7 days (see run.py) to
@@ -172,16 +195,30 @@ def detect_sargassum(
     # painting each image in collection order, image N filling only the
     # pixels image N-1 left masked) are long-stable parts of the API, but EE
     # methods do change across versions.
-    composite = collection.select(["FAI", "NDVI"]).mosaic().clip(ocean_aoi)
+    composite = collection.select(["FAI", "NDVI", "OBS_T"]).mosaic().updateMask(ocean_mask)
+
+    # FAI relative to the surrounding water: a fixed cut on raw FAI trips on
+    # haze and sun-glint gradients. Background = local median FAI.
+    # Measured on real DR scenes: a 500 m median kept detection at ~10 s and
+    # removed a 32 km² shallow-channel false positive near Saona; 2 km
+    # windows (median or mean, any grid) took 40-180 s or timed out. Inside a
+    # mat wider than ~1 km the background rises with the mat, so only its
+    # edges are flagged; typical windrows are far narrower.
+    fai = composite.select("FAI")
+    background = fai.focalMedian(radius=config.FAI_BG_RADIUS_M, kernelType="square", units="meters")
+    fai_anom = fai.subtract(background).rename("FAI_ANOM")
 
     algae = (
-        composite.select("FAI").gt(config.FAI_THRESHOLD)
+        fai_anom.gt(config.FAI_THRESHOLD)
         .And(composite.select("NDVI").gt(config.NDVI_MIN))
     ).selfMask().rename("algae")
 
-    # Vectorize the binary mask into polygons (ocean area only).
-    vectors = algae.reduceToVectors(
-        geometry=ocean_aoi,
+    # Vectorize the binary mask into polygons (ocean area only). The extra
+    # bands are reduced per polygon: latest observation time (max) and mean
+    # FAI anomaly, used for the covered-area estimate.
+    vectors = algae.addBands(composite.select("OBS_T")).addBands(fai_anom).reduceToVectors(
+        reducer=ee.Reducer.max().combine(ee.Reducer.mean().unweighted(), sharedInputs=False),
+        geometry=aoi,
         scale=config.DETECT_SCALE_M,
         geometryType="polygon",
         eightConnected=True,
@@ -209,8 +246,33 @@ def detect_sargassum(
     gdf["centroid_lon"] = centroids.x
     gdf["centroid_lat"] = centroids.y
     gdf["source"] = config.DETECTION_SOURCE
+    gdf["observed_at"] = gdf["obs_t_ms"].map(_ms_to_iso)
+    gdf["covered_km2"] = [
+        covered_area(a, m) for a, m in zip(gdf["area_km2"], gdf["fai_anom_mean"])
+    ]
     logger.info("Detected %d patch(es).", len(gdf))
-    return gdf[["geometry", "centroid_lat", "centroid_lon", "area_km2", "source"]]
+    return gdf[["geometry", "centroid_lat", "centroid_lon", "area_km2", "covered_km2",
+                "observed_at", "source"]]
+
+
+def _ms_to_iso(ms) -> str | None:
+    try:
+        return dt.datetime.fromtimestamp(float(ms) / 1000.0, dt.timezone.utc).isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
+def covered_area(outline_km2: float, mean_fai_anom) -> float | None:
+    """Estimated sargassum-covered area inside an outline.
+
+    Each 60 m pixel is only partly covered; the mean FAI anomaly over the
+    full-cover anomaly gives the covered fraction (clipped to 0-1).
+    """
+    try:
+        frac = min(max(float(mean_fai_anom) / config.S2_FAI_FULL_COVER, 0.0), 1.0)
+    except (TypeError, ValueError):
+        return None
+    return float(outline_km2) * frac
 
 
 def _fc_to_gdf(fc: "ee.FeatureCollection") -> gpd.GeoDataFrame:
@@ -228,11 +290,13 @@ def _fc_to_gdf(fc: "ee.FeatureCollection") -> gpd.GeoDataFrame:
         )
 
     features = info.get("features", [])
-    geometries = []
-    areas = []
+    geometries, areas, obs, anom = [], [], [], []
     for feat in features:
+        props = feat.get("properties", {})
         geometries.append(shape(feat["geometry"]))
-        areas.append(feat.get("properties", {}).get("area_km2"))
+        areas.append(props.get("area_km2"))
+        obs.append(props.get("max"))     # latest OBS_T in the polygon
+        anom.append(props.get("mean"))   # mean FAI_ANOM in the polygon
 
     if not geometries:
         return gpd.GeoDataFrame(
@@ -240,5 +304,6 @@ def _fc_to_gdf(fc: "ee.FeatureCollection") -> gpd.GeoDataFrame:
         )
 
     return gpd.GeoDataFrame(
-        {"area_km2": areas}, geometry=geometries, crs="EPSG:4326"
+        {"area_km2": areas, "obs_t_ms": obs, "fai_anom_mean": anom},
+        geometry=geometries, crs="EPSG:4326",
     )

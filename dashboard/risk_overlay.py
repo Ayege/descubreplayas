@@ -292,3 +292,42 @@ def fetch_detections(api_base_url: str, limit: int = 2000,
     except requests.exceptions.RequestException as e:
         logger.warning("Detection fetch failed for %s: %s", api_base_url, e)
         return []
+
+
+# ---------------------------------------------------------------------------
+# Beach exposure: does today's drift push sargassum ONTO this beach?
+# ---------------------------------------------------------------------------
+_LEVELS = ("none", "low", "medium", "high")
+# Below this, the drift is heading away from the beach's face.
+SHELTERED_BELOW = -0.2
+EXPOSED_ABOVE = 0.5
+
+
+def shore_exposure(shore_normal_deg: float, drift_u: float, drift_v: float,
+                   min_speed: float = 0.02) -> Optional[float]:
+    """Cosine between where the drift comes FROM and where the beach faces.
+
+    shore_normal_deg is the compass direction the beach faces out to sea
+    (dashboard/surf_data.py: north-facing ~0°, east-facing ~90°). +1 means the
+    current and wind push straight onto the beach, -1 straight off it, 0
+    along it. None when the drift is too weak to have a direction.
+    """
+    speed = math.hypot(drift_u, drift_v)
+    if speed < min_speed:
+        return None
+    toward = math.degrees(math.atan2(drift_u, drift_v)) % 360   # compass, heading
+    comes_from = (toward + 180.0) % 360
+    return math.cos(math.radians(comes_from - shore_normal_deg))
+
+
+def adjust_for_exposure(risk: str, exposure: Optional[float]) -> str:
+    """Lower a beach's risk one level when today's drift heads away from it.
+
+    Never raises risk (the mass-distance model already counts approaching
+    masses) and never lowers a real risk below 'low': a sheltered beach can
+    still collect what wraps around a headland.
+    """
+    if exposure is None or exposure >= SHELTERED_BELOW or risk not in _LEVELS:
+        return risk
+    i = _LEVELS.index(risk)
+    return _LEVELS[max(i - 1, 1)] if i >= 1 else risk

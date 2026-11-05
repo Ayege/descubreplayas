@@ -91,8 +91,23 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `FORECAST_HOURS_PHYSICS`  | Pipeline (optional)    | Physics drift horizon in hours (default`72`)                        |
 | `FORECAST_HOURS_EXTENDED` | Pipeline (optional)    | ML forecast horizon cap in hours (default`168` = 7 d)               |
 | `ML_RETRAIN_EVERY_N_RUNS` | Pipeline (optional)    | Retrain ML model every N pipeline runs (default`28` ≈ 1 week)      |
-| `WIND_DRIFT_FACTOR`       | Pipeline (optional)    | Fraction of wind speed applied as surface windage (default`0.02`)   |
+| `WIND_DRIFT_FACTOR`       | Pipeline (optional)    | Central windage, used with a single particle (default `0.01`)       |
 | `FAI_THRESHOLD`           | Pipeline (optional)    | Floating Algae Index detection threshold (default`0.005`)           |
+| `AFAI_ENABLED`            | Pipeline (optional)    | Compare with NOAA/USF daily AFAI each run (default `1`)              |
+| `AFAI_GAP_FILL`           | Pipeline (optional)    | Add AFAI clusters Sentinel-2 missed as detections (default `1`)      |
+| `AFAI_ANOMALY_THRESHOLD`  | Pipeline (optional)    | AFAI above local background to flag a cell (default `0.001`)         |
+| `AFAI_MATCH_KM`           | Pipeline (optional)    | Distance at which S2 and AFAI detections count as the same mass (default `15`) |
+| `ML_REQUIRE_SKILL`        | Pipeline (optional)    | Use the ML model only if it beat seasonal at its last training (default `1`) |
+| `ML_EVAL_FOLDS`           | Pipeline (optional)    | Walk-forward folds used to score the model (default `3`)             |
+| `CURRENTS_INCLUDE_STOKES` | Pipeline (optional)    | Use Copernicus merged currents with tides + Stokes drift (default `1`) |
+| `WIND_DRIFT_MIN` / `WIND_DRIFT_MAX` | Pipeline (optional) | Windage range sampled by the ensemble (default `0.005`–`0.015`) |
+| `DRIFT_PARTICLES`         | Pipeline (optional)    | Particles (= ensemble members) per patch (default `24`)              |
+| `ARRIVAL_KM`              | Pipeline (optional)    | Distance from the coast that counts as arrival (default `3`)         |
+| `DRIFT_PRESENT_HOURS`     | Pipeline (optional)    | Catch-up arrivals this recent count as present now (default `48`)    |
+| `RISK_PROB_THRESHOLD`     | Pipeline (optional)    | Share of members needed for the headline risk level (default `0.5`)  |
+| `CLOUD_SCORE_MIN`         | Pipeline (optional)    | Cloud Score+ clear-sky threshold (default `0.6`)                     |
+| `COAST_BUFFER_M`          | Pipeline (optional)    | Shoreline strip excluded from detection (default `300`)              |
+| `ML_MIN_REPORT_ROWS`      | Pipeline (optional)    | Report rows needed to train on visitor reports (default `150`)       |
 | `ZONE_BOX_HALF_DEG`       | Pipeline (optional)    | Half-width of each zone's detection box in degrees (default`0.35`)  |
 | `CORS_ORIGINS`            | API (optional)         | Origins allowed to call the API                                       |
 | `APP_CANONICAL_URL`       | Dashboard (optional)   | Canonical site URL for SEO tags                                       |
@@ -188,6 +203,7 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `GET`  | `/beaches`            | Beach catalog (`?province=` / `?region=` filters)          |
 | `GET`  | `/detections`         | Latest detected sargassum masses (lat/lon + area);`?limit=`  |
 | `POST` | `/subscribe`          | Subscribe a Telegram chat to a zone                            |
+| `POST` | `/reports`            | A visitor's own sighting: `{beach, amount, observed_on?}` (today or yesterday) |
 | `POST` | `/telegram/webhook`   | Telegram Bot API update handler                                |
 
 Interactive docs at `/docs` when the API is running.
@@ -204,6 +220,10 @@ Interactive docs at `/docs` when the API is running.
 | `ml_forecasts` | ML extended forecasts per (zone, lead_days); unique on (run_at, zone, lead)    |
 | `subscribers`  | Telegram subscribers per zone                                                  |
 | `beaches`      | 55 DR beaches with metadata + PostGIS point geometry                           |
+| `beach_reports` | What visitors saw on a beach (`none`…`high`) — the ground truth forecasts are scored against. Service role only |
+| `zone_features` | Per-run, per-zone inputs of the extended model, written each run             |
+| `detection_checks` | Per-run agreement between Sentinel-2 and NOAA/USF AFAI, and AFAI gap fill |
+| `model_evaluations` | Walk-forward scores of the extended model vs its baselines at each training |
 
 Risk levels: `none` · `low` · `medium` · `high`
 
@@ -221,6 +241,7 @@ Once deployed and webhook registered:
 | `/subscribe <zone>` | Subscribe to alerts for a zone (e.g.`/subscribe Punta Cana`) |
 | `/status`           | Show current risk for all zones                                |
 | `/stop`             | Unsubscribe from all alerts                                    |
+| `/reporte <cantidad> <playa>` | Report what you see on a beach today: `nada`, `poco`, `bastante` or `mucho` (e.g. `/reporte mucho Bávaro`). Stored like web reports, without the chat id |
 
 ---
 
@@ -267,56 +288,58 @@ $$
 \text{FAI} = \rho_\text{NIR} - \left( \rho_\text{Red} + (\rho_\text{SWIR} - \rho_\text{Red}) \cdot \frac{\lambda_\text{NIR} - \lambda_\text{Red}}{\lambda_\text{SWIR} - \lambda_\text{Red}} \right)
 $$
 
-Pixels with FAI > threshold (default **0.005**, tunable via `FAI_THRESHOLD` env var) are flagged as floating biomass.
-Contiguous flagged pixels are vectorised into patch polygons. Patches smaller than 0.05 km² are discarded as noise.
+FAI is compared with the **local median FAI** within 500 m (`FAI_BG_RADIUS_M`), which removes haze, sun glint and shallow-bottom brightness; pixels more than `FAI_THRESHOLD` (default **0.005**) above that background, with NDVI > `NDVI_MIN`, are flagged. Contiguous flagged pixels are vectorised into patch polygons; patches smaller than 0.05 km² are discarded.
+
+- **Clouds:** the scene classification's cloud, shadow and cirrus classes are removed, plus Google's **Cloud Score+** (`cs_cdf ≥ CLOUD_SCORE_MIN`). Pixels are no longer required to be labelled "water": tested on real DR scenes, that requirement dropped 1–3 % of algae pixels (dense mats labelled vegetation or bare soil), while 30–80 % of algae-flagged pixels were clouds.
+- **Coast:** land is removed with the detailed US State Department boundary plus a `COAST_BUFFER_M` (300 m) strip, so surf, river plumes and shallow reefs don't read as algae. On a September week this removed a 32 km² "patch" in the shallow channel north of Saona that had sat unchanged for six days.
+- **When it was seen:** each patch keeps its latest observation time (`observed_at`); Sentinel-2 looks back 7 days, so a patch can be several days old.
+- **How much:** besides the outline area, each patch stores `covered_km2` (outline × mean FAI anomaly ÷ `S2_FAI_FULL_COVER`). Risk still uses the outline area until visitor reports allow re-tuning the thresholds.
 
 ### Step 2 — Ocean forcing (Copernicus Marine / Open-Meteo)
 
-For up to 20 patch centroids the pipeline fetches:
+Whole fields over the EEZ are downloaded once per run, from the oldest patch's observation time to 72 h ahead, and interpolated at each particle's position every hour:
 
-| Source                                                        | Variable                                               | Horizon |
-| ------------------------------------------------------------- | ------------------------------------------------------ | ------- |
-| **Copernicus Marine** (`GLOBAL_ANALYSISFORECAST_PHY`) | Eastward current`uo`, northward current `vo` (m/s) | 72 h    |
-| **Open-Meteo** (free tier)                              | 10 m zonal wind`u`, meridional wind `v` (m/s)      | 72 h    |
+| Source | Variables | Grid |
+| --- | --- | --- |
+| **Copernicus Marine** `cmems_mod_glo_phy_anfc_merged-uv_PT1H-i` | `utotal`, `vtotal`: ocean circulation + tides + wave Stokes drift (falls back to `uo`/`vo`) | hourly, 1/12° |
+| **Open-Meteo** | 10 m wind, requested in **m/s** | hourly, 0.5° |
 
-### Step 3 — Drift model (Lagrangian advection)
+> Until November 2026 the pipeline read Open-Meteo's default **km/h** as m/s, so wind pushed modelled sargassum 3.6× too hard (2 % windage acted like 7.2 %), and currents were read only at each patch's starting point.
 
-Each patch centroid is stepped forward **1 hour at a time** over 72 hours:
+### Step 3 — Drift model (particle ensemble)
+
+Each patch is released as `DRIFT_PARTICLES` (24) particles spread over its outline. Particle *k* of every patch belongs to ensemble member *k*, which draws one windage α between `WIND_DRIFT_MIN` and `WIND_DRIFT_MAX` (0.5–1.5 %; a lab study measured just under 1 % for sargassum, and the currents already include Stokes drift). Every particle starts at its patch's **observation time**, so a mass seen days ago is first caught up to now, and is stepped hourly:
 
 $$
-u_\text{eff} = u_\text{current} + \alpha \cdot u_\text{wind}
+\mathbf{u}_\text{eff} = \mathbf{u}_\text{current}(t, \mathbf{x}) + \alpha_k \, \mathbf{u}_\text{wind}(t, \mathbf{x}),
 \qquad
-v_\text{eff} = v_\text{current} + \alpha \cdot v_\text{wind}
+\mathbf{x}_{t+1} = \mathbf{x}_t + \mathbf{u}_\text{eff}\,\Delta t + \sqrt{2K\Delta t}\,\boldsymbol{\xi}
 $$
 
-$$
-\text{lon}_{t+1} = \text{lon}_t + \frac{u_\text{eff} \cdot \Delta t}{\cos(\text{lat}_t) \cdot 111\,320}
-\qquad
-\text{lat}_{t+1} = \text{lat}_t + \frac{v_\text{eff} \cdot \Delta t}{111\,320}
-$$
-
-where $\Delta t = 3600$ s and $\alpha = 0.02$ (2 % windage — empirical value for surface biomass, tunable via `WIND_DRIFT_FACTOR`).
-
-When a patch centroid enters a **zone bounding box** (0.35 ° half-width square around each coastal zone centre, tunable via `ZONE_BOX_HALF_DEG`), the arrival hour and projected area are recorded.
+with eddy diffusivity $K$ = `DRIFT_DIFFUSIVITY_M2S` (20 m²/s). A particle **arrives** when it comes within `ARRIVAL_KM` (3 km) of the coast or reaches land (`pipeline/data/land.geojson`: Hispaniola, Puerto Rico and nearby islands), and stops there. Each stretch of Dominican coast belongs to its nearest zone centre within `ZONE_COAST_RADIUS_KM` (40 km), so overlapping zones never share a beach, a mass passing offshore doesn't count, and nothing crosses the island. Arrivals in the last `DRIFT_PRESENT_HOURS` (48 h) of the catch-up count as already present (hour 0); earlier ones stop the particle but aren't counted.
 
 ### Step 4 — Risk classification
 
-For each coastal zone the pipeline accumulates the total patch area projected to arrive within 72 hours and the earliest arrival time (ETA):
+For each zone and each ensemble member, the area of every patch whose member-*k* particle arrived is summed and classified:
 
-| Risk level | Condition                                                  |
-| ---------- | ---------------------------------------------------------- |
-| `none`   | No patch projected to reach the zone within 72 h           |
-| `low`    | Projected area <**1 km²**                           |
-| `medium` | Projected area**1–10 km²**                         |
-| `high`   | Projected area >**10 km²** OR ETA ≤ **24 h** |
+| Risk level | Condition |
+| --- | --- |
+| `none` | Arrived area < `RISK_AREA_MIN_KM2` (0.5 km²) |
+| `low` | 0.5–5 km² |
+| `medium` | 5–25 km² |
+| `high` | > 25 km², or ≥ 5 km² arriving within `RISK_HIGH_ETA_HOURS` (24 h) |
 
-Thresholds are tunable via `RISK_AREA_LOW_MAX_KM2`, `RISK_AREA_MEDIUM_MAX_KM2`, and `RISK_HIGH_ETA_HOURS` in `pipeline/config.py`.
+The share of members at each level is stored as `risk_probs`, and `arrival_probability` = 1 − P(none). The headline level is the highest one reached by at least `RISK_PROB_THRESHOLD` (0.5, the median member) of members; the ETA is the median first arrival among members.
+
+Try it without writing anything: `python -m pipeline.run --dry-run`.
 
 ### What the dashboard shows
 
 Each beach on the map is matched to the **nearest monitoring zone** by Haversine distance.
-The zone's risk level, ETA, and projected arrival timestamp are displayed in the beach detail panel.
+The zone's risk level, ETA, and projected arrival timestamp are displayed in the beach detail panel, with the zone's **arrival probability** from the particle ensemble.
 Forecasts are refreshed every 6 hours when the pipeline runs.
+
+**Beach exposure:** whether a beach faces the incoming sargassum matters as much as how close it is. Each beach's seaward direction (`shore_normal_deg` in `dashboard/surf_data.py`; region default for beaches without a curated spot) is compared with today's drift (regional current + wind). When the drift heads away from the beach's face, nearby sargassum counts one risk level lower (never below `low`), and the card says so; when it pushes straight on, the card says that too. The dashboard's quick drift uses 2 % windage (`DASHBOARD_WIND_DRIFT_FACTOR`) because its regional currents leave out Stokes drift.
 
 ### Step 5 — Telegram alerts (dispatch)
 
@@ -346,15 +369,56 @@ Beyond 72 hours the physics model diverges from reality because small errors in 
 | `zone_lat`, `zone_lon`   | Zone centre — lets the model learn coast-specific behaviour |
 | `lead_days`                | Forecast horizon (7, 14, or 21)                              |
 
-**Training data** are assembled automatically by joining past `forecasts` rows with `detections` rows from the same pipeline run, pairing each run at time *T* with the actual recorded risk at *T + lead_days* (±12 h tolerance).
+**Training data** come from the `zone_features` table: every run stores each zone's model inputs, computed by the same function prediction uses. Each run at time *T* is paired with the zone's physics risk at *T + lead_days* (±12 h tolerance). That label is a model output, not an observation; visitor reports are the ground truth (see [Scoring the forecasts](#scoring-the-forecasts)).
+
+> Before November 2026 training read `forecasts`/`detections` directly with `.limit()`, which Supabase silently caps at 1,000 rows, and parsed detection centroids as WKT while Supabase returns GeoJSON. The model therefore trained on the first weeks of data with every detection at (0, 0). Fill `zone_features` from history once with `python -m pipeline.backfill_features --write`.
+
+**Skill check:** every training first scores the model walk-forward (below). If it doesn't beat the seasonal fallback, predictions stay seasonal (`ML_REQUIRE_SKILL=0` turns this off), and the scores are saved to `model_evaluations`.
 
 **Model lifecycle:**
 
 - First run: no model file → seasonal climatology fallback used immediately, training skipped.
 - Once ≥ 40 labelled examples accumulate in Supabase (≈ 10 pipeline days), the model trains and is persisted to `pipeline/.model_cache.pkl`.
-- The model retrains every `ML_RETRAIN_EVERY_N_RUNS` pipeline runs (default `28`, ≈ 1 week at the 6-h cron cadence).
+- The model retrains every `ML_RETRAIN_EVERY_N_RUNS` pipeline runs (default `28`, ≈ 1 week at the 6-h cron cadence). The model file and run counter are kept between scheduled runs with the Actions cache (`pipeline.yml`); before that they were lost every run.
+- **Labels:** physics risk at *T + lead* until visitor reports give `ML_MIN_REPORT_ROWS` (150) training rows; from then on the model learns from what visitors actually saw. The source is recorded with each evaluation.
+- **Probabilities:** the classifier is calibrated (sigmoid, on time-ordered folds) and all four class probabilities are stored in `ml_forecasts.probs` and served by `GET /forecast/extended`. The card shows the chance of medium-or-high risk. Evaluations report a Brier score next to macro-F1.
 
 Results are stored in the `ml_forecasts` table and served at `GET /forecast/extended`.
+
+### Independent check: NOAA/USF daily AFAI
+
+After Sentinel-2 detection, `pipeline/afai.py` downloads the last 3 daily fields of USF's Alternative Floating Algae Index (MODIS/VIIRS, ~1.6 km, free on [NOAA/AOML ERDDAP](https://cwcgom.aoml.noaa.gov/erddap/info/noaa_aoml_atlantic_oceanwatch_AFAI_1D/index.html)). Each cell keeps its most recent clear view. A cell is flagged when it stands out from its local median background by more than `AFAI_ANOMALY_THRESHOLD`; cells next to clouds or the coast and saturated cells are ignored, because on real DR fields most bright cells sat on those edges.
+
+- **Check:** each run stores in `detection_checks` how many Sentinel-2 patches AFAI could see and confirmed, and how many AFAI clusters Sentinel-2 also found. Agreement is not accuracy: both are satellite estimates.
+- **Gap fill:** AFAI clusters with no Sentinel-2 patch within `AFAI_MATCH_KM` are added as detections with `source = 'usf-afai'`, which covers cloudy weeks and failed Sentinel-2 runs. Their area is the covered area (anomaly ÷ `AFAI_FULL_COVER`), smaller than Sentinel-2's outline area for the same mass, so they raise risk conservatively. Set `AFAI_GAP_FILL=0` to only compare.
+
+The threshold was chosen by inspecting real fields, not tuned against ground truth. Coastal clusters (e.g. Bahía de Manzanillo) can be river plumes, so watch `detection_checks` and the visitor reports before trusting gap-filled masses.
+
+### Visitor reports
+
+When a beach is selected, the sidebar asks *“¿Estás en la playa? ¿Cuánto sargazo hay hoy?”* (Nada / Poco / Bastante / Mucho). The answer goes to `POST /reports`, which accepts catalogue beaches only, today or yesterday only, stores the nearest zone, and keeps nothing personal (no IP, account or free text). Each session can report a beach once; the API rate-limits each visitor.
+
+### Scoring the forecasts
+
+```bash
+python -m pipeline.evaluate                  # reads Supabase, never writes
+python -m pipeline.evaluate --from-history   # before zone_features is backfilled
+python -m pipeline.evaluate --json out.json
+```
+
+1. **Extended model vs baselines (walk-forward).** Runs 6 h apart are near-copies, so a random split overstates accuracy. The history is cut into consecutive time blocks; each fold trains only on rows whose label time is before the block (purged) and tests on the block. The model is compared with **seasonal** (the current fallback), **persistence** (today's physics risk will still hold) and **majority** (always the most common class). The headline metric is macro-F1, because `none` dominates and accuracy rewards always saying `none`.
+2. **Forecasts vs visitor reports.** Each zone-day gets the median reported amount, and every stored forecast valid that day is scored: physics per horizon, the published extended forecast per lead, and seasonal.
+
+First run on real history (16 Jun – 29 Oct 2026, 5,973 zone-runs, 3 folds, labels = physics risk):
+
+| method      | macro-F1 | accuracy | MAE   |
+| ----------- | -------- | -------- | ----- |
+| model       | 0.260    | 0.500    | 0.899 |
+| seasonal    | 0.168    | 0.193    | 1.624 |
+| persistence | **0.411** | **0.591** | **0.744** |
+| majority    | 0.162    | 0.478    | 0.948 |
+
+The model beats seasonal at every lead but loses to persistence at every lead. Scores against visitor reports will say which of these is closest to what actually reaches the beaches.
 
 ---
 
@@ -503,7 +567,7 @@ demand from [Open-Meteo's free Marine and Forecast APIs](https://open-meteo.com/
 The offline suites make no network calls and are what CI runs:
 
 ```bash
-for s in beaches conoce dispatch drift images map_perf profiles risk_overlay surf workflows; do
+for s in afai beaches conoce dispatch drift evaluate images map_perf profiles reports risk_overlay surf workflows; do
   python -m tests.test_$s || break
 done
 
@@ -558,11 +622,11 @@ Understanding these constraints is essential before relying on the system for pl
 
 | Limitation               | Detail                                                                                                                                                        | Impact                                                                                         |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| CMEMS sample cap         | Only 20 patch centroids are sent to the CMEMS API per run to stay within free-tier rate limits; all other patches inherit the nearest sampled point's forcing | Patches far from the 20 sampled points use approximate currents                                |
-| Constant windage factor  | α = 0.02 is an empirical average; actual windage varies with mass thickness, age, and wave state                                                             | Under- or over-predicts drift for thin versus thick mats                                       |
-| No Stokes drift          | Wave-induced Stokes drift can add 5–15 cm/s to surface transport, especially in trade-wind conditions                                                        | ETAs may be a few hours optimistic in high-wind periods                                        |
-| Static regional currents | The regional current model uses fixed seasonal-mean speeds per coastal regime                                                                                 | Mesoscale eddies and upwelling events are not captured; accuracy degrades at longer lead times |
-| Zone detection box       | Each zone is a 0.35° half-width bounding box (≈ 53 km corner distance)                                                                                      | A mass must cross into this box to trigger an alert; the box does not match true bay geometry  |
+| Untuned ensemble        | Windage range (0.5–1.5 %), diffusivity (20 m²/s) and the 3 km arrival distance come from the literature and judgement, not from DR data | Probabilities are indicative until tuned against visitor reports |
+| 1/12° currents          | Copernicus currents resolve ~9 km; bays, reefs and harbour mouths are finer than that | Arrival within a bay is approximate; particles stop 3 km from the coast |
+| Coverage gaps           | Coast more than 40 km from every zone centre belongs to no zone (e.g. Santo Domingo–Haina, ~70.0° W) | Arrivals there are not counted for any zone; add a zone to cover them |
+| Isla Catalina missing   | The land polygon (US State Department LSIB) does not include Catalina | Particles can pass through it |
+| Dashboard quick drift   | The beach card's own per-beach ETA still uses fixed regional currents, not the pipeline's gridded field | Card ETA and zone forecast can differ |
 
 ### ML extended forecast (7–21 days)
 

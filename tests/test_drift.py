@@ -12,18 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Offline unit test for pipeline.drift: uses synthetic patches and forcing.
+"""Offline tests for pipeline.drift: synthetic patches in uniform currents.
 
 Run from repo root:
     python -m tests.test_drift
 
-The test places one 5 km² patch ~1 degree west of Punta Cana (18.58, -68.37)
-and gives it a steady 3 m/s eastward current with no wind.  At 3 m/s across
-~1 degree of longitude (~105 km at this latitude), the patch should arrive in
-roughly 10 hours.  We assert:
-  - Punta Cana is assigned a non-'none' risk level.
-  - ETA is plausible (between 1 and 72 hours).
-  - All 5 zones appear in the result.
+Uses ocean.ForcingField.uniform, so there are no network calls. Positions
+are chosen against the real coastline in pipeline/data/land.geojson.
 """
 from __future__ import annotations
 
@@ -31,94 +26,117 @@ import datetime as dt
 import logging
 import sys
 
-from pipeline.drift import project_drift
 from pipeline import config
+from pipeline.drift import project_drift, run_particles
+from pipeline.ocean import ForcingField
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s: %(message)s")
 
-# ---------------------------------------------------------------------------
-# Synthetic data
-# ---------------------------------------------------------------------------
-
-# Punta Cana center: 18.58, -68.37
-# Place patch 1 degree to the west (lon=-69.37) at the same latitude.
-_PATCH_LAT = 18.58
-_PATCH_LON = -69.37   # ~1 deg west of Punta Cana
-_PATCH_AREA_KM2 = 5.0
-
-SYNTHETIC_PATCHES = [
-    {
-        "centroid_lat": _PATCH_LAT,
-        "centroid_lon": _PATCH_LON,
-        "area_km2": _PATCH_AREA_KM2,
-    }
-]
-
-# 72 hourly steps of steady 3 m/s eastward current, no wind.
-_STEPS = 72
-_U_CURRENT = 3.0   # m/s eastward
-_V_CURRENT = 0.0   # m/s northward
-
-_BASE_TIME = dt.datetime.now(dt.timezone.utc)
-_TIMES = [str(_BASE_TIME + dt.timedelta(hours=h)) for h in range(_STEPS)]
-
-SYNTHETIC_FORCING: dict[int, dict] = {
-    0: {
-        "lat": _PATCH_LAT,
-        "lon": _PATCH_LON,
-        "times": _TIMES,
-        "u_current": [_U_CURRENT] * _STEPS,
-        "v_current": [_V_CURRENT] * _STEPS,
-        "u_wind": [0.0] * _STEPS,
-        "v_wind": [0.0] * _STEPS,
-        "units": {"current": "m/s", "wind": "m/s"},
-    }
-}
+NOW = dt.datetime(2026, 7, 1, 12, tzinfo=dt.timezone.utc)
 
 
-# ---------------------------------------------------------------------------
-# Test
-# ---------------------------------------------------------------------------
+def _patch(lat: float, lon: float, area: float = 30.0, **extra) -> dict:
+    return {"centroid_lat": lat, "centroid_lon": lon, "area_km2": area, **extra}
 
-def test_drift() -> None:
-    forecasts = project_drift(SYNTHETIC_PATCHES, SYNTHETIC_FORCING)
 
-    zone_names = [f["zone_name"] for f in forecasts]
-    print("\nZone forecasts:")
-    for f in forecasts:
-        print(
-            f"  {f['zone_name']:15s}  risk={f['risk_level']:6s}  "
-            f"eta={f['eta_hours']}h  ts={f['eta_timestamp']}"
-        )
+def _zone(forecasts: list[dict], name: str) -> dict:
+    return next(f for f in forecasts if f["zone_name"] == name)
 
-    # All 5 config zones must appear.
-    assert len(forecasts) == len(config.ZONES), (
-        f"Expected {len(config.ZONES)} forecasts, got {len(forecasts)}"
-    )
 
-    # Find Punta Cana forecast.
-    pc = next(f for f in forecasts if f["zone_name"] == "Punta Cana")
-    assert pc["risk_level"] != "none", (
-        f"Punta Cana should be hit by the synthetic patch, got risk={pc['risk_level']!r}"
-    )
-    assert pc["eta_hours"] is not None, "Punta Cana ETA should not be None"
-    assert 1 <= pc["eta_hours"] <= 72, (
-        f"ETA out of expected range: {pc['eta_hours']} h"
-    )
-    assert pc["eta_timestamp"] is not None, "ETA timestamp should be set"
+def test_arrives_at_the_coast_ahead() -> None:
+    """A mass 45 km east of Punta Cana in a 0.5 m/s westward current."""
+    field = ForcingField.uniform(NOW, 96, u=-0.5, v=0.0)
+    fc = project_drift([_patch(18.58, -67.90)], field, now=NOW)
+    assert len(fc) == len(config.ZONES)
+    pc = _zone(fc, "Punta Cana")
+    assert pc["risk_level"] == "high", pc       # 30 km² arriving
+    assert pc["eta_hours"] is not None and 15 <= pc["eta_hours"] <= 40, pc["eta_hours"]
+    assert pc["arrival_probability"] > 0.9
+    assert abs(sum(pc["risk_probs"].values()) - 1.0) < 1e-6
+    # Bávaro's box overlaps Punta Cana's, but its coast is not where the mass lands.
+    assert _zone(fc, "Bavaro")["risk_level"] == "none"
+    assert [h["horizon_hours"] for h in pc["horizons"]] == [0, 24, 48, 72]
+    assert pc["horizons"][0]["risk_level"] == "none"
+    print(f"  Punta Cana arrival, ETA {pc['eta_hours']} h, p={pc['arrival_probability']}: OK")
 
-    # Risk level must be one of the four valid values everywhere.
-    valid_risks = {"none", "low", "medium", "high"}
-    for f in forecasts:
-        assert f["risk_level"] in valid_risks, (
-            f"Invalid risk_level {f['risk_level']!r} for {f['zone_name']}"
-        )
 
-    print("\nAll assertions passed.")
+def test_offshore_pass_is_not_an_arrival() -> None:
+    """A mass 25 km off the north coast drifting west, parallel to the shore,
+    used to count for every zone box it crossed."""
+    field = ForcingField.uniform(NOW, 96, u=-0.6, v=0.0)
+    fc = project_drift([_patch(20.05, -70.0)], field, now=NOW)
+    for name in ("Puerto Plata", "Rio San Juan", "Monte Cristi"):
+        assert _zone(fc, name)["risk_level"] == "none", _zone(fc, name)
+    print("  offshore pass along the north coast: no arrival: OK")
+
+
+def test_land_blocks_crossing() -> None:
+    """Pushed north from the south coast, a mass must stop on the south coast,
+    not cross Hispaniola into the northern zones."""
+    field = ForcingField.uniform(NOW, 96, u=0.0, v=1.0)
+    fc = project_drift([_patch(18.15, -70.35)], field, now=NOW)
+    south = [_zone(fc, n)["risk_level"] for n in ("Azua", "Juan Dolio")]
+    assert any(r != "none" for r in south), south
+    for name in ("Puerto Plata", "Rio San Juan", "Samana"):
+        assert _zone(fc, name)["risk_level"] == "none", name
+    print(f"  stopped on the south coast ({south}), nothing crossed north: OK")
+
+
+def test_old_observation_is_caught_up() -> None:
+    """Seen 2 days ago 45 km out in a 0.5 m/s current: it reached the coast
+    ~1 day ago, so it is present now (ETA 0), not still 45 km out."""
+    field = ForcingField.uniform(NOW, 96, u=-0.5, v=0.0)
+    seen = (NOW - dt.timedelta(days=2)).isoformat()
+    pc = _zone(project_drift([_patch(18.58, -67.90, observed_at=seen)], field, now=NOW), "Punta Cana")
+    assert pc["eta_hours"] == 0, pc["eta_hours"]
+    assert pc["horizons"][0]["risk_level"] == "high"
+    # Seen 6 days ago: it beached ~5 days ago, outside DRIFT_PRESENT_HOURS,
+    # so it no longer counts as present.
+    long_ago = (NOW - dt.timedelta(days=6)).isoformat()
+    pc_beached = _zone(project_drift([_patch(18.58, -67.90, observed_at=long_ago)], field, now=NOW), "Punta Cana")
+    assert pc_beached["risk_level"] == "none", pc_beached
+    too_old = (NOW - dt.timedelta(days=config.DRIFT_MAX_AGE_DAYS + 1)).isoformat()
+    pc_old = _zone(project_drift([_patch(18.58, -67.90, observed_at=too_old)], field, now=NOW), "Punta Cana")
+    assert pc_old["risk_level"] == "none"
+    print("  2-day-old sighting already ashore; stale sighting dropped: OK")
+
+
+def test_ensemble_and_windage() -> None:
+    field = ForcingField.uniform(NOW, 96, u=-0.5, v=0.0, wind_u=-8.0)
+    raw = run_particles([_patch(18.58, -67.90)], field, now=NOW, n_particles=16, seed=1)
+    w = raw["windage"]
+    assert len(w) == 16 and w.min() >= config.WIND_DRIFT_MIN and w.max() <= config.WIND_DRIFT_MAX
+    # Stronger windage pushes faster: arrival hour falls as windage rises.
+    arrived = ~(raw["hour"] != raw["hour"])
+    hours = raw["hour"][arrived]
+    order = w[raw["member"][arrived]].argsort()
+    assert hours[order][:4].mean() >= hours[order][-4:].mean()
+    # Same seed -> same result.
+    again = run_particles([_patch(18.58, -67.90)], field, now=NOW, n_particles=16, seed=1)
+    assert (again["windage"] == w).all()
+    print(f"  16 members, windage {w.min():.3f}–{w.max():.3f}, reproducible: OK")
+
+
+def test_small_trace_is_low_or_none() -> None:
+    field = ForcingField.uniform(NOW, 96, u=-0.5, v=0.0)
+    pc = _zone(project_drift([_patch(18.58, -67.90, area=0.2)], field, now=NOW), "Punta Cana")
+    assert pc["risk_level"] == "none", pc
+    print("  a 0.2 km² trace stays 'none': OK")
 
 
 def main() -> int:
-    test_drift()
+    tests = [
+        test_arrives_at_the_coast_ahead,
+        test_offshore_pass_is_not_an_arrival,
+        test_land_blocks_crossing,
+        test_old_observation_is_caught_up,
+        test_ensemble_and_windage,
+        test_small_trace_is_low_or_none,
+    ]
+    for t in tests:
+        print(f"\n{t.__name__}")
+        t()
+    print("\nAll drift assertions passed.")
     return 0
 
 

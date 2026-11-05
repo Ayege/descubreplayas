@@ -49,6 +49,24 @@ def list_zones() -> list[dict[str, Any]]:
     return result.data or []
 
 
+_FC_COLS = "id, run_at, zone_id, zone_name, risk_level, eta_hours, eta_timestamp, horizons"
+_FC_NEW_COLS = ", arrival_probability, risk_probs"
+_ML_COLS = "id, run_at, zone_id, zone_name, lead_days, risk_level, confidence, method, valid_at"
+_ML_NEW_COLS = ", probs"
+
+
+def _select(view: str, cols: str, new_cols: str, build):
+    """Select with the newer columns, or without them if the view predates them.
+
+    Keeps the API working when it is deployed before sql/schema.sql is re-run.
+    """
+    try:
+        return build(get_client().table(view).select(cols + new_cols)).execute().data or []
+    except Exception:
+        logger.warning("%s: newer columns unavailable; run sql/schema.sql.", view)
+        return build(get_client().table(view).select(cols)).execute().data or []
+
+
 def latest_forecasts() -> list[dict[str, Any]]:
     """Return the single most-recent forecast per zone.
 
@@ -57,26 +75,12 @@ def latest_forecasts() -> list[dict[str, Any]]:
     transfer and the fragile "fetch N rows and hope every zone is still in
     the window" limit this used to rely on.
     """
-    result = (
-        get_client()
-        .table("forecasts_latest")
-        .select("id, run_at, zone_id, zone_name, risk_level, eta_hours, eta_timestamp, horizons")
-        .order("zone_id")
-        .execute()
-    )
-    return result.data or []
+    return _select("forecasts_latest", _FC_COLS, _FC_NEW_COLS, lambda q: q.order("zone_id"))
 
 
 def latest_forecast_for_zone(zone_id: int) -> dict[str, Any] | None:
-    result = (
-        get_client()
-        .table("forecasts_latest")
-        .select("id, run_at, zone_id, zone_name, risk_level, eta_hours, eta_timestamp, horizons")
-        .eq("zone_id", zone_id)
-        .limit(1)
-        .execute()
-    )
-    rows = result.data or []
+    rows = _select("forecasts_latest", _FC_COLS, _FC_NEW_COLS,
+                   lambda q: q.eq("zone_id", zone_id).limit(1))
     return rows[0] if rows else None
 
 
@@ -120,15 +124,55 @@ def list_ml_forecasts(lead_days: int | None = None) -> list[dict[str, Any]]:
     Optionally filter to a single lead horizon (7, 14, or 21 days). Dedup
     happens in the ml_forecasts_latest SQL view — see sql/schema.sql.
     """
-    query = (
+    def build(q):
+        q = q.order("zone_id")
+        return q.eq("lead_days", lead_days) if lead_days is not None else q
+    return _select("ml_forecasts_latest", _ML_COLS, _ML_NEW_COLS, build)
+
+
+def get_beach(name: str) -> dict[str, Any] | None:
+    """Return one catalogue beach's name and position, or None if unknown."""
+    result = (
         get_client()
-        .table("ml_forecasts_latest")
-        .select("id, run_at, zone_id, zone_name, lead_days, risk_level, confidence, method, valid_at")
-        .order("zone_id")
+        .table("beaches")
+        .select("name, latitude, longitude")
+        .eq("name", name)
+        .limit(1)
+        .execute()
     )
-    if lead_days is not None:
-        query = query.eq("lead_days", lead_days)
-    return query.execute().data or []
+    rows = result.data or []
+    return rows[0] if rows else None
+
+
+def insert_report(
+    *,
+    beach_name: str,
+    latitude: float,
+    longitude: float,
+    zone_id: int | None,
+    amount: str,
+    observed_on: str,
+    source: str = "web",
+) -> dict[str, Any]:
+    """Store one visitor report of sargassum on a beach."""
+    result = (
+        get_client()
+        .table("beach_reports")
+        .insert({
+            "beach_name": beach_name,
+            "latitude": latitude,
+            "longitude": longitude,
+            "zone_id": zone_id,
+            "amount": amount,
+            "observed_on": observed_on,
+            "source": source,
+        })
+        .execute()
+    )
+    rows = result.data or []
+    if not rows:
+        raise RuntimeError("Report insert returned no data.")
+    return rows[0]
 
 
 def list_detections(limit: int = 2000) -> list[dict[str, Any]]:

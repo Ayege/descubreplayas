@@ -136,11 +136,91 @@ DETECT_SCALE_M = float(os.environ.get("DETECT_SCALE_M", "60"))
 # Maximum acceptable cloud cover (%) when filtering the S2 collection.
 MAX_CLOUD_COVER_PCT = float(os.environ.get("MAX_CLOUD_COVER_PCT", "40"))
 
+# Cloud Score+ (Google): keep pixels whose clear-sky score cs_cdf is at least
+# this. Applied on top of the Sentinel-2 scene classification's cloud classes.
+CLOUD_SCORE_MIN = float(os.environ.get("CLOUD_SCORE_MIN", "0.6"))
+# FAI is compared with the local median FAI within this radius (m), which
+# removes haze, sun glint and shallow-bottom brightness before thresholding.
+# Larger windows were 5-20x slower on Earth Engine (see detect.py).
+FAI_BG_RADIUS_M = float(os.environ.get("FAI_BG_RADIUS_M", "500"))
+# Strip this much (m) off the coast before detecting: surf, river plumes and
+# shallow reefs at the shoreline otherwise read as floating algae.
+COAST_BUFFER_M = float(os.environ.get("COAST_BUFFER_M", "300"))
+# FAI anomaly of a pixel fully covered by sargassum, used to estimate the
+# covered area inside each outline (stored as covered_km2; risk still uses
+# the outline area until reports allow re-tuning the thresholds). VERIFY.
+S2_FAI_FULL_COVER = float(os.environ.get("S2_FAI_FULL_COVER", "0.08"))
+
 DETECTION_SOURCE = "sentinel-2"
 
+# --- NOAA/USF daily AFAI (independent check + cloudy-day gap fill) ------------
+# USF's Alternative Floating Algae Index from MODIS/VIIRS, 0.015° (~1.6 km),
+# one field per day, served free by NOAA/AOML's ERDDAP. Cloud and land cells
+# are NaN; values are clipped to [-0.002, 0.004] and 0.004 means saturated.
+AFAI_ENABLED = os.environ.get("AFAI_ENABLED", "1") not in ("0", "false", "False", "")
+AFAI_GAP_FILL = os.environ.get("AFAI_GAP_FILL", "1") not in ("0", "false", "False", "")
+AFAI_ERDDAP_URL = os.environ.get(
+    "AFAI_ERDDAP_URL",
+    "https://cwcgom.aoml.noaa.gov/erddap/griddap/noaa_aoml_atlantic_oceanwatch_AFAI_1D.json",
+)
+# How many of the most recent daily fields to combine (latest clear view per cell).
+AFAI_DAYS = int(os.environ.get("AFAI_DAYS", "3"))
+# A cell is flagged when its AFAI exceeds the local background (median over a
+# AFAI_BG_WINDOW-cell square) by more than AFAI_ANOMALY_THRESHOLD. Chosen by
+# inspecting real DR fields, not tuned against ground truth: tune it with the
+# detection_checks table and beach reports.
+AFAI_ANOMALY_THRESHOLD = float(os.environ.get("AFAI_ANOMALY_THRESHOLD", "0.001"))
+AFAI_BG_WINDOW = int(os.environ.get("AFAI_BG_WINDOW", "21"))
+# Cells this close (in grid cells) to a cloud or the coast are ignored: on
+# real DR fields most bright cells sat right on a cloud or land edge.
+AFAI_EDGE_BUFFER_CELLS = int(os.environ.get("AFAI_EDGE_BUFFER_CELLS", "2"))
+AFAI_SATURATED = float(os.environ.get("AFAI_SATURATED", "0.0039"))
+AFAI_MIN_CLUSTER_CELLS = int(os.environ.get("AFAI_MIN_CLUSTER_CELLS", "2"))
+# AFAI of a cell fully covered by sargassum, used to turn the anomaly into a
+# covered fraction (Wang & Hu 2016, MODIS). VERIFY before relying on areas.
+AFAI_FULL_COVER = float(os.environ.get("AFAI_FULL_COVER", "0.0869"))
+# Two detections closer than this (km) count as the same mass. Generous,
+# because Sentinel-2 looks back 7 days and AFAI 3, and masses drift ~10-20 km/day.
+AFAI_MATCH_KM = float(os.environ.get("AFAI_MATCH_KM", "15"))
+AFAI_SOURCE = "usf-afai"
+
 # --- Drift / risk -------------------------------------------------------------
-# Fraction of wind speed added to surface current to approximate windage.
-WIND_DRIFT_FACTOR = float(os.environ.get("WIND_DRIFT_FACTOR", "0.02"))
+# Surface currents: True uses Copernicus' merged product (ocean + tides +
+# wave Stokes drift); False uses the ocean circulation alone.
+CURRENTS_INCLUDE_STOKES = os.environ.get("CURRENTS_INCLUDE_STOKES", "1") not in ("0", "false", "False", "")
+
+# Fraction of the 10 m wind added to the current ("windage"). Each ensemble
+# member draws its own value between MIN and MAX, because real windage varies
+# with mat thickness and sea state. A lab study measured just under 1 % for
+# sargassum (Olascoaga, Beron-Vera et al.); with Stokes drift already in the
+# currents, a higher value would count the wave push twice. WIND_DRIFT_FACTOR
+# is the central value, used when the ensemble has a single member.
+WIND_DRIFT_FACTOR = float(os.environ.get("WIND_DRIFT_FACTOR", "0.01"))
+WIND_DRIFT_MIN = float(os.environ.get("WIND_DRIFT_MIN", "0.005"))
+WIND_DRIFT_MAX = float(os.environ.get("WIND_DRIFT_MAX", "0.015" if CURRENTS_INCLUDE_STOKES else "0.02"))
+
+# --- Particle ensemble (drift.py) ------------------------------------------
+# Each patch is released as DRIFT_PARTICLES particles spread over its outline.
+# Particle k of every patch belongs to ensemble member k, which shares one
+# windage value, so each member is one plausible version of the next 3 days.
+DRIFT_PARTICLES = int(os.environ.get("DRIFT_PARTICLES", "24"))
+# Horizontal eddy diffusivity (m²/s) for the random walk: the sub-grid
+# spreading a 1/12° (~9 km) current model can't resolve.
+DRIFT_DIFFUSIVITY_M2S = float(os.environ.get("DRIFT_DIFFUSIVITY_M2S", "20"))
+DRIFT_SEED = int(os.environ.get("DRIFT_SEED", "12345"))
+# Masses seen longer ago than this are not caught up and are dropped.
+DRIFT_MAX_AGE_DAYS = float(os.environ.get("DRIFT_MAX_AGE_DAYS", "8"))
+# While catching a mass up from its observation time, arrivals in the last
+# DRIFT_PRESENT_HOURS count as "present now"; earlier ones are not counted.
+DRIFT_PRESENT_HOURS = float(os.environ.get("DRIFT_PRESENT_HOURS", "48"))
+# A particle "arrives" when it comes this close to the coast (km), or hits land.
+ARRIVAL_KM = float(os.environ.get("ARRIVAL_KM", "3"))
+# Coastline belongs to its nearest zone centre if within this distance (km).
+# Nearest-centre ownership means overlapping zones never share a beach.
+ZONE_COAST_RADIUS_KM = float(os.environ.get("ZONE_COAST_RADIUS_KM", "40"))
+# Headline risk = the highest level reached by at least this share of
+# ensemble members (0.5 = the median member). Full probabilities are stored.
+RISK_PROB_THRESHOLD = float(os.environ.get("RISK_PROB_THRESHOLD", "0.5"))
 
 # Risk thresholds on projected patch area within a zone (km^2).
 # These represent the TOTAL marine sargassum area drifting toward a zone:
@@ -162,6 +242,16 @@ FORECAST_HOURS_PHYSICS = int(os.environ.get("FORECAST_HOURS_PHYSICS", "72"))
 FORECAST_HOURS_EXTENDED = int(os.environ.get("FORECAST_HOURS_EXTENDED", "168"))  # 7 days
 # Retrain the ML model after this many pipeline runs (approx weekly with 6-h cron).
 ML_RETRAIN_EVERY_N_RUNS = int(os.environ.get("ML_RETRAIN_EVERY_N_RUNS", "28"))
+# Use the ML model only if it beat the seasonal fallback on held-out,
+# later-in-time data at its last training. Set to 0 to always use it.
+ML_REQUIRE_SKILL = os.environ.get("ML_REQUIRE_SKILL", "1") not in ("0", "false", "False", "")
+# Walk-forward folds used to score the model at each training.
+ML_EVAL_FOLDS = int(os.environ.get("ML_EVAL_FOLDS", "3"))
+# Switch the training labels from physics risk to visitor reports once the
+# reports give this many (zone, day, lead) rows.
+ML_MIN_REPORT_ROWS = int(os.environ.get("ML_MIN_REPORT_ROWS", "150"))
+# Calibrate the classifier's probabilities (sigmoid, time-ordered folds).
+ML_CALIBRATE = os.environ.get("ML_CALIBRATE", "1") not in ("0", "false", "False", "")
 
 
 def open_meteo_params(lat: float, lon: float, start: dt.date, end: dt.date) -> dict[str, str]:
@@ -170,6 +260,8 @@ def open_meteo_params(lat: float, lon: float, start: dt.date, end: dt.date) -> d
         "latitude": str(lat),
         "longitude": str(lon),
         "hourly": OPEN_METEO_HOURLY,
+        # Open-Meteo's default is km/h; the drift maths needs m/s.
+        "wind_speed_unit": "ms",
         "timezone": "UTC",
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),

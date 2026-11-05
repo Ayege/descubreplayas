@@ -12,61 +12,67 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Drift step: Lagrangian advection of patches to compute arrival ETA and risk level per coastal zone.
+"""Drift step: particle-ensemble advection to the coast, per-zone arrival risk.
 
 Algorithm
 ---------
-Each detected patch centroid is stepped forward one hour at a time:
+1. Each patch is released as DRIFT_PARTICLES particles spread over its
+   outline (or around its centroid when there is no outline).
+2. Particle k of every patch belongs to ensemble member k. Each member draws
+   one windage value in [WIND_DRIFT_MIN, WIND_DRIFT_MAX], so a member is one
+   coherent, plausible version of the next three days.
+3. Each particle starts at the time its patch was OBSERVED (detections can
+   be days old) and is stepped hourly up to now + forecast horizon:
 
-    lon[t+1] = lon[t] + (u_eff * dt) / (cos(lat[t]) * METERS_PER_DEG)
-    lat[t+1] = lat[t] + (v_eff * dt) / METERS_PER_DEG
+       u_eff = u_current(t, x) + windage_k · u_wind(t, x)
+       x    += u_eff · Δt + random walk (eddy diffusivity K)
 
-where:
-    u_eff = u_current + WIND_DRIFT_FACTOR * u_wind
-    v_eff = v_current + WIND_DRIFT_FACTOR * v_wind
-    dt    = 3600 s
-
-WIND_DRIFT_FACTOR (default 0.02 = 2.0 %) comes from empirical studies of
-surface biomass windage.  Sargassum sits mostly below the waterline, so its
-leeway is lower than a hollow buoy (~3 %) but non-negligible; published values
-range 1.5–3 %.  Tune via the WIND_DRIFT_FACTOR env var (pipeline/config.py).
+   with the current and wind interpolated at the particle's CURRENT position
+   and time from gridded fields (pipeline/ocean.py).
+4. A particle stops when it comes within ARRIVAL_KM of the coast or lands on
+   it. The stretch of coast it reaches belongs to the nearest zone centre
+   (within ZONE_COAST_RADIUS_KM), so overlapping zones never share a beach
+   and a mass passing offshore does not count as an arrival. Arrivals that
+   happened before now (while catching up) count as already present (hour 0).
+5. Per member and horizon, the arrived area (each patch's full area if its
+   member-k particle arrived) is classified with the same thresholds as
+   before. The share of members at each level is the probability; the
+   headline level is the highest one reached by at least
+   RISK_PROB_THRESHOLD of members.
 """
 from __future__ import annotations
 
 import datetime as dt
+import json
 import logging
 import math
+from functools import lru_cache
+from pathlib import Path
 from typing import Optional
+
+import numpy as np
 
 from pipeline import config
 
 logger = logging.getLogger(__name__)
 
-# Earth geometry constant: metres per degree of latitude.
 _METERS_PER_DEG = 111_320.0
+_LAND_PATH = Path(__file__).parent / "data" / "land.geojson"
+# Natural Earth DR outline, shared with the dashboard's land checks.
+_DR_PATH = Path(__file__).parent.parent / "dashboard" / "dr_boundary.geojson"
+_LEVELS = ("none", "low", "medium", "high")
+# Local equal-distance projection for km distances around the DR (~18.9° N).
+_KM_X = 111.32 * math.cos(math.radians(18.9))
+_KM_Y = 111.32
 
 
 # ---------------------------------------------------------------------------
-# Internal helpers
+# Risk classification (unchanged thresholds)
 # ---------------------------------------------------------------------------
-
-def _zone_box(zone: dict) -> tuple[float, float, float, float]:
-    """Return (min_lon, min_lat, max_lon, max_lat) for a zone bounding box."""
-    d = config.ZONE_BOX_HALF_DEG
-    lat, lon = zone["center_lat"], zone["center_lon"]
-    return lon - d, lat - d, lon + d, lat + d
-
-
-def _in_zone(lon: float, lat: float, box: tuple[float, float, float, float]) -> bool:
-    min_lon, min_lat, max_lon, max_lat = box
-    return min_lon <= lon <= max_lon and min_lat <= lat <= max_lat
-
 
 def _classify_risk(area_km2: float, significant_eta_hours: Optional[int]) -> str:
-    """Classify sargassum risk from projected area and how soon a
-    significant amount of it arrives.
-
-    Both the *amount* of sargassum AND its proximity matter:
+    """Classify sargassum risk from arrived area and how soon a significant
+    amount of it arrives.
 
     * area_km2 < RISK_AREA_MIN_KM2  → none  (too small to impact a beach)
     * area_km2 in [min, low_max)    → low   (visible traces likely)
@@ -75,19 +81,13 @@ def _classify_risk(area_km2: float, significant_eta_hours: Optional[int]) -> str
     * a significant amount (>= RISK_AREA_LOW_MAX_KM2) arriving very soon
       (significant_eta_hours <= RISK_HIGH_ETA_HOURS) → high
 
-    A tiny speck (e.g. 0.1 km²) arriving in 2 hours is still only 'low',
-    not 'high', because there is not enough biomass to matter.
-
-    `significant_eta_hours` must be the hour at which the CUMULATIVE arrived
-    area first reached RISK_AREA_LOW_MAX_KM2 (see `_significant_eta` below) —
-    not simply the nearest patch's own ETA regardless of its size. Using the
-    nearest-ANY-patch ETA here let a negligible trace arriving in 2h combine
-    with an unrelated, much larger mass arriving in 70h to read as "HIGH RISK
-    — arrival imminent", when the significant mass was not imminent at all.
+    `significant_eta_hours` is the hour the CUMULATIVE arrived area first
+    reached RISK_AREA_LOW_MAX_KM2 (see `_significant_eta`), not the nearest
+    patch's ETA, so a trace arriving soon can't make an unrelated large mass
+    arriving late read as imminent.
     """
     if area_km2 < config.RISK_AREA_MIN_KM2:
-        return "none"  # mass too small to produce meaningful beach impact
-    # A significant amount that's imminent → high regardless of exact area bracket
+        return "none"
     if (
         area_km2 >= config.RISK_AREA_LOW_MAX_KM2
         and significant_eta_hours is not None
@@ -98,217 +98,327 @@ def _classify_risk(area_km2: float, significant_eta_hours: Optional[int]) -> str
         return "high"
     if area_km2 >= config.RISK_AREA_LOW_MAX_KM2:
         return "medium"
-    return "low"  # area >= min but < low_max
+    return "low"
 
 
 def _significant_eta(
     arrivals: list[tuple[int, float]], upto_hour: int, threshold_km2: float
 ) -> Optional[int]:
-    """Earliest hour (<= upto_hour) by which the CUMULATIVE arrived area first
-    reaches `threshold_km2`, walking forward through time.
-
-    Returns None if the cumulative area never reaches the threshold within
-    that window. This is deliberately different from "the nearest patch's own
-    ETA" — a zone can have several small patches arriving early and one large
-    one arriving late (or vice versa); this answers "when did a significant
-    amount first show up," which is what the imminent-risk bonus should be
-    gated on.
-    """
-    relevant = sorted((hr, a) for hr, a in arrivals if hr <= upto_hour)
+    """Earliest hour (<= upto_hour) at which the cumulative arrived area
+    reaches `threshold_km2`, or None."""
     cumulative = 0.0
-    for hour, area in relevant:
+    for hour, area in sorted((hr, a) for hr, a in arrivals if hr <= upto_hour):
         cumulative += area
         if cumulative >= threshold_km2:
             return hour
     return None
 
 
-def _effective_velocity(
-    step: int,
-    u_current: list[float],
-    v_current: list[float],
-    u_wind: Optional[list[float]],
-    v_wind: Optional[list[float]],
-    alpha: float,
-) -> tuple[float, float]:
-    """Return (u_eff, v_eff) in m/s for a given timestep index."""
-    idx = min(step, len(u_current) - 1)
-    uc = u_current[idx]
-    vc = v_current[idx]
+# ---------------------------------------------------------------------------
+# Coastline
+# ---------------------------------------------------------------------------
 
-    if u_wind and v_wind:
-        widx = min(step, len(u_wind) - 1)
-        uc += alpha * u_wind[widx]
-        vc += alpha * v_wind[widx]
-
-    return uc, vc
+def _to_km(lat, lon) -> np.ndarray:
+    return np.column_stack([np.asarray(lon, float) * _KM_X, np.asarray(lat, float) * _KM_Y])
 
 
-def _step_position(
-    lon: float,
-    lat: float,
-    u_eff: float,
-    v_eff: float,
-    dt_sec: float = 3600.0,
-) -> tuple[float, float]:
-    """Advance (lon, lat) by one timestep using simple Lagrangian advection."""
-    new_lat = lat + (v_eff * dt_sec) / _METERS_PER_DEG
-    new_lon = lon + (u_eff * dt_sec) / (math.cos(math.radians(lat)) * _METERS_PER_DEG)
-    return new_lon, new_lat
+@lru_cache(maxsize=1)
+def _land():
+    """Prepared land polygon (Hispaniola, Puerto Rico, nearby islands)."""
+    import shapely
+    from shapely.geometry import shape
+
+    with open(_LAND_PATH, encoding="utf-8") as fh:
+        geom = shape(json.load(fh)["geometry"])
+    shapely.prepare(geom)
+    return geom
+
+
+@lru_cache(maxsize=4)
+def _coast(zone_key: tuple) -> tuple:
+    """(KD-tree over coast points in km, zone index per point or -1).
+
+    Coast points are the land outline sampled every ~0.5 km. Each point
+    belongs to the nearest zone centre if that centre is within
+    ZONE_COAST_RADIUS_KM.
+    """
+    from scipy.spatial import cKDTree
+
+    land = _land()
+    pts = []
+    for poly in getattr(land, "geoms", [land]):
+        ring = poly.exterior.segmentize(0.005)  # ~0.5 km
+        pts.extend(ring.coords)
+    pts = np.array(pts)  # (n, 2) lon, lat
+    xy = _to_km(pts[:, 1], pts[:, 0])
+
+    centres = _to_km([z[1] for z in zone_key], [z[2] for z in zone_key])
+    d = np.linalg.norm(xy[:, None, :] - centres[None, :, :], axis=2)
+    owner = np.argmin(d, axis=1)
+    owner[d[np.arange(len(owner)), owner] > config.ZONE_COAST_RADIUS_KM] = -1
+
+    # Only Dominican coast belongs to a zone: Haiti's coast near Monte Cristi
+    # or Pedernales still stops particles, but is not a DR beach.
+    try:
+        import shapely
+        from shapely.geometry import shape
+
+        with open(_DR_PATH, encoding="utf-8") as fh:
+            dr = shape(json.load(fh)["geometry"]).buffer(0.02)  # ~2 km slack
+        shapely.prepare(dr)
+        owner[~shapely.contains_xy(dr, pts[:, 0], pts[:, 1])] = -1
+    except Exception:
+        logger.warning("drift: DR outline unavailable; all coast near a zone counts.", exc_info=True)
+    return cKDTree(xy), owner
+
+
+# ---------------------------------------------------------------------------
+# Seeding
+# ---------------------------------------------------------------------------
+
+def _seed(patch: dict, n: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+    """n (lat, lon) release points spread over the patch.
+
+    Uniform inside the outline when there is one; otherwise a Gaussian disc
+    with the radius of a circle of the patch's area.
+    """
+    lat0, lon0 = float(patch["centroid_lat"]), float(patch["centroid_lon"])
+    wkt = patch.get("geom_wkt")
+    if wkt and n > 1:
+        try:
+            import shapely
+            from shapely import wkt as _wkt
+
+            poly = _wkt.loads(wkt)
+            minx, miny, maxx, maxy = poly.bounds
+            shapely.prepare(poly)
+            lats, lons = [], []
+            for _ in range(20):
+                x = rng.uniform(minx, maxx, 4 * n)
+                y = rng.uniform(miny, maxy, 4 * n)
+                ok = shapely.contains_xy(poly, x, y)
+                lons.extend(x[ok])
+                lats.extend(y[ok])
+                if len(lats) >= n:
+                    return np.array(lats[:n]), np.array(lons[:n])
+        except Exception:
+            logger.debug("drift: could not seed inside outline; using a disc.", exc_info=True)
+    if n == 1:
+        return np.array([lat0]), np.array([lon0])
+    r_km = math.sqrt(max(float(patch.get("area_km2", 0.0)), 0.0) / math.pi)
+    return (lat0 + rng.normal(0, r_km / _KM_Y, n) if r_km else np.full(n, lat0),
+            lon0 + rng.normal(0, r_km / _KM_X, n) if r_km else np.full(n, lon0))
+
+
+def _observed_ts(patch: dict, now: dt.datetime) -> float:
+    """Observation time of a patch (epoch s), clamped to [now - max age, now]."""
+    raw = patch.get("observed_at")
+    ts = now.timestamp()
+    if raw:
+        try:
+            t = dt.datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            if t.tzinfo is None:
+                t = t.replace(tzinfo=dt.timezone.utc)
+            ts = t.timestamp()
+        except ValueError:
+            pass
+    return min(ts, now.timestamp())
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
-def project_drift(
+def run_particles(
     patches: list[dict],
-    forcing: dict[int, dict],
-    hours: list[int] | None = None,
-) -> list[dict]:
-    """Project patch centroids forward and compute per-zone arrival risk.
+    field,
+    now: dt.datetime | None = None,
+    horizon_hours: int = 72,
+    n_particles: int | None = None,
+    seed: int | None = None,
+) -> dict:
+    """Advect every patch's particles; return raw arrivals.
 
-    Args:
-        patches: list of detection dicts, each with at least:
-                 {"centroid_lat": float, "centroid_lon": float, "area_km2": float}
-        forcing: output of ocean.get_ocean_forcing() — dict[point_index -> entry].
-                 Patch i must have a corresponding entry in forcing[i].
-        hours:   snapshot hours for trajectory output (default [24, 48, 72]).
-
-    Returns:
-        List of zone forecast dicts, one per zone:
-        {
-            "zone_id":       int (1-based index into config.ZONES),
-            "zone_name":     str,
-            "risk_level":    "none" | "low" | "medium" | "high",
-            "eta_hours":     int | None,
-            "eta_timestamp": str (ISO) | None,
-        }
+    Returns {"zone_names", "area" (P,), "member" (P*N,), "patch" (P*N,),
+    "zone" (P*N,) int or -1, "hour" (P*N,) arrival hour from now (0 = already
+    there; NaN = no arrival), "windage" (N,), "lat", "lon" (final positions)}.
     """
-    if hours is None:
-        hours = [0, 24, 48, 72]
-
-    horizons = sorted(set(hours))
-    max_hours = max(horizons)
-    alpha = config.WIND_DRIFT_FACTOR
-    run_at = dt.datetime.now(dt.timezone.utc)
-
-    # Pre-compute zone boxes (1-indexed to match DB id convention).
+    now = now or dt.datetime.now(dt.timezone.utc)
+    n = max(1, int(n_particles or config.DRIFT_PARTICLES))
+    rng = np.random.default_rng(config.DRIFT_SEED if seed is None else seed)
     zones = config.ZONES
-    zone_boxes = [_zone_box(z) for z in zones]
+    zone_key = tuple((z["name"], float(z["center_lat"]), float(z["center_lon"])) for z in zones)
+    tree, owner = _coast(zone_key)
+    land = _land()
 
-    # zone_state[i] -> {"eta_hours": int|None, "arrivals": [(hour, area_km2), ...]}
-    # We record the hour each patch first enters the zone plus its area, so we
-    # can later compute the cumulative area present by ANY forecast horizon.
-    zone_state: list[dict] = [
-        {"eta_hours": None, "arrivals": []} for _ in zones
-    ]
+    max_age = config.DRIFT_MAX_AGE_DAYS * 86400
+    kept = [p for p in patches if now.timestamp() - _observed_ts(p, now) <= max_age]
+    if len(kept) < len(patches):
+        logger.info("drift: dropped %d patch(es) older than %.0f days.",
+                    len(patches) - len(kept), config.DRIFT_MAX_AGE_DAYS)
 
-    for patch_idx, patch in enumerate(patches):
-        f = forcing.get(patch_idx)
-        if f is None:
-            # No ocean forcing for this patch — fall back to zero drift.
-            # The patch stays put, but the hour-0 immediate-presence check
-            # below still correctly flags any mass already inside a zone.
-            f = {"u_current": [0.0], "v_current": [0.0], "u_wind": [0.0], "v_wind": [0.0]}
+    windage = (np.full(n, config.WIND_DRIFT_FACTOR) if n == 1
+               else rng.uniform(config.WIND_DRIFT_MIN, config.WIND_DRIFT_MAX, n))
+    lat_l, lon_l, t0_l = [], [], []
+    for p in kept:
+        la, lo = _seed(p, n, rng)
+        lat_l.append(la)
+        lon_l.append(lo)
+        t0_l.append(np.full(n, _observed_ts(p, now)))
+    total = len(kept) * n
+    out = {
+        "zone_names": [z["name"] for z in zones],
+        "area": np.array([float(p.get("area_km2", 0.0)) for p in kept]),
+        "member": np.tile(np.arange(n), len(kept)),
+        "patch": np.repeat(np.arange(len(kept)), n),
+        "zone": np.full(total, -1, dtype=int),
+        "hour": np.full(total, np.nan),
+        "windage": windage,
+    }
+    if not total:
+        out["lat"] = out["lon"] = np.array([])
+        return out
 
-        u_current: list[float] = f["u_current"]
-        v_current: list[float] = f["v_current"]
-        u_wind: Optional[list[float]] = f.get("u_wind")
-        v_wind: Optional[list[float]] = f.get("v_wind")
-        area_km2: float = float(patch.get("area_km2", 0.0))
+    lat = np.concatenate(lat_l)
+    lon = np.concatenate(lon_l)
+    t0 = np.concatenate(t0_l)
+    wk = windage[out["member"]]
+    done = np.zeros(total, dtype=bool)
+    now_s = now.timestamp()
+    sigma_m = math.sqrt(2 * config.DRIFT_DIFFUSIVITY_M2S * 3600.0)
 
-        lon = float(patch["centroid_lon"])
-        lat = float(patch["centroid_lat"])
+    present_s = config.DRIFT_PRESENT_HOURS * 3600.0
 
-        # Track which zones this patch has already been counted for, so its
-        # area is added exactly once per zone (a patch may sit inside a zone
-        # box for several consecutive hours).
-        counted_zones: set[int] = set()
+    def _check_arrival(t_s, idx: np.ndarray) -> None:
+        """Stop particles at the coast. t_s: arrival time (scalar or per particle).
 
-        # Hour 0 — a patch already inside a zone box is an IMMEDIATE risk.
-        # Without this check the loop only registers patches that *enter* a
-        # zone after drifting, missing biomass that is already present.
-        for zi, box in enumerate(zone_boxes):
-            if _in_zone(lon, lat, box):
-                counted_zones.add(zi)
-                st = zone_state[zi]
-                st["arrivals"].append((0, area_km2))
-                st["eta_hours"] = 0  # already in the zone now
+        Arrivals in the last DRIFT_PRESENT_HOURS count as present now (hour
+        0); older ones stop the particle but are not counted, because
+        sargassum that beached days ago is no longer the forecast's concern.
+        """
+        if not len(idx):
+            return
+        import shapely
+        dist, nearest = tree.query(_to_km(lat[idx], lon[idx]))
+        hit = (dist <= config.ARRIVAL_KM) | shapely.contains_xy(land, lon[idx], lat[idx])
+        if hit.any():
+            j = idx[hit]
+            when = (np.broadcast_to(np.asarray(t_s, dtype=float), idx.shape)[hit] - now_s)
+            done[j] = True
+            recent = when >= -present_s
+            out["zone"][j] = np.where(recent, owner[nearest[hit]], -1)
+            out["hour"][j] = np.where(recent, np.maximum(0.0, when / 3600.0), np.nan)
 
-        for step in range(max_hours):
-            if len(counted_zones) == len(zone_boxes):
-                break
-            u_eff, v_eff = _effective_velocity(step, u_current, v_current, u_wind, v_wind, alpha)
-            lon, lat = _step_position(lon, lat, u_eff, v_eff)
+    # Particles already at the coast when their patch was observed.
+    _check_arrival(t0, np.arange(total))
 
-            hour = step + 1
-            for zi, box in enumerate(zone_boxes):
-                if zi in counted_zones:
-                    continue
-                if _in_zone(lon, lat, box):
-                    counted_zones.add(zi)
-                    st = zone_state[zi]
-                    # Record arrival hour + area so cumulative area by any
-                    # horizon can be derived afterwards.
-                    st["arrivals"].append((hour, area_km2))
-                    if st["eta_hours"] is None or hour < st["eta_hours"]:
-                        st["eta_hours"] = hour
+    t = float(np.floor(t0.min() / 3600.0) * 3600.0)
+    end = now_s + horizon_hours * 3600.0
+    while t < end:
+        active = np.nonzero(~done & (t0 <= t))[0]
+        if len(active):
+            uc, vc = field.current(t, lat[active], lon[active])
+            uw, vw = field.wind(t, lat[active], lon[active])
+            ue = uc + wk[active] * uw
+            ve = vc + wk[active] * vw
+            dx = ue * 3600.0 + rng.normal(0, sigma_m, len(active))
+            dy = ve * 3600.0 + rng.normal(0, sigma_m, len(active))
+            lat[active] += dy / _METERS_PER_DEG
+            lon[active] += dx / (np.cos(np.radians(lat[active])) * _METERS_PER_DEG)
+            _check_arrival(t + 3600.0, active)
+        t += 3600.0
+
+    out["lat"], out["lon"] = lat, lon
+    return out
 
 
-    # Build result list.
+def summarise(raw: dict, now: dt.datetime, hours: list[int]) -> list[dict]:
+    """Turn particle arrivals into one forecast dict per zone."""
+    horizons = sorted(set(hours))
+    max_h = max(horizons)
+    names = raw["zone_names"]
+    n = len(raw["windage"])
+    area = raw["area"]
     results: list[dict] = []
-    for zi, zone in enumerate(zones):
-        state = zone_state[zi]
-        eta_h = state["eta_hours"]
-        arrivals: list[tuple[int, float]] = state["arrivals"]
 
-        # Total area projected to be present within the full forecast window.
-        total_area = sum(a for _, a in arrivals)
+    for zi, name in enumerate(names):
+        sel = (raw["zone"] == zi) & ~np.isnan(raw["hour"])
+        per_member: list[list[tuple[int, float]]] = [[] for _ in range(n)]
+        for m, pidx, h in zip(raw["member"][sel], raw["patch"][sel], raw["hour"][sel]):
+            per_member[m].append((int(math.ceil(h)), float(area[pidx])))
 
-        # Per-horizon breakdown: cumulative area + risk classification at each
-        # forecast checkpoint (e.g. 24h, 48h, 72h). This is the honest,
-        # physics-limited forecast — risk evolving over the next 3 days.
-        horizon_breakdown: list[dict] = []
+        def levels_at(h: int) -> list[str]:
+            return [
+                _classify_risk(sum(a for hr, a in arr if hr <= h),
+                               _significant_eta(arr, h, config.RISK_AREA_LOW_MAX_KM2))
+                for arr in per_member
+            ]
+
+        def headline(levels: list[str]) -> tuple[str, dict]:
+            probs = {lv: levels.count(lv) / n for lv in _LEVELS}
+            level = "none"
+            for k, lv in enumerate(_LEVELS):
+                if sum(probs[x] for x in _LEVELS[k:]) >= config.RISK_PROB_THRESHOLD:
+                    level = lv
+            return level, {k: round(v, 3) for k, v in probs.items()}
+
+        horizon_breakdown = []
         for h in horizons:
-            area_h = sum(a for hr, a in arrivals if hr <= h)
-            sig_eta_h = _significant_eta(arrivals, h, config.RISK_AREA_LOW_MAX_KM2)
-            horizon_breakdown.append(
-                {
-                    "horizon_hours": h,
-                    "risk_level": _classify_risk(area_h, sig_eta_h),
-                    "area_km2": round(area_h, 3),
-                    "valid_at": (run_at + dt.timedelta(hours=h)).isoformat(),
-                }
-            )
+            level, probs = headline(levels_at(h))
+            horizon_breakdown.append({
+                "horizon_hours": h,
+                "risk_level": level,
+                "area_km2": round(sum(a for arr in per_member for hr, a in arr if hr <= h) / n, 3),
+                "valid_at": (now + dt.timedelta(hours=h)).isoformat(),
+                "probs": probs,
+            })
 
-        # Summary risk = worst risk across all horizons (so a zone that turns
-        # high at +72h is still surfaced as high in the headline number).
-        summary_sig_eta = _significant_eta(arrivals, max_hours, config.RISK_AREA_LOW_MAX_KM2)
-        summary_risk = _classify_risk(total_area, summary_sig_eta)
-
-        eta_ts: Optional[str] = None
-        if eta_h is not None:
-            eta_ts = (run_at + dt.timedelta(hours=eta_h)).isoformat()
-
-        results.append(
-            {
-                "zone_id": zi + 1,
-                "zone_name": zone["name"],
-                "risk_level": summary_risk,
-                "eta_hours": eta_h,
-                "eta_timestamp": eta_ts,
-                "horizons": horizon_breakdown,
-            }
-        )
-        logger.info(
-            "Zone %s: risk=%s eta=%sh area=%.2fkm2 horizons=%s",
-            zone["name"],
-            summary_risk,
-            eta_h,
-            total_area,
-            [(h["horizon_hours"], h["risk_level"]) for h in horizon_breakdown],
-        )
-
+        summary_level, summary_probs = headline(levels_at(max_h))
+        first = [min(hr for hr, _ in arr) for arr in per_member if arr]
+        eta_h = None
+        if len(first) / n >= config.RISK_PROB_THRESHOLD:
+            eta_h = int(np.median(first))
+        results.append({
+            "zone_id": zi + 1,
+            "zone_name": name,
+            "risk_level": summary_level,
+            "eta_hours": eta_h,
+            "eta_timestamp": (now + dt.timedelta(hours=eta_h)).isoformat() if eta_h is not None else None,
+            "arrival_probability": round(1.0 - summary_probs["none"], 3),
+            "risk_probs": summary_probs,
+            "horizons": horizon_breakdown,
+        })
+        logger.info("Zone %s: risk=%s p(arrival)=%.2f eta=%sh probs=%s", name, summary_level,
+                    1.0 - summary_probs["none"], eta_h, summary_probs)
     return results
 
+
+def project_drift(
+    patches: list[dict],
+    field,
+    hours: list[int] | None = None,
+    now: dt.datetime | None = None,
+    n_particles: int | None = None,
+    seed: int | None = None,
+) -> list[dict]:
+    """Forecast per-zone arrival risk for the next max(hours) hours.
+
+    Args:
+        patches: detection dicts with centroid_lat, centroid_lon, area_km2 and
+                 optionally geom_wkt (outline) and observed_at (ISO time).
+        field:   ocean.ForcingField (currents + wind, interpolated in place).
+        hours:   forecast checkpoints (default [0, 24, 48, 72]).
+
+    Returns one dict per zone: zone_id (1-based config index), zone_name,
+    risk_level, eta_hours, eta_timestamp, arrival_probability, risk_probs,
+    horizons [{horizon_hours, risk_level, area_km2, valid_at, probs}].
+    """
+    hours = hours or [0, 24, 48, 72]
+    now = now or dt.datetime.now(dt.timezone.utc)
+    raw = run_particles(patches, field, now=now, horizon_hours=max(hours),
+                        n_particles=n_particles, seed=seed)
+    arrived = int((~np.isnan(raw["hour"])).sum())
+    logger.info("drift: %d patch(es) × %d particles, %d arrived at a coast (%d at a zone).",
+                len(raw["area"]), len(raw["windage"]), arrived,
+                int(((raw["zone"] >= 0) & ~np.isnan(raw["hour"])).sum()))
+    return summarise(raw, now, hours)

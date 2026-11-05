@@ -15,6 +15,7 @@
 """FastAPI application and route definitions."""
 from __future__ import annotations
 
+import datetime as dt
 import hmac
 import json
 import logging
@@ -34,6 +35,8 @@ from api.models import (
     ExtendedForecastResponse,
     ForecastResponse,
     HealthResponse,
+    ReportRequest,
+    ReportResponse,
     SubscribeRequest,
     SubscribeResponse,
     ZoneResponse,
@@ -176,6 +179,8 @@ def _format_forecast(row: dict) -> ForecastResponse:
         eta_timestamp=row.get("eta_timestamp"),
         run_at=str(row["run_at"]),
         horizons=row.get("horizons"),
+        arrival_probability=row.get("arrival_probability"),
+        risk_probs=row.get("risk_probs"),
     )
 
 
@@ -223,6 +228,7 @@ def list_extended_forecasts(
             method=r["method"],
             valid_at=str(r["valid_at"]),
             run_at=str(r["run_at"]),
+            probs=r.get("probs"),
         ))
     content = json.dumps([e.model_dump() for e in out])
     return Response(
@@ -297,6 +303,48 @@ def subscribe(body: SubscribeRequest, request: Request) -> SubscribeResponse:
     if not row:
         raise HTTPException(status_code=503, detail="Subscription could not be saved. Try again.")
     return SubscribeResponse(**row)
+
+
+# ---------------------------------------------------------------------------
+# Beach reports (ground truth from visitors)
+# ---------------------------------------------------------------------------
+
+from api import reports as _reports
+
+_dr_today = _reports.dr_today  # kept as a name for tests
+
+
+@app.post("/reports", response_model=ReportResponse, status_code=201, tags=["reports"])
+def create_report(body: ReportRequest, request: Request) -> ReportResponse:
+    """Record what a visitor saw on a beach today (or yesterday).
+
+    These reports are the ground truth the forecasts are scored against
+    (pipeline/evaluate.py), so the endpoint only accepts beaches from the
+    catalogue and recent dates.
+    """
+    _enforce_rate_limit(request)
+    today = _dr_today()
+    observed_on = body.observed_on or today
+    if not (today - dt.timedelta(days=1) <= observed_on <= today):
+        raise HTTPException(status_code=422, detail="observed_on must be today or yesterday.")
+
+    beach = db.get_beach(body.beach)
+    if not beach:
+        raise HTTPException(status_code=404, detail="Unknown beach.")
+
+    try:
+        row = _reports.store_report(beach, body.amount, observed_on, source="web")
+    except Exception:
+        logger.exception("reports: insert failed")
+        raise HTTPException(status_code=503, detail="Report could not be saved. Try again.")
+
+    return ReportResponse(
+        id=row["id"],
+        beach=row["beach_name"],
+        amount=row["amount"],
+        observed_on=str(row["observed_on"]),
+        zone_id=row.get("zone_id"),
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -52,5 +52,27 @@ jobs:
           echo "$EE_SERVICE_ACCOUNT_JSON" > /tmp/ee_key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/ee_key.json" >> "$GITHUB_ENV"
 
+      # Keep the trained extended-forecast model and the run counter between
+      # scheduled runs, so ML_RETRAIN_EVERY_N_RUNS applies instead of a full
+      # retrain every 6 hours. Each run saves under a new key; restore picks
+      # the newest. Caches written on main can't be written by pull requests.
+      - name: Restore model cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            pipeline/.model_cache.pkl
+            pipeline/.run_count
+          key: ml-model-${{ github.run_id }}
+          restore-keys: ml-model-
+
       - name: Run pipeline
         run: python -m pipeline.run
+
+      - name: Save model cache
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            pipeline/.model_cache.pkl
+            pipeline/.run_count
+          key: ml-model-${{ github.run_id }}

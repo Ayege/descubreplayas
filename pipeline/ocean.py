@@ -12,221 +12,229 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Ocean data step: fetch Copernicus Marine surface currents and wind at detected patch points."""
+"""Ocean forcing step: gridded surface currents and 10 m wind over the EEZ.
 
+The drift model needs the current WHERE THE MASS IS each hour, not where it
+started, so this module downloads whole fields once per run and the drift
+step interpolates them along every trajectory:
+
+* Currents: Copernicus Marine global analysis & forecast, hourly, 1/12°.
+  By default the merged product's `utotal`/`vtotal`, which add tides and
+  wave-driven Stokes drift to the ocean circulation (`uo`/`vo`). Because the
+  Stokes part is already in, the wind factor in config is lowered to match.
+  Falls back to plain `uo`/`vo` if the merged product is unavailable.
+* Wind: Open-Meteo 10 m wind on a 0.5° grid, in m/s.
+
+Both cover from the oldest detection's observation time (the drift step
+first catches each mass up to "now") to the end of the forecast.
+"""
 from __future__ import annotations
 
 import datetime as dt
 import logging
 import math
-from typing import Iterable, Optional
+from dataclasses import dataclass, field
 
 import certifi
-import copernicusmarine
+import numpy as np
 import requests
 
 from pipeline import config
 
 logger = logging.getLogger(__name__)
 
-# --- CMEMS product / variable identifiers (VERIFY against the CMEMS catalogue) -
-# Surface currents: global ocean physics analysis & forecast, hourly, 1/12 deg.
-CURRENT_DATASET_ID = "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m"
-CURRENT_VARS = ["uo", "vo"]  # eastward / northward sea water velocity (m/s)
+# Merged surface currents (ocean + tide + Stokes). Variables confirmed with
+# copernicusmarine.describe(): uo, vo, utide, vtide, vsdx, vsdy, utotal, vtotal.
+MERGED_DATASET_ID = "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i"
+MERGED_VARS = ("utotal", "vtotal")
+# Ocean circulation only (no tide, no Stokes drift).
+OCEAN_DATASET_ID = "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m"
+OCEAN_VARS = ("uo", "vo")
 
-WIND_DATASET_ID = None
-WIND_VARS: list[str] = []
-
-CURRENT_UNITS = "m/s"
-WIND_UNITS = "m/s"
-
-# Small padding (deg) so requested points fall inside the subset box.
-_BBOX_PAD_DEG = 0.5
+_PAD_DEG = 0.5            # margin around the EEZ so edge trajectories stay inside
+_WIND_GRID_DEG = 0.5      # Open-Meteo sampling step
 
 
-def _bbox(points: list[tuple[float, float]]) -> dict:
-    """Compute a padded lon/lat bounding box around a set of (lat, lon) points."""
-    lats = [p[0] for p in points]
-    lons = [p[1] for p in points]
-    return {
-        "minimum_latitude": min(lats) - _BBOX_PAD_DEG,
-        "maximum_latitude": max(lats) + _BBOX_PAD_DEG,
-        "minimum_longitude": min(lons) - _BBOX_PAD_DEG,
-        "maximum_longitude": max(lons) + _BBOX_PAD_DEG,
-    }
+@dataclass
+class ForcingField:
+    """Hourly gridded currents and wind with vectorised interpolation.
 
-
-def _open_dataset(dataset_id: str, variables: list[str], box: dict, start: dt.datetime, end: dt.datetime):
-    """Open a CMEMS dataset subset as xarray. Verify kwargs against your toolbox version."""
-    return copernicusmarine.open_dataset(
-        dataset_id=dataset_id,
-        variables=variables,
-        start_datetime=start,
-        end_datetime=end,
-        username=config.CMEMS_USERNAME or None,
-        password=config.CMEMS_PASSWORD or None,
-        **box,
-    )
-
-
-def _parse_open_meteo_entry(entry: dict) -> dict[str, list]:
-    """Convert one Open-Meteo location result into u/v wind components."""
-    if "hourly" not in entry:
-        raise ValueError("Open-Meteo response missing hourly data")
-
-    hourly = entry["hourly"]
-    times = [dt.datetime.fromisoformat(ts).replace(tzinfo=dt.timezone.utc) for ts in hourly["time"]]
-    windspeed = [float(v) for v in hourly["windspeed_10m"]]
-    winddir = [float(v) for v in hourly["winddirection_10m"]]
-
-    # Convert meteorological wind direction to u/v (eastward/northward) components.
-    # Open-Meteo direction is degrees from north (meteorological convention).
-    u10 = [-(speed * math.sin(math.radians(direction))) for speed, direction in zip(windspeed, winddir)]
-    v10 = [-(speed * math.cos(math.radians(direction))) for speed, direction in zip(windspeed, winddir)]
-
-    return {
-        "times": times,
-        "u10": u10,
-        "v10": v10,
-    }
-
-
-def _fetch_open_meteo_wind_batch(
-    points: list[tuple[float, float]], start: dt.datetime, end: dt.datetime
-) -> list[Optional[dict[str, list]]]:
-    """Fetch hourly wind forecasts for many points in a single Open-Meteo request.
-
-    Open-Meteo accepts comma-separated latitude/longitude lists and returns
-    one result per point, in the same order, as a JSON array — a single JSON
-    object (not a one-item array) when only one point is requested. This
-    replaces the old one-request-per-patch loop, which made the pipeline's
-    runtime scale linearly with the number of detected patches. VERIFY the
-    batch parameter format and response shape against the current docs
-    (https://open-meteo.com/en/docs) if this ever starts failing — confirmed
-    against the docs as of writing, but it's a third-party API that can change.
-
-    Returns a list aligned with `points`; an entry is None if that point's
-    data was missing or malformed (currents-only fallback for that point).
+    Times are seconds since the Unix epoch. Values outside the grid are 0
+    (currents) or the nearest edge (time). Land cells in the current grid
+    are 0 too: particles stop at the coast in the drift step anyway.
     """
-    params = config.open_meteo_params(points[0][0], points[0][1], start.date(), end.date())
-    params["latitude"] = ",".join(str(lat) for lat, _ in points)
-    params["longitude"] = ",".join(str(lon) for _, lon in points)
-    response = requests.get(
-        config.OPEN_METEO_BASE_URL,
-        params=params,
-        timeout=30,
-        verify=certifi.where(),
-    )
-    response.raise_for_status()
-    payload = response.json()
+    times: np.ndarray                     # (nt,)
+    lats: np.ndarray                      # (ny,) ascending
+    lons: np.ndarray                      # (nx,) ascending
+    u: np.ndarray                         # (nt, ny, nx) m/s eastward
+    v: np.ndarray                         # (nt, ny, nx) m/s northward
+    current_kind: str = "total"           # "total" (incl. tide + Stokes) or "ocean"
+    wind_times: np.ndarray | None = None
+    wind_lats: np.ndarray | None = None
+    wind_lons: np.ndarray | None = None
+    wind_u: np.ndarray | None = None
+    wind_v: np.ndarray | None = None
+    _interp: dict = field(default_factory=dict, repr=False)
 
-    # A single-point request comes back as one object, not a one-item list.
-    entries = payload if isinstance(payload, list) else [payload]
+    @property
+    def has_wind(self) -> bool:
+        return self.wind_u is not None
 
-    results: list[Optional[dict[str, list]]] = []
-    for entry in entries:
+    def _get(self, name: str, times, lats, lons, values):
+        if name not in self._interp:
+            from scipy.interpolate import RegularGridInterpolator
+            self._interp[name] = RegularGridInterpolator(
+                (times, lats, lons), values, bounds_error=False, fill_value=0.0
+            )
+        return self._interp[name]
+
+    @staticmethod
+    def _points(times: np.ndarray, t: float, lat, lon) -> np.ndarray:
+        lat = np.atleast_1d(np.asarray(lat, dtype=float))
+        lon = np.atleast_1d(np.asarray(lon, dtype=float))
+        tt = np.full(lat.shape, float(np.clip(t, times[0], times[-1])))
+        return np.column_stack([tt, lat, lon])
+
+    def current(self, t: float, lat, lon) -> tuple[np.ndarray, np.ndarray]:
+        pts = self._points(self.times, t, lat, lon)
+        return (self._get("u", self.times, self.lats, self.lons, self.u)(pts),
+                self._get("v", self.times, self.lats, self.lons, self.v)(pts))
+
+    def wind(self, t: float, lat, lon) -> tuple[np.ndarray, np.ndarray]:
+        if not self.has_wind:
+            n = np.atleast_1d(lat).shape
+            return np.zeros(n), np.zeros(n)
+        pts = self._points(self.wind_times, t, lat, lon)
+        # Clamp to the wind grid instead of zeroing outside it: wind varies
+        # slowly and a particle just past the edge still feels it.
+        pts[:, 1] = np.clip(pts[:, 1], self.wind_lats[0], self.wind_lats[-1])
+        pts[:, 2] = np.clip(pts[:, 2], self.wind_lons[0], self.wind_lons[-1])
+        return (self._get("wu", self.wind_times, self.wind_lats, self.wind_lons, self.wind_u)(pts),
+                self._get("wv", self.wind_times, self.wind_lats, self.wind_lons, self.wind_v)(pts))
+
+    @classmethod
+    def uniform(cls, start: dt.datetime, hours: int, u: float, v: float,
+                wind_u: float = 0.0, wind_v: float = 0.0, bbox: dict | None = None) -> "ForcingField":
+        """Constant field over the EEZ: for tests and offline runs."""
+        b = bbox or config.EEZ_BBOX
+        t0 = start.timestamp()
+        times = np.array([t0 + 3600 * h for h in range(-240, hours + 2)], dtype=float)
+        lats = np.array([b["min_lat"] - 1, b["max_lat"] + 1])
+        lons = np.array([b["min_lon"] - 1, b["max_lon"] + 1])
+        shape = (len(times), 2, 2)
+        return cls(times, lats, lons, np.full(shape, u), np.full(shape, v), "ocean",
+                   times, lats, lons, np.full(shape, wind_u), np.full(shape, wind_v))
+
+
+# ---------------------------------------------------------------------------
+# Currents (Copernicus Marine)
+# ---------------------------------------------------------------------------
+
+def _padded_bbox(bbox: dict) -> dict:
+    return {
+        "minimum_latitude": bbox["min_lat"] - _PAD_DEG,
+        "maximum_latitude": bbox["max_lat"] + _PAD_DEG,
+        "minimum_longitude": bbox["min_lon"] - _PAD_DEG,
+        "maximum_longitude": bbox["max_lon"] + _PAD_DEG,
+    }
+
+
+def _surface(da) -> np.ndarray:
+    """(time, lat, lon) float array from a CMEMS variable, top level only."""
+    if "depth" in da.dims:
+        da = da.isel(depth=0)
+    da = da.transpose("time", "latitude", "longitude")
+    return np.nan_to_num(np.asarray(da.values, dtype=float), nan=0.0)
+
+
+def _fetch_currents(start: dt.datetime, end: dt.datetime, bbox: dict):
+    import copernicusmarine
+
+    attempts = [(MERGED_DATASET_ID, MERGED_VARS, "total"), (OCEAN_DATASET_ID, OCEAN_VARS, "ocean")]
+    if not config.CURRENTS_INCLUDE_STOKES:
+        attempts = attempts[1:]
+    last_exc: Exception | None = None
+    for dataset_id, (uvar, vvar), kind in attempts:
         try:
-            results.append(_parse_open_meteo_entry(entry))
-        except (KeyError, ValueError, TypeError):
-            results.append(None)
-    return results
+            ds = copernicusmarine.open_dataset(
+                dataset_id=dataset_id,
+                variables=[uvar, vvar],
+                start_datetime=start.replace(tzinfo=None),
+                end_datetime=end.replace(tzinfo=None),
+                minimum_depth=0.0,
+                maximum_depth=1.0,
+                username=config.CMEMS_USERNAME or None,
+                password=config.CMEMS_PASSWORD or None,
+                **_padded_bbox(bbox),
+            )
+            times = np.array([t.astype("datetime64[s]").astype(float) for t in ds["time"].values])
+            u, v = _surface(ds[uvar]), _surface(ds[vvar])
+            logger.info("ocean: %s %s/%s, %d h × %d × %d grid", dataset_id, uvar, vvar,
+                        len(times), u.shape[1], u.shape[2])
+            return (times, np.asarray(ds["latitude"].values, float),
+                    np.asarray(ds["longitude"].values, float), u, v, kind)
+        except Exception as exc:  # noqa: BLE001 — try the next product
+            logger.warning("ocean: %s unavailable (%s); trying the next product.", dataset_id, exc)
+            last_exc = exc
+    raise RuntimeError("No Copernicus current product could be read.") from last_exc
 
 
-def _align_wind_to_times(cur_times: list[dt.datetime], wind_data: dict[str, list[float]]) -> tuple[list[Optional[float]], list[Optional[float]]]:
-    """Align hourly Open-Meteo wind data to current forecast timestamps."""
-    wind_times = wind_data["times"]
-    u10 = wind_data["u10"]
-    v10 = wind_data["v10"]
+# ---------------------------------------------------------------------------
+# Wind (Open-Meteo)
+# ---------------------------------------------------------------------------
 
-    aligned_u: list[Optional[float]] = []
-    aligned_v: list[Optional[float]] = []
-    for target in cur_times:
-        nearest_idx = min(range(len(wind_times)), key=lambda j: abs((wind_times[j] - target).total_seconds()))
-        aligned_u.append(u10[nearest_idx])
-        aligned_v.append(v10[nearest_idx])
-    return aligned_u, aligned_v
+def _wind_uv(speed: float, direction_deg: float) -> tuple[float, float]:
+    """Meteorological direction (where the wind comes FROM) -> u, v (towards)."""
+    return (-speed * math.sin(math.radians(direction_deg)),
+            -speed * math.cos(math.radians(direction_deg)))
 
 
-def _sample_point(ds, var: str, lat: float, lon: float) -> list[float]:
-    """Nearest-neighbour time series for one variable at one point."""
-    series = ds[var].sel(latitude=lat, longitude=lon, method="nearest")
-    # Surface dataset may carry a depth dimension; take the shallowest level.
-    if "depth" in series.dims:
-        series = series.isel(depth=0)
-    return [float(v) for v in series.values.ravel()]
+def _fetch_wind(start: dt.datetime, end: dt.datetime, bbox: dict):
+    lats = np.arange(bbox["min_lat"] - _PAD_DEG, bbox["max_lat"] + _PAD_DEG + 1e-6, _WIND_GRID_DEG)
+    lons = np.arange(bbox["min_lon"] - _PAD_DEG, bbox["max_lon"] + _PAD_DEG + 1e-6, _WIND_GRID_DEG)
+    grid = [(round(float(la), 3), round(float(lo), 3)) for la in lats for lo in lons]
+    params = config.open_meteo_params(grid[0][0], grid[0][1], start.date(), end.date())
+    params["latitude"] = ",".join(str(la) for la, _ in grid)
+    params["longitude"] = ",".join(str(lo) for _, lo in grid)
+    resp = requests.post(config.OPEN_METEO_BASE_URL, data=params, timeout=60, verify=certifi.where())
+    if resp.status_code == 405:  # endpoint that only takes GET
+        resp = requests.get(config.OPEN_METEO_BASE_URL, params=params, timeout=60, verify=certifi.where())
+    resp.raise_for_status()
+    payload = resp.json()
+    entries = payload if isinstance(payload, list) else [payload]
+    if len(entries) != len(grid):
+        raise ValueError(f"Open-Meteo returned {len(entries)} points for {len(grid)} requested")
+
+    hourly0 = entries[0]["hourly"]
+    unit = (entries[0].get("hourly_units") or {}).get("windspeed_10m", "m/s")
+    if unit not in ("m/s", "ms"):
+        raise ValueError(f"Open-Meteo wind speed unit is {unit!r}, expected m/s")
+    times = np.array([dt.datetime.fromisoformat(t).replace(tzinfo=dt.timezone.utc).timestamp()
+                      for t in hourly0["time"]], dtype=float)
+    wu = np.zeros((len(times), len(lats), len(lons)))
+    wv = np.zeros_like(wu)
+    for k, entry in enumerate(entries):
+        i, j = divmod(k, len(lons))
+        h = entry["hourly"]
+        for n, (s, d) in enumerate(zip(h["windspeed_10m"], h["winddirection_10m"])):
+            if s is None or d is None:
+                continue
+            wu[n, i, j], wv[n, i, j] = _wind_uv(float(s), float(d))
+    logger.info("ocean: Open-Meteo wind, %d h × %d × %d grid", len(times), len(lats), len(lons))
+    return times, lats, lons, wu, wv
 
 
-def get_ocean_forcing(
-    points: Iterable[tuple[float, float]],
-    forecast_hours: int = 72,
-) -> dict[int, dict]:
-    """Fetch surface current (and wind) time series for a list of (lat, lon) points.
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
 
-    Args:
-        points: iterable of (lat, lon) tuples.
-        forecast_hours: how far ahead to fetch, starting now (UTC).
-
-    Returns:
-        Dict keyed by point index -> {
-            "lat", "lon",
-            "times": [ISO strings],
-            "u_current", "v_current": [m/s],
-            "u_wind", "v_wind": [m/s] (may be None if wind fetch failed),
-            "units": {"current": "m/s", "wind": "m/s"},
-        }
-    """
-    pts = [(float(lat), float(lon)) for lat, lon in points]
-    if not pts:
-        logger.warning("get_ocean_forcing called with no points.")
-        return {}
-
-    start = dt.datetime.now(dt.timezone.utc)
-    end = start + dt.timedelta(hours=forecast_hours)
-    box = _bbox(pts)
-
-    logger.info("Fetching currents for %d point(s), %sh ahead.", len(pts), forecast_hours)
+def fetch_forcing(start: dt.datetime, end: dt.datetime, bbox: dict | None = None) -> ForcingField:
+    """Currents (required) and wind (best effort) over the EEZ for [start, end]."""
+    bbox = bbox or config.EEZ_BBOX
+    times, lats, lons, u, v, kind = _fetch_currents(start, end, bbox)
+    f = ForcingField(times, lats, lons, u, v, kind)
     try:
-        cur_ds = _open_dataset(CURRENT_DATASET_ID, CURRENT_VARS, box, start, end)
+        f.wind_times, f.wind_lats, f.wind_lons, f.wind_u, f.wind_v = _fetch_wind(start, end, bbox)
     except Exception:
-        logger.exception("Failed to fetch CMEMS currents (%s).", CURRENT_DATASET_ID)
-        raise
-
-    cur_times = [dt.datetime.fromisoformat(str(t)).replace(tzinfo=dt.timezone.utc) for t in cur_ds["time"].values]
-
-    # One batched Open-Meteo request for every point instead of one request
-    # per point — the pipeline's runtime used to scale linearly with the
-    # number of detected patches.
-    try:
-        wind_batch = _fetch_open_meteo_wind_batch(pts, start, end)
-    except Exception:
-        logger.warning(
-            "Open-Meteo batch wind fetch failed; continuing with currents only.",
-            exc_info=True,
-        )
-        wind_batch = [None] * len(pts)
-
-    result: dict[int, dict] = {}
-    for i, (lat, lon) in enumerate(pts):
-        entry = {
-            "lat": lat,
-            "lon": lon,
-            "times": [str(t) for t in cur_times],
-            "u_current": _sample_point(cur_ds, "uo", lat, lon),
-            "v_current": _sample_point(cur_ds, "vo", lat, lon),
-            "u_wind": None,
-            "v_wind": None,
-            "units": {"current": CURRENT_UNITS, "wind": WIND_UNITS},
-        }
-
-        wind_data = wind_batch[i] if i < len(wind_batch) else None
-        if wind_data is None:
-            logger.warning("Open-Meteo wind data missing for point %d; continuing with currents only.", i)
-        else:
-            aligned_u, aligned_v = _align_wind_to_times(cur_times, wind_data)
-            entry["u_wind"] = aligned_u
-            entry["v_wind"] = aligned_v
-
-        result[i] = entry
-
-    logger.info("Ocean forcing assembled for %d point(s).", len(result))
-    return result
+        logger.warning("ocean: wind fetch failed; drifting with currents only.", exc_info=True)
+    return f

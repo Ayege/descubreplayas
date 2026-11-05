@@ -40,16 +40,24 @@ Training data contract
 ----------------------
 Each training example pairs:
   X  — feature vector at pipeline run time T  (see pipeline/features.py)
-  y  — the ACTUAL risk_level that occurred at T + lead_days
-       (pulled from the forecasts table by joining on zone_id and run_at ≈ T+lead)
+  y  — the 72-h PHYSICS risk recorded for the zone at T + lead_days
+       (the zone_features row closest to T+lead, within ±12 h)
 
-The join tolerance is ±12 h so jitter in the 6-h cron schedule does not lose samples.
+Both come from the zone_features table, which the pipeline writes every run
+with the same code prediction uses (pipeline/backfill_features.py fills it
+from history). y is a model output, not an observation: beach reports are
+the ground truth, scored in pipeline/evaluate.py.
+
+Skill check
+-----------
+Every training first scores the model walk-forward (train on the past, test
+on the next block of time; see pipeline/evaluate.py). If it does not beat the
+seasonal fallback and ML_REQUIRE_SKILL is on, predictions stay seasonal.
 """
 from __future__ import annotations
 
 import datetime as dt
 import logging
-import math
 import pathlib
 import pickle
 from typing import Any
@@ -58,9 +66,7 @@ import numpy as np
 
 from pipeline import config
 from pipeline.features import (
-    FEATURE_NAMES,
     INT_TO_RISK,
-    RISK_TO_INT,
     build_feature_vector,
     detection_state_for_zone,
 )
@@ -115,158 +121,281 @@ def _seasonal_risk_for_zone(zone: dict, target_date: dt.date) -> str:
 
 # ── Training data assembly ────────────────────────────────────────────────────
 
-def _fetch_training_rows(sb_client) -> list[dict]:
-    """Pull labelled (features, risk) rows from Supabase for all past runs.
+_PAGE = 1000  # Supabase/PostgREST returns at most 1000 rows per request
 
-    Strategy
-    --------
-    For each historical pipeline run at time T:
-      • Pull the detection aggregates at time T.
-      • For each (zone, lead_days), find the forecast row closest to T+lead.
-      • Build a feature vector + risk label.
 
-    Returns a list of dicts:
-      {zone_name, zone_lat, zone_lon, lead_days, features: list[float], risk_int: int}
+def fetch_all(query_fn, page: int = _PAGE) -> list[dict]:
+    """Read every row of a Supabase query, one page at a time.
+
+    `query_fn()` must return a fresh, ORDERED query builder each call. A plain
+    `.limit(5000)` silently stops at the server's 1000-row cap, which is how
+    the old training code ended up seeing only the first weeks of data.
     """
-    # ── Pull raw tables ──────────────────────────────────────────────────────
-    try:
-        fc_resp = (
-            sb_client.table("forecasts")
-            .select("run_at, zone_id, risk_level, zones(name, center_lat, center_lon)")
-            .order("run_at", desc=False)
-            .limit(5000)
-            .execute()
-        )
-        det_resp = (
-            sb_client.table("detections")
-            .select("run_at, area_km2, centroid")
-            .order("run_at", desc=False)
-            .limit(20000)
-            .execute()
-        )
-    except Exception:
-        logger.exception("Failed to pull training data from Supabase.")
-        return []
-
-    forecasts_raw: list[dict] = fc_resp.data or []
-    detections_raw: list[dict] = det_resp.data or []
-
-    if not forecasts_raw:
-        return []
-
-    # ── Group forecasts by (run_at, zone_id) ──────────────────────────────────
-    import re
-
-    def _parse_ts(s: str) -> dt.datetime:
-        # Supabase returns ISO strings with +00 or Z suffix.
-        s = re.sub(r"\+00(:00)?$", "+00:00", s.replace("Z", "+00:00"))
-        return dt.datetime.fromisoformat(s)
-
-    fc_by_zone: dict[int, list[tuple[dt.datetime, str]]] = {}
-    for row in forecasts_raw:
-        zobj = row.get("zones") or {}
-        zid = row.get("zone_id")
-        try:
-            ts = _parse_ts(row["run_at"])
-            rl = row["risk_level"]
-        except Exception:
-            continue
-        fc_by_zone.setdefault(zid, []).append((ts, rl))
-
-    # ── Group detections by run_at (aggregate per run) ─────────────────────
-    det_by_run: dict[dt.datetime, list[dict]] = {}
-    for row in detections_raw:
-        try:
-            ts = _parse_ts(row["run_at"])
-        except Exception:
-            continue
-        # Bucket to nearest hour so small timestamp jitter doesn't fragment runs.
-        bucket = ts.replace(minute=0, second=0, microsecond=0)
-        # Decode centroid WKT "POINT(lon lat)" to lat/lon.
-        centroid_wkt = row.get("centroid") or ""
-        try:
-            m = re.search(r"POINT\(([0-9.\-]+)\s+([0-9.\-]+)\)", centroid_wkt)
-            clon, clat = (float(m.group(1)), float(m.group(2))) if m else (0.0, 0.0)
-        except Exception:
-            clon, clat = 0.0, 0.0
-        det_by_run.setdefault(bucket, []).append(
-            {"lat": clat, "lon": clon, "centroid_lat": clat, "centroid_lon": clon,
-             "area_km2": float(row.get("area_km2") or 0.0)}
-        )
-
-    # ── Build labelled examples ───────────────────────────────────────────────
-    zones = config.ZONES
-    zone_lookup: dict[int, dict] = {}
-    for row in forecasts_raw:
-        zid = row.get("zone_id")
-        zobj = row.get("zones") or {}
-        if zid and zobj and zid not in zone_lookup:
-            zone_lookup[zid] = {
-                "name": zobj.get("name", ""),
-                "center_lat": float(zobj.get("center_lat", 0)),
-                "center_lon": float(zobj.get("center_lon", 0)),
-            }
-
     rows: list[dict] = []
-    run_times = sorted(det_by_run.keys())
+    start = 0
+    while True:
+        chunk = query_fn().range(start, start + page - 1).execute().data or []
+        rows.extend(chunk)
+        if len(chunk) < page:
+            return rows
+        start += page
 
-    for run_ts in run_times:
-        dets = det_by_run[run_ts]
-        run_date = run_ts.date()
 
-        # Find the physics risk at this run for each zone (use earliest fc at/after run_ts).
-        physics_at_run: dict[int, int] = {}
-        for zid, fc_list in fc_by_zone.items():
-            for fc_ts, rl in fc_list:
-                if abs((fc_ts - run_ts).total_seconds()) <= 4 * 3600:
-                    physics_at_run[zid] = RISK_TO_INT.get(rl, 0)
-                    break
+def parse_ts(s: str) -> dt.datetime:
+    """Parse a Supabase timestamp (``+00``, ``+00:00`` or ``Z`` suffix)."""
+    import re
+    s = re.sub(r"\+00(:00)?$", "+00:00", str(s).replace("Z", "+00:00"))
+    return dt.datetime.fromisoformat(s)
 
-        for lead in LEAD_DAYS:
-            target_ts = run_ts + dt.timedelta(days=lead)
-            tolerance = dt.timedelta(hours=12)
 
-            for zid, fc_list in fc_by_zone.items():
-                zone = zone_lookup.get(zid)
-                if zone is None:
+def fetch_zones_by_id(sb_client) -> dict[int, dict]:
+    rows = sb_client.table("zones").select("id, name, center_lat, center_lon").execute().data or []
+    return {
+        int(r["id"]): {"id": int(r["id"]), "name": r["name"],
+                       "center_lat": float(r["center_lat"]), "center_lon": float(r["center_lon"])}
+        for r in rows
+    }
+
+
+def fetch_zone_features(sb_client) -> list[dict]:
+    return fetch_all(
+        lambda: sb_client.table("zone_features").select("*").order("run_at").order("zone_id")
+    )
+
+
+def build_training_rows(
+    feature_rows: list[dict],
+    zones_by_id: dict[int, dict],
+    leads: list[int] | None = None,
+    tolerance_h: float = 12.0,
+) -> list[dict]:
+    """Pair each run's zone features at T with the zone's risk at T + lead.
+
+    Pure function (no I/O) so it can be tested offline. Returns dicts with:
+      run_ts, target_ts, zone_id, zone, lead_days, features, risk_int,
+      physics_now  (the zone's 72-h physics risk at T, for the persistence
+                    baseline)
+    The label is the physics risk recorded at T + lead (closest run within
+    ±tolerance_h). It is NOT ground truth; see evaluate.score_against_reports.
+    """
+    import bisect
+
+    leads = leads or LEAD_DAYS
+    by_zone: dict[int, list[tuple[dt.datetime, dict]]] = {}
+    for r in feature_rows:
+        try:
+            by_zone.setdefault(int(r["zone_id"]), []).append((parse_ts(r["run_at"]), r))
+        except Exception:
+            continue
+
+    tol = dt.timedelta(hours=tolerance_h)
+    out: list[dict] = []
+    for zid, series in by_zone.items():
+        zone = zones_by_id.get(zid)
+        if zone is None:
+            continue
+        series.sort(key=lambda t: t[0])
+        times = [t for t, _ in series]
+        for ts, r in series:
+            for lead in leads:
+                target = ts + dt.timedelta(days=lead)
+                i = bisect.bisect_left(times, target)
+                best = None
+                for j in (i - 1, i):
+                    if 0 <= j < len(times) and abs(times[j] - target) <= tol:
+                        if best is None or abs(times[j] - target) < abs(times[best] - target):
+                            best = j
+                if best is None:
                     continue
-
-                # Find the actual risk closest to T + lead
-                best_rl: str | None = None
-                best_diff = math.inf
-                for fc_ts, rl in fc_list:
-                    diff = abs((fc_ts - target_ts).total_seconds())
-                    if diff < best_diff and diff <= tolerance.total_seconds():
-                        best_diff = diff
-                        best_rl = rl
-
-                if best_rl is None:
-                    continue  # no label available for this lead
-
-                eez_area, zone_area, nearest_km, patch_count = detection_state_for_zone(
-                    zone, dets
-                )
-                phys = physics_at_run.get(zid, 0)
-                doy = run_date.timetuple().tm_yday
                 fv = build_feature_vector(
-                    day_of_year=doy,
-                    month=run_date.month,
-                    eez_area_km2=eez_area,
-                    zone_area_km2=zone_area,
-                    nearest_km=nearest_km,
-                    patch_count=patch_count,
-                    physics_risk=phys,
+                    day_of_year=ts.timetuple().tm_yday,
+                    month=ts.month,
+                    eez_area_km2=float(r["eez_area_km2"]),
+                    zone_area_km2=float(r["zone_area_km2"]),
+                    nearest_km=float(r["nearest_km"]),
+                    patch_count=int(r["patch_count"]),
+                    physics_risk=int(r["physics_risk"]),
                     zone_lat=zone["center_lat"],
                     zone_lon=zone["center_lon"],
                     lead_days=lead,
                 )
-                rows.append({
+                out.append({
+                    "run_ts": ts,
+                    "target_ts": target,
+                    "zone_id": zid,
+                    "zone": zone,
+                    "lead_days": lead,
                     "features": fv,
-                    "risk_int": RISK_TO_INT.get(best_rl, 0),
+                    "risk_int": int(series[best][1]["physics_risk"]),
+                    "physics_now": int(r["physics_risk"]),
                 })
+    out.sort(key=lambda d: (d["run_ts"], d["zone_id"], d["lead_days"]))
+    return out
 
-    logger.info("Training data assembled: %d labelled examples.", len(rows))
-    return rows
+
+# Visitor reports are a ~noon (DR) observation: 16:00 UTC.
+_REPORT_HOUR_UTC = 16
+
+
+def build_report_training_rows(
+    feature_rows: list[dict],
+    zones_by_id: dict[int, dict],
+    labels: dict[tuple[int, dt.date], int],
+    leads: list[int] | None = None,
+    tolerance_h: float = 12.0,
+) -> list[dict]:
+    """Pair what visitors REPORTED on day D with the zone's features at D - lead.
+
+    Same row shape as build_training_rows, so walk_forward and fit_classifier
+    work unchanged. `labels` comes from evaluate.report_labels.
+    """
+    import bisect
+
+    leads = leads or LEAD_DAYS
+    by_zone: dict[int, list[tuple[dt.datetime, dict]]] = {}
+    for r in feature_rows:
+        try:
+            by_zone.setdefault(int(r["zone_id"]), []).append((parse_ts(r["run_at"]), r))
+        except Exception:
+            continue
+    for series in by_zone.values():
+        series.sort(key=lambda t: t[0])
+
+    tol = dt.timedelta(hours=tolerance_h)
+    out: list[dict] = []
+    for (zid, day), label in labels.items():
+        zone = zones_by_id.get(zid)
+        series = by_zone.get(zid)
+        if zone is None or not series:
+            continue
+        times = [t for t, _ in series]
+        target = dt.datetime.combine(day, dt.time(_REPORT_HOUR_UTC), dt.timezone.utc)
+        for lead in leads:
+            want = target - dt.timedelta(days=lead)
+            i = bisect.bisect_left(times, want)
+            cands = [j for j in (i - 1, i) if 0 <= j < len(times) and abs(times[j] - want) <= tol]
+            if not cands:
+                continue
+            j = min(cands, key=lambda k: abs(times[k] - want))
+            ts, r = series[j]
+            out.append({
+                "run_ts": ts,
+                "target_ts": target,
+                "zone_id": zid,
+                "zone": zone,
+                "lead_days": lead,
+                "features": build_feature_vector(
+                    day_of_year=ts.timetuple().tm_yday, month=ts.month,
+                    eez_area_km2=float(r["eez_area_km2"]), zone_area_km2=float(r["zone_area_km2"]),
+                    nearest_km=float(r["nearest_km"]), patch_count=int(r["patch_count"]),
+                    physics_risk=int(r["physics_risk"]),
+                    zone_lat=zone["center_lat"], zone_lon=zone["center_lon"], lead_days=lead,
+                ),
+                "risk_int": int(label),
+                "physics_now": int(r["physics_risk"]),
+            })
+    out.sort(key=lambda d: (d["run_ts"], d["zone_id"], d["lead_days"]))
+    return out
+
+
+def _fetch_training_rows(sb_client) -> tuple[list[dict], str]:
+    """Labelled training rows, and where their labels came from.
+
+    Uses visitor reports as labels once they give ML_MIN_REPORT_ROWS rows:
+    then the model learns what actually reaches the beaches. Until then the
+    label is the physics risk at T + lead (a model output).
+    """
+    try:
+        feature_rows = fetch_zone_features(sb_client)
+        zones_by_id = fetch_zones_by_id(sb_client)
+    except Exception:
+        logger.exception("Failed to pull training data from Supabase.")
+        return [], "none"
+
+    try:
+        from pipeline.evaluate import report_labels
+        reports = fetch_all(lambda: sb_client.table("beach_reports")
+                            .select("observed_on, zone_id, amount").order("id"))
+        report_rows = build_report_training_rows(feature_rows, zones_by_id, report_labels(reports))
+    except Exception:
+        logger.warning("Could not read beach reports; training on physics labels.", exc_info=True)
+        report_rows = []
+
+    if len(report_rows) >= config.ML_MIN_REPORT_ROWS:
+        logger.info("Training data: %d rows labelled by visitor reports.", len(report_rows))
+        return report_rows, "reports"
+    rows = build_training_rows(feature_rows, zones_by_id)
+    logger.info("Training data: %d rows labelled by physics risk (%d report rows; need %d "
+                "to switch to report labels).", len(rows), len(report_rows), config.ML_MIN_REPORT_ROWS)
+    return rows, "physics"
+
+
+class _ConstantClassifier:
+    """Stand-in when the training labels hold a single class.
+
+    GradientBoostingClassifier refuses to fit one class, which is the normal
+    state off-season (every zone 'none').
+    """
+
+    def __init__(self, label: int) -> None:
+        self.classes_ = np.array([label])
+
+    def predict_proba(self, X):
+        return np.ones((len(X), 1))
+
+    def predict(self, X):
+        return np.full(len(X), self.classes_[0])
+
+
+def fit_classifier(X: np.ndarray, y: np.ndarray):
+    """Fit the extended-forecast classifier (shared by training and evaluation).
+
+    Gradient boosting's raw probabilities are over-confident, so they are
+    calibrated (sigmoid) on later-in-time folds: rows are in time order and
+    each fold calibrates on data after the part it was fitted on. Falls back
+    to the uncalibrated model if a fold lacks classes or data.
+    """
+    classes = np.unique(y)
+    if len(classes) == 1:
+        return _ConstantClassifier(int(classes[0]))
+    from sklearn.ensemble import GradientBoostingClassifier
+    if config.ML_CALIBRATE and len(y) >= 4 * MIN_TRAIN_SAMPLES:
+        try:
+            from sklearn.calibration import CalibratedClassifierCV
+            from sklearn.model_selection import TimeSeriesSplit
+            clf = CalibratedClassifierCV(
+                GradientBoostingClassifier(**_GB_PARAMS), method="sigmoid",
+                cv=TimeSeriesSplit(n_splits=3),
+            )
+            clf.fit(X, y)
+            return clf
+        except Exception:
+            logger.warning("Calibration failed; using the uncalibrated model.", exc_info=True)
+    clf = GradientBoostingClassifier(**_GB_PARAMS)
+    clf.fit(X, y)
+    return clf
+
+
+def predict_proba_full(clf, X: np.ndarray) -> np.ndarray:
+    """(n, 4) probabilities for none/low/medium/high, zeros for unseen classes."""
+    proba = clf.predict_proba(X)
+    out = np.zeros((len(X), 4))
+    for col, cls in enumerate(np.asarray(clf.classes_).astype(int)):
+        out[:, cls] = proba[:, col]
+    return out
+
+
+def predict_with_confidence(clf, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Predicted class labels and their probabilities.
+
+    Maps through clf.classes_: when a class is missing from the training data,
+    probability column i is NOT risk level i. The old code used the column
+    index as the risk level, which shifted predictions whenever a class was
+    absent.
+    """
+    proba = clf.predict_proba(X)
+    idx = np.argmax(proba, axis=1)
+    return np.asarray(clf.classes_)[idx].astype(int), proba[np.arange(len(idx)), idx]
 
 
 # ── Model class ───────────────────────────────────────────────────────────────
@@ -277,14 +406,22 @@ class SargassumForecaster:
     def __init__(self) -> None:
         self._clf = None   # sklearn classifier, None until trained or loaded
         self._trained_at: dt.datetime | None = None
+        # Walk-forward test scores from the last training (evaluate.walk_forward).
+        self.evaluation: dict | None = None
+        # False when the model failed to beat the seasonal fallback on held-out
+        # data and ML_REQUIRE_SKILL is on: predictions then use seasonal.
+        self._use_ml = True
 
     # ── Training ──────────────────────────────────────────────────────────────
 
     def train(self, sb_client) -> bool:
-        """Train from Supabase historical data.  Returns True on success."""
+        """Score the model on later-in-time data, then fit it on everything.
+
+        Returns True when a model was fitted. Whether it is then USED depends
+        on the walk-forward result (see `uses_ml`).
+        """
         try:
-            from sklearn.ensemble import GradientBoostingClassifier
-            from sklearn.preprocessing import LabelEncoder
+            import sklearn  # noqa: F401
         except ImportError:
             logger.error(
                 "scikit-learn not installed — cannot train ML model. "
@@ -292,7 +429,16 @@ class SargassumForecaster:
             )
             return False
 
-        rows = _fetch_training_rows(sb_client)
+        rows, source = _fetch_training_rows(sb_client)
+        trained = self.train_on_rows(rows)
+        if self.evaluation is not None:
+            self.evaluation["label_source"] = source
+        return trained
+
+    def train_on_rows(self, rows: list[dict]) -> bool:
+        """Train from already-assembled rows (see build_training_rows)."""
+        from pipeline.evaluate import walk_forward
+
         if len(rows) < MIN_TRAIN_SAMPLES:
             logger.warning(
                 "Only %d training examples found (need %d). "
@@ -301,15 +447,21 @@ class SargassumForecaster:
             )
             return False
 
+        self.evaluation = walk_forward(rows, n_folds=config.ML_EVAL_FOLDS)
+        beats = bool(self.evaluation.get("beats_seasonal"))
+        self._use_ml = beats or not config.ML_REQUIRE_SKILL
+        logger.info(
+            "ml: walk-forward over %d fold(s): model macro-F1 %s vs seasonal %s -> %s",
+            self.evaluation.get("n_folds", 0),
+            self.evaluation.get("metrics", {}).get("model", {}).get("macro_f1"),
+            self.evaluation.get("metrics", {}).get("seasonal", {}).get("macro_f1"),
+            "using ML" if self._use_ml else "using seasonal (model did not beat it)",
+        )
+
         X = np.array([r["features"] for r in rows], dtype=float)
         y = np.array([r["risk_int"] for r in rows], dtype=int)
-
-        logger.info("Training GradientBoostingClassifier on %d examples, %d features.",
-                    len(X), X.shape[1])
-        clf = GradientBoostingClassifier(**_GB_PARAMS)
-        clf.fit(X, y)
-
-        self._clf = clf
+        logger.info("Fitting final model on %d examples, %d features.", len(X), X.shape[1])
+        self._clf = fit_classifier(X, y)
         self._trained_at = dt.datetime.now(dt.timezone.utc)
         self._save()
         logger.info("Model training complete.  Saved to %s.", MODEL_PATH)
@@ -319,7 +471,12 @@ class SargassumForecaster:
         try:
             MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
             with open(MODEL_PATH, "wb") as f:
-                pickle.dump({"clf": self._clf, "trained_at": self._trained_at}, f)
+                pickle.dump({
+                    "clf": self._clf,
+                    "trained_at": self._trained_at,
+                    "use_ml": self._use_ml,
+                    "evaluation": self.evaluation,
+                }, f)
         except Exception:
             logger.warning("Could not persist model to %s.", MODEL_PATH, exc_info=True)
 
@@ -329,10 +486,16 @@ class SargassumForecaster:
             return False
         try:
             with open(MODEL_PATH, "rb") as f:
-                # This process wrote the file; it is never downloaded or shipped.
+                # Written by this pipeline: locally, or by an earlier scheduled
+                # run on main and restored from that branch's Actions cache
+                # (pipeline.yml), which pull requests cannot write to.
                 obj = pickle.load(f)  # nosec B301
             self._clf = obj["clf"]
             self._trained_at = obj.get("trained_at")
+            self.evaluation = obj.get("evaluation")
+            # Artefacts from before the skill check carry no verdict: treat
+            # them as unproven so they are retrained and scored.
+            self._use_ml = bool(obj.get("use_ml", False))
             logger.info("Loaded model trained at %s.", self._trained_at)
             return True
         except Exception:
@@ -368,7 +531,8 @@ class SargassumForecaster:
             run_date = dt.datetime.now(dt.timezone.utc).date()
 
         results: list[dict] = []
-        clf = self._clf  # may be None → seasonal fallback
+        # None → seasonal fallback (no model, or it did not beat seasonal).
+        clf = self._clf if self._use_ml else None
 
         for zi, zone in enumerate(zones):
             zone_id = zi + 1
@@ -399,21 +563,24 @@ class SargassumForecaster:
                             lead_days=lead,
                         )
                         X = np.array([fv], dtype=float)
-                        proba = clf.predict_proba(X)[0]
-                        pred_int = int(np.argmax(proba))
-                        confidence = float(proba[pred_int])
-                        risk_level = INT_TO_RISK[pred_int]
+                        labels, confs = predict_with_confidence(clf, X)
+                        risk_level = INT_TO_RISK[int(labels[0])]
+                        confidence = float(confs[0])
+                        full = predict_proba_full(clf, X)[0]
+                        probs = {INT_TO_RISK[k]: round(float(full[k]), 3) for k in range(4)}
                         method = "ml"
                     except Exception:
                         logger.warning("ML predict failed for zone %s +%dd.",
                                        zone_name, lead, exc_info=True)
                         risk_level = _seasonal_risk_for_zone(zone, target_date)
                         confidence = 0.4
+                        probs = None
                         method = "seasonal"
                 else:
                     # No trained model — use seasonal climatology
                     risk_level = _seasonal_risk_for_zone(zone, target_date)
                     confidence = 0.4
+                    probs = None
                     method = "seasonal"
 
                 results.append({
@@ -424,6 +591,7 @@ class SargassumForecaster:
                     "confidence": round(confidence, 3),
                     "method": method,
                     "valid_at": target_date.isoformat(),
+                    "probs": probs,
                 })
 
         return results
@@ -431,6 +599,11 @@ class SargassumForecaster:
     @property
     def is_trained(self) -> bool:
         return self._clf is not None
+
+    @property
+    def uses_ml(self) -> bool:
+        """True when predictions come from the model rather than seasonal."""
+        return self._clf is not None and self._use_ml
 
 
 # ── Module-level singleton (loaded on first import) ───────────────────────────

@@ -84,7 +84,28 @@ def test_risk_mapping_and_fallback() -> None:
     print("  risk mapping + fallback: OK")
 
 
+def test_shore_exposure_and_adjustment() -> None:
+    from dashboard.risk_overlay import adjust_for_exposure, shore_exposure
+    # East-facing beach (90°), drift heading west (u<0): pushed straight on.
+    assert abs(shore_exposure(90, -0.3, 0.0) - 1.0) < 1e-9
+    # Same beach, drift heading east: carried straight off.
+    assert abs(shore_exposure(90, 0.3, 0.0) + 1.0) < 1e-9
+    # North-facing beach, drift heading west: along the shore.
+    assert abs(shore_exposure(0, -0.3, 0.0)) < 1e-9
+    assert shore_exposure(0, 0.001, 0.0) is None          # too weak to have a direction
+    assert adjust_for_exposure("high", -0.9) == "medium"
+    assert adjust_for_exposure("medium", -0.9) == "low"
+    assert adjust_for_exposure("low", -0.9) == "low"      # never below 'low'
+    assert adjust_for_exposure("none", -0.9) == "none"
+    assert adjust_for_exposure("high", 0.0) == "high"     # along-shore: unchanged
+    assert adjust_for_exposure("high", None) == "high"
+    assert adjust_for_exposure("out", -0.9) == "out"
+    print("  exposure from shore orientation and drift: OK")
+
+
 def main() -> int:
+    print("test_shore_exposure_and_adjustment")
+    test_shore_exposure_and_adjustment()
     print("test_haversine_known_distance")
     test_haversine_known_distance()
     print("test_nearest_zone_matches_geography")

@@ -15,6 +15,7 @@
 """Pipeline orchestrator: detect -> ocean -> drift -> store -> dispatch."""
 from __future__ import annotations
 
+import argparse
 import datetime as dt
 import logging
 import sys
@@ -34,10 +35,23 @@ def _elapsed(start: float) -> str:
     return f"{time.perf_counter() - start:.1f}s"
 
 
-def main() -> int:  # noqa: C901
+def _afai_observed_at(patch: dict) -> str | None:
+    """AFAI comes from MODIS/VIIRS early-afternoon passes (~17-18 UTC here)."""
+    day = patch.get("observed_on")
+    return f"{day}T17:30:00+00:00" if day else None
+
+
+def main(argv: list[str] | None = None) -> int:  # noqa: C901
+    parser = argparse.ArgumentParser(description="Run the sargassum pipeline once.")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="detect, drift and forecast, but write nothing and send no alerts")
+    args = parser.parse_args(argv)
+    dry = args.dry_run
+
     run_start = time.perf_counter()
-    logger.info("=== Pipeline run starting (UTC %s) ===",
-                dt.datetime.now(dt.timezone.utc).isoformat())
+    now = dt.datetime.now(dt.timezone.utc)
+    logger.info("=== Pipeline run starting (UTC %s)%s ===", now.isoformat(),
+                " — DRY RUN, nothing is written" if dry else "")
 
     # ------------------------------------------------------------------
     # Step 1: detect
@@ -60,6 +74,8 @@ def main() -> int:  # noqa: C901
                     "centroid_lat": row.geometry.centroid.y,
                     "centroid_lon": row.geometry.centroid.x,
                     "area_km2": float(row.get("area_km2", 0.0)),
+                    "covered_km2": row.get("covered_km2"),
+                    "observed_at": row.get("observed_at"),
                     "geom_wkt": row.geometry.wkt,
                     "source": config.DETECTION_SOURCE,
                 })
@@ -69,58 +85,72 @@ def main() -> int:  # noqa: C901
         patches = []
 
     # ------------------------------------------------------------------
-    # Step 2: ocean forcing (only FETCH for up to 20 centroids to stay
-    #         within free-tier CMEMS rate limits in a single pipeline run).
-    #         The fetched forcing is then reused for ALL patches via a
-    #         nearest-sample lookup so the drift step can score every patch.
+    # Step 1b: independent check against NOAA/USF daily AFAI, and fill in
+    #          masses Sentinel-2 had no clear view of (see pipeline/afai.py).
     # ------------------------------------------------------------------
-    forcing: dict[int, dict] = {}
-    sample_points: list[tuple[float, float]] = []
-    if patches:
+    afai_summary: dict | None = None
+    if config.AFAI_ENABLED:
         t = time.perf_counter()
         try:
-            from pipeline.ocean import get_ocean_forcing
-            sample = patches[:20]
-            sample_points = [(p["centroid_lat"], p["centroid_lon"]) for p in sample]
-            forcing = get_ocean_forcing(sample_points, forecast_hours=72)
-            logger.info("ocean: forcing for %d point(s) in %s", len(forcing), _elapsed(t))
+            from pipeline.afai import check_and_fill
+            gap_patches, afai_summary = check_and_fill(patches)
+            for gp in gap_patches:
+                gp["observed_at"] = _afai_observed_at(gp)
+            patches.extend(gap_patches)
+            logger.info("afai: +%d gap-fill patch(es) in %s", len(gap_patches), _elapsed(t))
         except Exception:
-            logger.exception("ocean step failed — drift will use zero forcing")
-            forcing = {}
-
-    # Expand the sampled forcing to cover EVERY detected patch. Each patch
-    # reuses the forcing of the nearest sampled point. This lets the drift
-    # step consider all 1000s of patches (not just the 20 we fetched currents
-    # for), which is essential — otherwise masses already sitting inside a
-    # zone are never scored and every zone reads "none".
-    full_forcing: dict[int, dict] = {}
-    if patches and forcing and sample_points:
-        for i, p in enumerate(patches):
-            if i in forcing:
-                full_forcing[i] = forcing[i]
-                continue
-            plat, plon = p["centroid_lat"], p["centroid_lon"]
-            best_j = min(
-                range(len(sample_points)),
-                key=lambda j: (plat - sample_points[j][0]) ** 2
-                + (plon - sample_points[j][1]) ** 2,
-            )
-            nearest = forcing.get(best_j)
-            if nearest is not None:
-                full_forcing[i] = nearest
+            logger.exception("afai step failed — continuing with Sentinel-2 detections only")
 
     # ------------------------------------------------------------------
-    # Step 3: drift / risk — score ALL patches, not just the sampled 20.
+    # Step 2: ocean forcing — gridded currents + wind over the whole EEZ,
+    #         from the oldest observation (masses are caught up to now
+    #         first) to the end of the forecast.
+    # ------------------------------------------------------------------
+    from pipeline.ocean import ForcingField
+    horizon = config.FORECAST_HOURS_PHYSICS
+    field = None
+    if patches:
+        t = time.perf_counter()
+        oldest = now - dt.timedelta(days=config.DRIFT_MAX_AGE_DAYS)
+        observed = []
+        for p in patches:
+            try:
+                observed.append(dt.datetime.fromisoformat(str(p["observed_at"])))
+            except (KeyError, TypeError, ValueError):
+                pass
+        start = max(min(observed + [now]), oldest) - dt.timedelta(hours=2)
+        try:
+            from pipeline.ocean import fetch_forcing
+            field = fetch_forcing(start, now + dt.timedelta(hours=horizon + 2))
+            logger.info("ocean: forcing from %s (%s) in %s", start.isoformat(),
+                        field.current_kind, _elapsed(t))
+        except Exception:
+            logger.exception("ocean step failed — masses will not move; only those "
+                             "already at the coast are counted")
+    if field is None:
+        field = ForcingField.uniform(now, horizon, 0.0, 0.0)
+
+    # ------------------------------------------------------------------
+    # Step 3: drift / risk — particle ensemble for every patch.
     # ------------------------------------------------------------------
     forecasts: list[dict] = []
     t = time.perf_counter()
     try:
         from pipeline.drift import project_drift
-        forecasts = project_drift(patches, full_forcing)
+        forecasts = project_drift(patches, field, hours=[0, 24, 48, horizon], now=now)
         logger.info("drift: %d zone forecast(s) in %s", len(forecasts), _elapsed(t))
     except Exception:
         logger.exception("drift step failed — no forecasts will be stored")
         forecasts = []
+
+    if dry:
+        print("\nDRY RUN — zone forecasts (nothing stored, no alerts sent):")
+        print(f"  {'zone':<14}{'risk':<8}{'p(arrive)':>10}{'eta h':>7}   probs")
+        for fc in forecasts:
+            print(f"  {fc['zone_name']:<14}{fc['risk_level']:<8}{fc['arrival_probability']:>10.2f}"
+                  f"{fc['eta_hours'] if fc['eta_hours'] is not None else '—':>7}   {fc['risk_probs']}")
+        logger.info("=== Dry run complete in %s ===", _elapsed(run_start))
+        return 0
 
     # ------------------------------------------------------------------
     # Step 4: store
@@ -128,11 +158,18 @@ def main() -> int:  # noqa: C901
     if patches:
         t = time.perf_counter()
         try:
-            from pipeline.store import upsert_detections, fetch_zone_id_map
+            from pipeline.store import upsert_detections
             upsert_detections(patches)
             logger.info("store detections: done in %s", _elapsed(t))
         except Exception:
             logger.exception("store detections step failed")
+
+    if afai_summary is not None:
+        try:
+            from pipeline.store import insert_detection_check
+            insert_detection_check(afai_summary)
+        except Exception:
+            logger.exception("store detection check failed")
 
     if forecasts:
         t = time.perf_counter()
@@ -158,6 +195,24 @@ def main() -> int:  # noqa: C901
             logger.info("store forecasts: done in %s", _elapsed(t))
         except Exception:
             logger.exception("store forecasts step failed")
+
+        # This run's per-zone model inputs, so the extended model trains on
+        # exactly what it is later asked to predict from.
+        try:
+            from pipeline.features import RISK_TO_INT, zone_feature_rows
+            from pipeline.store import upsert_zone_features, upsert_zones
+            zone_map = upsert_zones(config.ZONES)
+            zones_with_ids = [{**z, "id": zone_map[z["name"]]}
+                              for z in config.ZONES if z["name"] in zone_map]
+            upsert_zone_features(zone_feature_rows(
+                dt.datetime.now(dt.timezone.utc).isoformat(),
+                zones_with_ids,
+                patches,
+                {fc["zone_name"]: RISK_TO_INT.get(fc.get("risk_level", "none"), 0)
+                 for fc in forecasts},
+            ))
+        except Exception:
+            logger.exception("store zone features failed")
 
     # ------------------------------------------------------------------
     # Step 5: dispatch alerts
@@ -195,7 +250,12 @@ def main() -> int:  # noqa: C901
             logger.info("ml: training model (run #%d) …", run_count)
             from supabase import create_client
             sb_client = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
-            forecaster.train(sb_client)
+            if forecaster.train(sb_client) and forecaster.evaluation is not None:
+                try:
+                    from pipeline.store import insert_model_evaluation
+                    insert_model_evaluation(forecaster.evaluation, forecaster.uses_ml)
+                except Exception:
+                    logger.exception("ml: could not store the model evaluation")
 
         # Build physics risk lookup: {zone_name -> risk int (0-3)}
         from pipeline.features import RISK_TO_INT

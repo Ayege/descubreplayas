@@ -48,8 +48,12 @@ from dashboard.beaches_data import (
     BEACHES,
 )
 from dashboard.risk_overlay import (
+    EXPOSED_ABOVE,
     RISK_COLORS,
     RISK_EMOJI,
+    SHELTERED_BELOW,
+    adjust_for_exposure,
+    shore_exposure,
     fetch_detections,
     fetch_live_risk,
     risk_for_beach,
@@ -413,6 +417,10 @@ _T = {
         "method_ml": "Método: ML extendido · Confianza {conf}%",
         "ml_advisory": "Estimación basada en patrones históricos y condiciones actuales. Más precisa que climatología estacional, menos que física de 72h.",
         "ml_confidence": "Confianza modelo",
+        "ml_probs": "Probabilidad de riesgo medio o alto: {p}%",
+        "zone_arrival_prob": "Probabilidad de que llegue sargazo a la costa de la zona en 72 h: {p}%",
+        "expo_sheltered": "🧭 Hoy la corriente y el viento alejan el sargazo de esta orilla, así que el sargazo cercano cuenta un nivel menos de riesgo.",
+        "expo_exposed": "🧭 Hoy la corriente y el viento empujan el sargazo hacia esta orilla.",
         "ml_note_map": "Vista extendida — ML · posiciones especulativas",
         "beach_legend": "Playas por región",
         "zone_legend": "Riesgo de sargazo (zonas)",
@@ -457,6 +465,15 @@ _T = {
         "donate": "☕ Invítame un café",
         "disclaimer_title": "⚠️ Aviso importante",
         "disclaimer_short": "Estimación, no es un aviso oficial.",
+        "report_title": "¿Estás en la playa? ¿Cuánto sargazo hay hoy?",
+        "report_none": "Nada",
+        "report_low": "Poco",
+        "report_medium": "Bastante",
+        "report_high": "Mucho",
+        "report_send": "Enviar reporte",
+        "report_help": "Tu reporte se compara con el pronóstico para mejorarlo. Solo guardamos la playa, la fecha y la cantidad: nada personal.",
+        "report_thanks": "¡Gracias! Tu reporte de hoy ayuda a mejorar el pronóstico.",
+        "report_error": "No se pudo enviar el reporte. Inténtalo de nuevo en un momento.",
         "disclaimer_body": "Esta herramienta ofrece <b>estimaciones automáticas</b> de sargazo a partir de imágenes satelitales y modelos de corrientes. <b>No es un aviso oficial</b> ni sustituye a las autoridades competentes.<br><br>• Las detecciones pueden tener <b>días de antigüedad</b> por la nubosidad y el ciclo de paso del satélite.<br>• Los pronósticos de llegada son aproximados y pierden fiabilidad más allá de 72 h.<br>• Los datos de playas (acceso, tarifas, servicios) son observaciones que cambian con el tiempo.<br><br><b>No tomes decisiones de seguridad basándote solo en esta información.</b> Consulta a las autoridades locales, los salvavidas y las banderas de la playa. El servicio se ofrece «tal cual», sin garantías de ningún tipo.",
         "license_code": "Código",
         "license_data": "datos",
@@ -545,6 +562,10 @@ _T = {
         "method_ml": "Method: ML extended · Confidence {conf}%",
         "ml_advisory": "Estimate based on historical patterns and current conditions. More accurate than seasonal climatology, less than 72h physics.",
         "ml_confidence": "Model confidence",
+        "ml_probs": "Chance of medium or high risk: {p}%",
+        "zone_arrival_prob": "Chance of sargassum reaching the zone's coast within 72 h: {p}%",
+        "expo_sheltered": "🧭 Today the current and wind carry sargassum away from this shore, so nearby sargassum counts one risk level lower.",
+        "expo_exposed": "🧭 Today the current and wind push sargassum toward this shore.",
         "ml_note_map": "Extended view — ML · speculative positions",
         "beach_legend": "Beaches by region",
         "zone_legend": "Sargassum risk (zones)",
@@ -589,6 +610,15 @@ _T = {
         "donate": "☕ Buy me a coffee",
         "disclaimer_title": "⚠️ Important notice",
         "disclaimer_short": "An estimate, not an official advisory.",
+        "report_title": "At the beach? How much sargassum is there today?",
+        "report_none": "None",
+        "report_low": "A little",
+        "report_medium": "Quite a lot",
+        "report_high": "A lot",
+        "report_send": "Send report",
+        "report_help": "Your report is compared with the forecast to improve it. We only store the beach, the date and the amount: nothing personal.",
+        "report_thanks": "Thank you! Today's report helps improve the forecast.",
+        "report_error": "The report could not be sent. Please try again in a moment.",
         "disclaimer_body": "This tool provides <b>automated estimates</b> of sargassum from satellite imagery and ocean-current models. It is <b>not an official advisory</b> and does not replace the competent authorities.<br><br>• Detections may be <b>several days old</b> because of cloud cover and the satellite revisit cycle.<br>• Arrival forecasts are approximate and lose reliability beyond 72 h.<br>• Beach details (access, fees, facilities) are observations that change over time.<br><br><b>Do not make safety decisions based on this information alone.</b> Check local authorities, lifeguards and beach flags. The service is provided «as is», without warranties of any kind.",
         "license_code": "Code",
         "license_data": "data",
@@ -1572,6 +1602,77 @@ def _cached_fetch_ml_forecasts(url: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Visitor reports — what people actually see on the beach. They are the only
+# real observations of arrivals, and pipeline/evaluate.py scores every
+# forecast against them. Sent to the API's POST /reports.
+# ---------------------------------------------------------------------------
+_REPORT_LEVELS = ("none", "low", "medium", "high")
+
+
+def _visitor_ip() -> str | None:
+    """The visitor's IP, so the API rate-limits each visitor separately.
+
+    The request to the API comes from this server, so without it every
+    visitor would share one rate-limit bucket. The API never stores it.
+    """
+    try:
+        ip = getattr(st.context, "ip_address", None)
+        if ip:
+            return str(ip)
+        fwd = st.context.headers.get("X-Forwarded-For", "")
+        return fwd.split(",")[0].strip() or None
+    except Exception:
+        return None
+
+
+def _post_report(beach_name: str, amount: str) -> bool:
+    """Send one report; True if the API stored it."""
+    try:
+        import requests, certifi
+        ip = _visitor_ip()
+        resp = requests.post(
+            f"{API_BASE_URL}/reports",
+            json={"beach": beach_name, "amount": amount},
+            headers={"X-Forwarded-For": ip} if ip else {},
+            timeout=(2.5, 8),
+            verify=certifi.where(),
+        )
+        return resp.status_code == 201
+    except Exception:
+        logger.warning("report: POST /reports failed", exc_info=True)
+        return False
+
+
+def _render_report_form(beach: dict) -> None:
+    """'How much sargassum is there today?' for the selected beach.
+
+    One report per beach per session: after sending, the control is replaced
+    by a thank-you so a double tap can't send two.
+    """
+    reported: set = st.session_state.setdefault("_reported_beaches", set())
+    name = beach["name"]
+    with st.container(key="beach_report"):
+        if name in reported:
+            st.caption(f"✅ {L['report_thanks']}")
+            return
+        slug = _slugify(name)
+        amount = st.segmented_control(
+            L["report_title"],
+            _REPORT_LEVELS,
+            format_func=lambda k: L[f"report_{k}"],
+            key=f"report_amount_{slug}",
+            help=L["report_help"],
+        )
+        if st.button(L["report_send"], key=f"report_send_{slug}",
+                     disabled=amount is None, use_container_width=True):
+            if _post_report(name, amount):
+                reported.add(name)
+                st.caption(f"✅ {L['report_thanks']}")
+            else:
+                st.caption(f"⚠️ {L['report_error']}")
+
+
+# ---------------------------------------------------------------------------
 # Live surf + wind conditions (Open-Meteo)
 #
 # Two batched HTTP requests cover all 55 beaches, cached for 30 minutes — the
@@ -1776,8 +1877,35 @@ def _beach_risk_with_masses(
     working_masses = _masses_shifted_to(masses, horizon)
     d_risk, d_mass, d_km, _ = risk_from_detections(beach, working_masses)
     if d_mass is not None:
-        return d_risk, d_km
+        return adjust_for_exposure(d_risk, _beach_exposure(beach)), d_km
     return "none", None
+
+
+_EXPOSURE_CACHE: dict[str, float | None] = {}
+
+
+def _beach_exposure(beach: dict) -> float | None:
+    """How squarely today's drift (regional current + wind) hits this beach's
+    face: +1 onto it, -1 away from it (see risk_overlay.shore_exposure)."""
+    name = beach["name"]
+    if name not in _EXPOSURE_CACHE:
+        try:
+            normal = surf_profile(beach)["shore_normal_deg"]
+            _wu, _wv = _WIND_UV
+            du, dv = _effective_uv(float(beach["latitude"]), float(beach["longitude"]), _wu, _wv)
+            _EXPOSURE_CACHE[name] = shore_exposure(normal, du, dv)
+        except Exception:
+            _EXPOSURE_CACHE[name] = None
+    return _EXPOSURE_CACHE[name]
+
+
+def _ml_probs_for_zone(zone_id: int, days_ahead: int) -> dict | None:
+    """Calibrated class probabilities of the ML forecast closest to days_ahead."""
+    cands = _ml_forecasts_by_zone_id.get(zone_id) or []
+    if not cands:
+        return None
+    best = min(cands, key=lambda f: abs(f.get("lead_days", 7) - days_ahead))
+    return best.get("probs") if best.get("method") == "ml" else None
 
 
 def _beach_risk_horizons(beach: dict) -> list[tuple[int, str]] | None:
@@ -1925,8 +2053,10 @@ def _fmt_arrival(fc: dict | None) -> str:
 #     away cannot produce a valid arrival estimate.
 # ---------------------------------------------------------------------------
 _DRIFT_METERS_PER_DEG = 111_320.0
-# Windage fraction (same constant as pipeline/config.py WIND_DRIFT_FACTOR).
-_WIND_DRIFT_FACTOR = float(os.environ.get("WIND_DRIFT_FACTOR", "0.02"))
+# Windage fraction for the dashboard's quick drift. Kept at 2 %: these
+# regional currents leave out wave Stokes drift, which windage stands in for.
+# The pipeline uses ~1 % because its Copernicus currents include Stokes drift.
+_WIND_DRIFT_FACTOR = float(os.environ.get("DASHBOARD_WIND_DRIFT_FACTOR", "0.02"))
 
 
 def _regional_current(lat: float, lon: float) -> tuple[float, float]:
@@ -2535,6 +2665,11 @@ with _nav_slot:
         if _pick and st.button(L["zoom_here"], key="beach_zoom_btn",
                                use_container_width=True):
             _goto_beach(_nav_by_name[_pick], zoom=ZOOM_CLOSE)
+
+        # Ground truth: let a visitor who is on this beach say what they
+        # see. Hidden without an API to send it to (offline explorer).
+        if _pick and API_BASE_URL:
+            _render_report_form(_nav_by_name[_pick])
     else:
         st.info(L["no_match"])
     st.caption(L["results"].format(n=len(filtered), total=len(BEACHES)))
@@ -3245,6 +3380,12 @@ if _panel_beach:
         _ml_conf_panel = int((_fc or {}).get("confidence", 0.4) * 100)
         _ml_lead_panel = min([7, 14, 21], key=lambda d: abs(d - _days_ahead_g))
         _zone_name = _near_zone["name"] if _near_zone else ""
+        _ml_probs = _ml_probs_for_zone(_near_zone["id"], _days_ahead_g) if _near_zone else None
+        _ml_probs_html = ""
+        if _ml_probs:
+            _p_hi = round(100 * (float(_ml_probs.get("medium", 0)) + float(_ml_probs.get("high", 0))))
+            _ml_probs_html = (f"<div style='color:#b39ddb;font-size:10px;margin-top:2px'>"
+                              f"{L['ml_probs'].format(p=_p_hi)}</div>")
         _risk_section = (
             f"<div style='background:rgba(0,0,0,.25);border-radius:12px;"
             f"padding:10px 12px;margin:9px 0;border-left:4px solid {_rc}'>"
@@ -3263,6 +3404,7 @@ if _panel_beach:
             f"</div>"
             f"<div style='color:#546e7a;font-size:9.5px;margin-top:2px'>"
             f"{'Zona' if lang == 'es' else 'Zone'}: {_zone_name} · {L['ml_confidence']}: {_ml_conf_panel}%</div>"
+            + _ml_probs_html +
             f"</div>"
             f"<div style='color:#ce93d8;font-size:10.5px;line-height:1.4;margin-bottom:4px'>⚠️ {L['ml_advisory']}</div>"
             f"<div style='color:#80cbc4;font-size:10px;border-top:1px solid rgba(255,255,255,.1);"
@@ -3400,6 +3542,21 @@ if _panel_beach:
         else:
             _horizon_bd_html = ""
 
+        # Does today's drift face this beach, and how likely is any arrival
+        # at the zone's coast (from the pipeline's particle ensemble)?
+        _physics_extra_html = ""
+        _expo = _beach_exposure(_pb)
+        if _expo is not None and _expo < SHELTERED_BELOW:
+            _physics_extra_html += (f"<div style='color:#a5d6a7;font-size:10.5px;margin:5px 0'>"
+                                    f"{L['expo_sheltered']}</div>")
+        elif _expo is not None and _expo > EXPOSED_ABOVE:
+            _physics_extra_html += (f"<div style='color:#ffcc80;font-size:10.5px;margin:5px 0'>"
+                                    f"{L['expo_exposed']}</div>")
+        _zp = (_fc or {}).get("arrival_probability")
+        if _zp is not None:
+            _physics_extra_html += (f"<div style='color:#80cbc4;font-size:10px;margin:3px 0'>"
+                                    f"{L['zone_arrival_prob'].format(p=round(100 * float(_zp)))}</div>")
+
         _risk_section = (
             f"<div style='background:rgba(0,0,0,.25);border-radius:12px;"
             f"padding:10px 12px;margin:9px 0;border-left:4px solid {_rc}'>"
@@ -3415,7 +3572,8 @@ if _panel_beach:
             # ETA rows
             + _eta_line +
             # Projected risk by horizon
-            _horizon_bd_html +
+            _horizon_bd_html
+            + _physics_extra_html +
             f"<div style='color:#80cbc4;font-size:10px;border-top:1px solid "
             f"rgba(255,255,255,.1);padding-top:5px;margin-top:5px'>"
             f"{L['method_physics']}</div>"

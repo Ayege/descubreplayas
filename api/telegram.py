@@ -19,6 +19,7 @@ Bot commands:
   /subscribe <zone>       - register this chat_id for the named zone
   /status                 - latest forecast for the subscriber's first zone
   /stop                   - remove all subscriptions for this chat_id
+  /reporte <cantidad> <playa> - what you see on a beach today (ground truth)
 """
 from __future__ import annotations
 
@@ -102,7 +103,9 @@ def _cmd_start(chat_id: int) -> None:
         "Comandos:\n"
         "  /subscribe <zona>  — activar alertas (ej: /subscribe Punta Cana)\n"
         "  /status            — ver el pronóstico actual\n"
-        "  /stop              — desactivar alertas",
+        "  /stop              — desactivar alertas\n"
+        "  /reporte <cantidad> <playa> — cuéntanos cuánto sargazo ves hoy\n"
+        "      cantidad: nada, poco, bastante o mucho (ej: /reporte mucho Bávaro)",
     )
 
 
@@ -174,6 +177,52 @@ def _cmd_status(chat_id: int) -> None:
     send_message(chat_id, "Pronóstico actual:\n" + "\n".join(lines))
 
 
+_REPORTE_USAGE = (
+    "Uso: /reporte <cantidad> <playa>\n"
+    "cantidad: nada, poco, bastante o mucho\n"
+    "Ej: /reporte mucho Bávaro"
+)
+
+
+def _cmd_reporte(chat_id: int, text: str) -> None:
+    """/reporte <amount> <beach> (either order): record a sighting for today.
+
+    Same rules as POST /reports: catalogue beaches only, today's DR date,
+    nothing personal stored (the chat id is not saved with the report).
+    """
+    from api import db, reports
+
+    words = text.strip().split()[1:]
+    amount = None
+    rest: list[str] = []
+    for w in words:
+        level = reports.AMOUNT_WORDS.get(reports.fold(w))
+        if level and amount is None:
+            amount = level
+        else:
+            rest.append(w)
+    if amount is None or not rest:
+        send_message(chat_id, _REPORTE_USAGE)
+        return
+
+    names = [b["name"] for b in db.list_beaches()]
+    name, candidates = reports.match_beach(" ".join(rest), names)
+    if name is None:
+        if candidates:
+            send_message(chat_id, "¿Cuál de estas playas?\n" + "\n".join(f"• {c}" for c in candidates))
+        else:
+            send_message(chat_id, f"No encontré la playa '{' '.join(rest)}'.")
+        return
+
+    beach = db.get_beach(name)
+    if not beach:
+        send_message(chat_id, f"No encontré la playa '{name}'.")
+        return
+    reports.store_report(beach, amount, reports.dr_today(), source="telegram")
+    words_es = {"none": "nada", "low": "poco", "medium": "bastante", "high": "mucho"}
+    send_message(chat_id, f"✓ Gracias. Reporte guardado: {words_es[amount]} sargazo hoy en {name}.")
+
+
 def _cmd_stop(chat_id: int) -> None:
     from api.db import get_client
     sb = get_client()
@@ -204,5 +253,7 @@ async def handle_update(update: dict[str, Any]) -> None:
         _cmd_status(chat_id)
     elif text.startswith("/stop"):
         _cmd_stop(chat_id)
+    elif text.lower().startswith("/reporte"):
+        _cmd_reporte(chat_id, text)
     else:
         send_message(chat_id, "Comando no reconocido. Usa /start para ver opciones.")

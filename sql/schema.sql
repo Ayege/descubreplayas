@@ -41,6 +41,17 @@ create table if not exists forecasts (
 -- Forecast horizon breakdown (added after initial release; safe to re-run).
 alter table forecasts add column if not exists horizons jsonb;
 
+-- Particle-ensemble drift (safe to re-run): share of ensemble members in
+-- which sargassum reaches the zone's coast within 72 h, and the share at
+-- each risk level ({"none": .., "low": .., "medium": .., "high": ..}).
+alter table forecasts add column if not exists arrival_probability double precision;
+alter table forecasts add column if not exists risk_probs jsonb;
+
+-- When each patch was actually seen (detections can be days old), and the
+-- estimated sargassum-covered area inside its outline.
+alter table detections add column if not exists observed_at timestamptz;
+alter table detections add column if not exists covered_km2 double precision;
+
 create table if not exists subscribers (
     id              bigserial primary key,
     channel         text not null default 'telegram',
@@ -89,6 +100,9 @@ create table if not exists ml_forecasts (
     unique (run_at, zone_id, lead_days)
 );
 
+-- Calibrated class probabilities of the extended forecast (safe to re-run).
+alter table ml_forecasts add column if not exists probs jsonb;
+
 alter table ml_forecasts enable row level security;
 
 do $$ begin
@@ -101,8 +115,98 @@ do $$ begin
 end $$;
 
 -- -------------------------------------------------------------------------
+-- Ground truth and evaluation (added for forecast scoring; safe to re-run)
+-- -------------------------------------------------------------------------
+
+-- What visitors actually saw on the beach, sent from the beach explorer via
+-- POST /reports. This is the only real observation of arrivals the system
+-- has; everything else is a model output. No personal data is stored: no IP,
+-- no account, no free text.
+create table if not exists beach_reports (
+    id           bigserial primary key,
+    created_at   timestamptz not null default now(),
+    observed_on  date not null,
+    beach_name   text not null,
+    latitude     double precision not null,
+    longitude    double precision not null,
+    zone_id      int references zones(id) on delete set null,
+    amount       text not null check (amount in ('none', 'low', 'medium', 'high')),
+    source       text not null default 'web'
+);
+
+-- Per-run, per-zone detection aggregates: exactly the inputs the 7/14/21-day
+-- model uses, written by the pipeline with the same code at training and
+-- prediction time. Training reads this small table instead of re-deriving
+-- features from the (very large) detections table.
+create table if not exists zone_features (
+    run_at          timestamptz not null,
+    zone_id         int not null references zones(id) on delete cascade,
+    eez_area_km2    double precision not null,
+    zone_area_km2   double precision not null,
+    nearest_km      double precision not null,
+    patch_count     int not null,
+    physics_risk    int not null check (physics_risk between 0 and 3),
+    primary key (run_at, zone_id)
+);
+
+-- One row per pipeline run: how far the Sentinel-2 detections agree with the
+-- NOAA/USF daily AFAI product, and how much AFAI filled in.
+create table if not exists detection_checks (
+    id                   bigserial primary key,
+    run_at               timestamptz not null default now(),
+    afai_dates           text[] not null default '{}',
+    afai_clear_frac      double precision,
+    s2_patches           int not null default 0,
+    s2_checkable         int not null default 0,
+    s2_confirmed         int not null default 0,
+    afai_clusters        int not null default 0,
+    afai_matched         int not null default 0,
+    gap_filled           int not null default 0,
+    gap_filled_area_km2  double precision not null default 0
+);
+
+-- One row per model training: walk-forward test scores for the model and its
+-- baselines, and whether the model was good enough to be used.
+create table if not exists model_evaluations (
+    id                bigserial primary key,
+    run_at            timestamptz not null default now(),
+    n_rows            int not null,
+    n_folds           int not null,
+    metrics           jsonb not null,
+    beats_seasonal    boolean not null,
+    used_for_predict  boolean not null
+);
+
+alter table beach_reports     enable row level security;
+alter table zone_features     enable row level security;
+alter table detection_checks  enable row level security;
+alter table model_evaluations enable row level security;
+
+do $$ begin
+  -- beach_reports: no public read policy. Only the service role (API,
+  -- pipeline, evaluation) can read or write reports.
+  if not exists (
+    select 1 from pg_policies where tablename = 'zone_features' and policyname = 'zone_features_public_read'
+  ) then
+    create policy zone_features_public_read on zone_features for select using (true);
+  end if;
+  if not exists (
+    select 1 from pg_policies where tablename = 'detection_checks' and policyname = 'detection_checks_public_read'
+  ) then
+    create policy detection_checks_public_read on detection_checks for select using (true);
+  end if;
+  if not exists (
+    select 1 from pg_policies where tablename = 'model_evaluations' and policyname = 'model_evaluations_public_read'
+  ) then
+    create policy model_evaluations_public_read on model_evaluations for select using (true);
+  end if;
+end $$;
+
+-- -------------------------------------------------------------------------
 -- Indexes
 -- -------------------------------------------------------------------------
+create index if not exists beach_reports_observed_idx on beach_reports (observed_on, zone_id);
+create index if not exists zone_features_run_at_idx   on zone_features (run_at);
 create index if not exists detections_run_at_idx    on detections   (run_at desc);
 create index if not exists forecasts_run_at_idx     on forecasts    (run_at desc);
 create index if not exists forecasts_zone_id_idx    on forecasts    (zone_id);
@@ -247,7 +351,9 @@ select
     st_y(centroid) as lat,
     st_x(centroid) as lon,
     area_km2,
-    source
+    source,
+    observed_at,
+    covered_km2
 from detections
 where run_at = (select max(run_at) from detections);
 
@@ -269,7 +375,9 @@ select
     f.risk_level,
     f.eta_hours,
     f.eta_timestamp,
-    f.horizons
+    f.horizons,
+    f.arrival_probability,
+    f.risk_probs
 from forecasts f
 join zones z on z.id = f.zone_id
 where f.run_at = (
@@ -291,7 +399,8 @@ select
     m.risk_level,
     m.confidence,
     m.method,
-    m.valid_at
+    m.valid_at,
+    m.probs
 from ml_forecasts m
 join zones z on z.id = m.zone_id
 where m.run_at = (

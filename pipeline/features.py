@@ -131,3 +131,60 @@ def detection_state_for_zone(
         nearest = 999.0  # sentinel: no detections → encode as very far
 
     return eez_area, zone_area, nearest, count
+
+
+def parse_point(value) -> tuple[float, float] | None:
+    """Return (lat, lon) from a PostGIS point as Supabase may return it.
+
+    PostgREST serialises geometry as a GeoJSON object (what this project's
+    Supabase returns today), but WKT text and hex EWKB are accepted too. The
+    old training code only handled WKT, so every historical detection was
+    silently placed at (0, 0).
+    """
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        coords = value.get("coordinates")
+        if value.get("type") == "Point" and coords and len(coords) >= 2:
+            return float(coords[1]), float(coords[0])
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        if text.upper().startswith(("POINT", "SRID=")):
+            from shapely import wkt as _wkt
+            geom = _wkt.loads(text.split(";", 1)[-1])
+            return float(geom.y), float(geom.x)
+        try:
+            from shapely import wkb as _wkb
+            geom = _wkb.loads(text, hex=True)
+            return float(geom.y), float(geom.x)
+        except Exception:
+            return None
+    return None
+
+
+def zone_feature_rows(
+    run_at: str,
+    zones: Sequence[dict],
+    detections: Sequence[dict],
+    physics_risks: dict[str, int],
+) -> list[dict]:
+    """Per-zone model inputs for one run, shaped for the zone_features table.
+
+    `zones` items need a DB `id` plus name/center_lat/center_lon;
+    `physics_risks` maps zone name -> 0..3. Uses detection_state_for_zone, the
+    same function prediction uses, so training and serving can't drift apart.
+    """
+    rows: list[dict] = []
+    for z in zones:
+        eez, zone_area, nearest, count = detection_state_for_zone(z, detections)
+        rows.append({
+            "run_at": run_at,
+            "zone_id": int(z["id"]),
+            "eez_area_km2": round(float(eez), 6),
+            "zone_area_km2": round(float(zone_area), 6),
+            "nearest_km": round(float(nearest), 3),
+            "patch_count": int(count),
+            "physics_risk": int(physics_risks.get(z["name"], 0)),
+        })
+    return rows

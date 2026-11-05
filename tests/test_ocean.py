@@ -12,17 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Standalone test for pipeline.ocean: fetch forcing for one point off Punta Cana, print vectors with units.
+"""Standalone LIVE test for pipeline.ocean: fetch gridded forcing and sample it off Punta Cana.
 
-Run from repo root:
+Needs CMEMS credentials and network; CI never runs it. Run from repo root:
     python -m tests.test_ocean
 """
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 
-from pipeline.ocean import get_ocean_forcing
+import numpy as np
+
+from pipeline.ocean import fetch_forcing
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,35 +37,19 @@ PUNTA_CANA_OFFSHORE = (18.50, -68.30)
 
 
 def main() -> int:
-    forcing = get_ocean_forcing([PUNTA_CANA_OFFSHORE], forecast_hours=72)
-    if not forcing:
-        print("No forcing returned.")
-        return 1
-
-    entry = forcing[0]
-    units = entry["units"]
-    assert entry["u_wind"] is not None, "u_wind should be present"
-    assert entry["v_wind"] is not None, "v_wind should be present"
-    assert len(entry["u_wind"]) == len(entry["times"]), "u_wind length must match timestamps"
-    assert len(entry["v_wind"]) == len(entry["times"]), "v_wind length must match timestamps"
-    assert any(value is not None for value in entry["u_wind"]), "u_wind should contain real values"
-    assert any(value is not None for value in entry["v_wind"]), "v_wind should contain real values"
-
-    print(f"Point: lat={entry['lat']}, lon={entry['lon']}")
-    print(f"Time steps: {len(entry['times'])}")
-    print(f"Current units: {units['current']} | Wind units: {units['wind']}\n")
-
-    n = min(5, len(entry["times"]))
-    print("First few time steps:")
-    for i in range(n):
-        t = entry["times"][i]
-        uc = entry["u_current"][i]
-        vc = entry["v_current"][i]
-        uw = entry["u_wind"][i] if entry["u_wind"] else None
-        vw = entry["v_wind"][i] if entry["v_wind"] else None
-        wind = f"wind=({uw:.2f},{vw:.2f}) {units['wind']}" if uw is not None else "wind=N/A"
-        print(f"  {t}: current=({uc:.3f},{vc:.3f}) {units['current']} | {wind}")
-
+    now = dt.datetime.now(dt.timezone.utc).replace(minute=0, second=0, microsecond=0)
+    field = fetch_forcing(now - dt.timedelta(days=2), now + dt.timedelta(hours=72))
+    assert field.u.shape == field.v.shape and field.u.ndim == 3
+    assert field.has_wind, "wind should be present"
+    lat, lon = PUNTA_CANA_OFFSHORE
+    print(f"Currents: {field.current_kind}, {len(field.times)} h, grid {field.u.shape[1:]}")
+    for h in (0, 24, 48, 72):
+        t = now.timestamp() + 3600 * h
+        u, v = field.current(t, lat, lon)
+        wu, wv = field.wind(t, lat, lon)
+        speed = float(np.hypot(wu, wv)[0])
+        assert speed < 40, f"wind {speed:.1f} m/s is implausible (km/h read as m/s?)"
+        print(f"  +{h:2d}h current=({u[0]:+.3f},{v[0]:+.3f}) m/s  wind=({wu[0]:+.1f},{wv[0]:+.1f}) m/s")
     return 0
 
 

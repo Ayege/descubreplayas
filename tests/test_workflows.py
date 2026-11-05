@@ -34,7 +34,8 @@ _REPO = Path(__file__).resolve().parent.parent
 _WORKFLOWS = sorted((_REPO / ".github" / "workflows").glob("*.yml"))
 _FULL_SHA = re.compile(r"[^@\s]+@[0-9a-f]{40}")
 _OFFLINE_SUITES = {
-    "beaches", "conoce", "dispatch", "drift", "images", "map_perf", "profiles", "risk_overlay", "surf", "workflows",
+    "afai", "beaches", "conoce", "dispatch", "drift", "evaluate", "images", "map_perf", "profiles", "reports",
+    "risk_overlay", "surf", "workflows",
 }
 # These import scripts/_images.py, so they need Pillow 13 and the ingest lockfile.
 _INGEST_SUITES = {"fetch_species", "image_pipeline", "beach_photos", "review_photos"}

@@ -49,6 +49,10 @@ class ForecastResponse(BaseModel):
     eta_timestamp: Optional[str] = None
     run_at: str
     horizons: Optional[list[dict]] = None
+    # Share of drift-ensemble members reaching the zone's coast within 72 h,
+    # and the share at each risk level.
+    arrival_probability: Optional[float] = None
+    risk_probs: Optional[dict[str, float]] = None
 
 
 class DetectionResponse(BaseModel):
@@ -96,6 +100,8 @@ class ExtendedForecastResponse(BaseModel):
     method: ForecastMethod
     valid_at: str
     run_at: str
+    # Calibrated probability of each risk level (ML forecasts only).
+    probs: Optional[dict[str, float]] = None
 
 
 class SubscribeRequest(BaseModel):
@@ -103,6 +109,27 @@ class SubscribeRequest(BaseModel):
     chat_id: str = Field(min_length=1, max_length=64, pattern=r"^-?\d+$")
     zone_id: int = Field(ge=1)
     role: Literal["subscriber", "fisherman", "hotel"] = "subscriber"
+
+
+class ReportRequest(BaseModel):
+    """A visitor's own observation of sargassum on a beach.
+
+    `amount` uses the same four levels as the forecast so reports can be
+    scored against it directly. `observed_on` defaults to today in the DR;
+    the API accepts only today or yesterday, so old or future dates can't be
+    used to rewrite history.
+    """
+    beach: str = Field(min_length=1, max_length=120)
+    amount: RiskLevel
+    observed_on: Optional[dt.date] = None
+
+
+class ReportResponse(BaseModel):
+    id: int
+    beach: str
+    amount: RiskLevel
+    observed_on: str
+    zone_id: Optional[int] = None
 
 
 class SubscribeResponse(BaseModel):

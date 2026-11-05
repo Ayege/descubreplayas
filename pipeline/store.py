@@ -26,6 +26,40 @@ from pipeline import config
 logger = logging.getLogger(__name__)
 
 
+def _float_or_none(value) -> float | None:
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if f != f else f  # NaN -> None
+
+
+# Columns added after first release. If sql/schema.sql has not been re-run
+# yet, PostgREST rejects them; writes then retry without them instead of
+# losing the whole batch.
+_NEW_COLUMNS = {
+    "detections": ("observed_at", "covered_km2"),
+    "forecasts": ("arrival_probability", "risk_probs"),
+    "ml_forecasts": ("probs",),
+}
+
+
+def _write(table: str, rows: list[dict], upsert_on: str | None = None) -> list[dict]:
+    def go(payload):
+        q = _client().table(table)
+        q = q.upsert(payload, on_conflict=upsert_on) if upsert_on else q.insert(payload)
+        return q.execute().data or []
+    try:
+        return go(rows)
+    except Exception as exc:
+        missing = [c for c in _NEW_COLUMNS.get(table, ()) if c in str(exc)]
+        if not missing:
+            raise
+        logger.warning("%s: column(s) %s missing — run sql/schema.sql. Writing without them.",
+                       table, missing)
+        return go([{k: v for k, v in r.items() if k not in missing} for r in rows])
+
+
 def _client() -> Client:
     """Return a Supabase service-role client."""
     if not config.SUPABASE_URL or not config.SUPABASE_KEY:
@@ -68,13 +102,13 @@ def upsert_detections(patches: list[dict]) -> list[dict]:
                 "centroid": f"SRID=4326;{centroid_wkt}",
                 "area_km2": float(p["area_km2"]),
                 "source": p.get("source", config.DETECTION_SOURCE),
+                "observed_at": p.get("observed_at"),
+                "covered_km2": _float_or_none(p.get("covered_km2")),
             }
         )
 
     try:
-        sb = _client()
-        result = sb.table("detections").insert(rows).execute()
-        inserted = result.data or []
+        inserted = _write("detections", rows)
         logger.info("upsert_detections: inserted %d row(s).", len(inserted))
         return inserted
     except Exception:
@@ -111,13 +145,13 @@ def upsert_forecasts(forecasts: list[dict]) -> list[dict]:
                 "eta_hours": f.get("eta_hours"),
                 "eta_timestamp": f.get("eta_timestamp"),
                 "horizons": f.get("horizons"),
+                "arrival_probability": f.get("arrival_probability"),
+                "risk_probs": f.get("risk_probs"),
             }
         )
 
     try:
-        sb = _client()
-        result = sb.table("forecasts").insert(rows).execute()
-        inserted = result.data or []
+        inserted = _write("forecasts", rows)
         logger.info("upsert_forecasts: inserted %d row(s).", len(inserted))
         return inserted
     except Exception:
@@ -154,21 +188,63 @@ def upsert_ml_forecasts(ml_forecasts: list[dict]) -> list[dict]:
             "confidence": float(f.get("confidence", 0.0)),
             "method": f.get("method", "seasonal"),
             "valid_at": f["valid_at"],
+            "probs": f.get("probs"),
         })
 
     try:
-        sb = _client()
-        result = (
-            sb.table("ml_forecasts")
-            .upsert(rows, on_conflict="run_at,zone_id,lead_days")
-            .execute()
-        )
-        inserted = result.data or []
+        inserted = _write("ml_forecasts", rows, upsert_on="run_at,zone_id,lead_days")
         logger.info("upsert_ml_forecasts: upserted %d row(s).", len(inserted))
         return inserted
     except Exception:
         logger.exception("upsert_ml_forecasts failed.")
         raise
+
+
+# ---------------------------------------------------------------------------
+# Evaluation tables
+# ---------------------------------------------------------------------------
+
+def upsert_zone_features(rows: list[dict]) -> int:
+    """Store per-zone model inputs for this run (see features.zone_feature_rows).
+
+    Each row: {run_at, zone_id, eez_area_km2, zone_area_km2, nearest_km,
+    patch_count, physics_risk}. Upserts on (run_at, zone_id), so re-running a
+    backfill is safe.
+    """
+    if not rows:
+        return 0
+    sb = _client()
+    total = 0
+    for i in range(0, len(rows), 500):
+        result = (
+            sb.table("zone_features")
+            .upsert(rows[i:i + 500], on_conflict="run_at,zone_id")
+            .execute()
+        )
+        total += len(result.data or [])
+    logger.info("upsert_zone_features: upserted %d row(s).", total)
+    return total
+
+
+def insert_detection_check(summary: dict) -> None:
+    """Store one run's Sentinel-2 vs AFAI agreement summary."""
+    keys = (
+        "afai_dates", "afai_clear_frac", "s2_patches", "s2_checkable", "s2_confirmed",
+        "afai_clusters", "afai_matched", "gap_filled", "gap_filled_area_km2",
+    )
+    row = {k: summary[k] for k in keys if k in summary}
+    _client().table("detection_checks").insert(row).execute()
+
+
+def insert_model_evaluation(evaluation: dict, used_for_predict: bool) -> None:
+    """Store one training's walk-forward scores (see evaluate.walk_forward)."""
+    _client().table("model_evaluations").insert({
+        "n_rows": int(evaluation.get("n_rows", 0)),
+        "n_folds": int(evaluation.get("n_folds", 0)),
+        "metrics": evaluation.get("metrics", {}),
+        "beats_seasonal": bool(evaluation.get("beats_seasonal", False)),
+        "used_for_predict": bool(used_for_predict),
+    }).execute()
 
 
 # ---------------------------------------------------------------------------
