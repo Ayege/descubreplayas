@@ -177,8 +177,10 @@ def _run_entrypoint(env_extra: dict[str, str]) -> str:
         stub.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         stub.chmod(0o755)
         env = {"PATH": f"{stub.parent}:{os.environ['PATH']}", "STREAMLIT_INDEX_HTML": str(page), **env_extra}
+        bash = shutil.which("bash")
+        _check(bash is not None, "bash is needed to run the entrypoint")
         result = subprocess.run(  # noqa: S603 - fixed local script, test only
-            ["bash", str(_REPO / "docker-entrypoint-dashboard.sh")], env=env, capture_output=True, text=True, timeout=60,
+            [bash, str(_REPO / "docker-entrypoint-dashboard.sh")], env=env, capture_output=True, text=True, timeout=60,
         )
         _check(result.returncode == 0, f"entrypoint failed: {result.stderr[-300:]}")
         return page.read_text(encoding="utf-8")
