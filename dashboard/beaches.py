@@ -1288,8 +1288,8 @@ section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stMarkd
        ~80 px tall until the visitor actually reports. */
     section[data-testid="stMain"] div.st-key-beach_report_card {
         top: auto !important; left: 8px !important; right: 8px !important;
-        bottom: calc(43vh + 6px) !important; width: auto !important;
-        gap: 8px !important; padding: 10px 10px 10px 12px !important; border-radius: 14px;
+        bottom: calc(36vh + 6px) !important; width: auto !important;
+        gap: 6px !important; padding: 8px 8px 8px 10px !important; border-radius: 14px;
     }
     .st-key-beach_report_card .report-card-title,
     .st-key-beach_report_card .report-card-sub { display: none; }
@@ -1303,20 +1303,20 @@ section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stMarkd
         grid-template-columns: repeat(4, 1fr); gap: 6px !important;
     }
     .st-key-beach_report_card [data-testid="stButtonGroup"] button {
-        min-height: 36px !important; padding: 4px 2px !important; border-radius: 10px !important;
+        min-height: 34px !important; padding: 3px 2px !important; border-radius: 10px !important;
     }
     .st-key-beach_report_card [data-testid="stButtonGroup"] button p { font-size: 12px !important; }
     .st-key-beach_report_card [data-testid="stElementContainer"]:has([data-testid="stButton"] button:disabled) {
         display: none !important;
     }
     .st-key-beach_report_card [data-testid="stButton"] button {
-        min-height: 36px !important; border-radius: 10px !important;
+        min-height: 34px !important; border-radius: 10px !important;
     }
     .st-key-beach_report_card [data-testid="stButton"] button p { font-size: 13px !important; }
     .st-key-beach_report_card .report-card-done { font-size: 12.5px; }
 }
 @media (max-width: 480px) {
-    section[data-testid="stMain"] div.st-key-beach_report_card { bottom: calc(42vh + 6px) !important; }
+    section[data-testid="stMain"] div.st-key-beach_report_card { bottom: calc(36vh + 6px) !important; }
     .st-key-beach_report_card [data-testid="stButtonGroup"] button p { font-size: 11.5px !important; }
 }
 
@@ -1423,14 +1423,15 @@ section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stMarkd
     /* Detail panel → full-width bottom sheet, floating over the always-100dvh
        map (see the "map always fills the whole screen" block below) rather
        than sharing a fixed height split with it.
-       43vh gives ~260px of content on a 600px phone while leaving the top of
+       36vh gives ~215px of content on a 600px phone (the sheet scrolls) while
+       leaving most of the map visible; it was 43vh. Leaves the top of
        the map visible above the sheet. padding-top:22px clears the ::before
        drag-handle element. */
     .beach-detail {
         right: 0 !important; left: 0 !important;
         top: auto !important; bottom: 0 !important;
         width: 100% !important; max-width: 100% !important;
-        max-height: 43vh !important;
+        max-height: 36vh !important;
         border-radius: 18px 18px 0 0 !important;
         padding: 22px 16px 20px !important;
         box-shadow: 0 -6px 32px rgba(0,0,0,.6) !important;
@@ -1513,9 +1514,9 @@ section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stMarkd
     [data-testid="stIFrame"] iframe {
         min-height: 260px !important;
     }
-    /* On 480px screens keep the panel at 42vh; the extra 2vh vs 768px slightly
-       increases content visibility on the tallest compact phones (667px). */
-    .beach-detail { max-height: 42vh !important; padding: 22px 14px 18px !important; }
+    /* Phones: the sheet stays at 36vh (it scrolls) so the map keeps most of
+       the screen above it. */
+    .beach-detail { max-height: 36vh !important; padding: 22px 14px 18px !important; }
     .map-legend { max-height: 18vh !important; font-size: 10px; }
 }
 
@@ -3531,19 +3532,22 @@ if _show_drift_legend:
             f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
             f"<div style='width:16px;height:10px;background:#ffcc80;border:1.5px dashed #ff8f00;border-radius:50%'></div>"
             f"<span style='font-size:11px;color:#37474f'>{_drift_label} (+{_drift_h}h)</span></div>"
-            f"<div style='font-size:9.5px;color:#78909c;margin-top:3px'>{'Corriente media del Caribe' if lang == 'es' else 'Caribbean mean current'}</div>"
+            f"<div style='font-size:9.5px;color:#78909c;margin-top:3px'>"
+            f"{('Corrientes y viento reales (Copernicus · Open-Meteo)' if lang == 'es' else 'Real currents and wind (Copernicus · Open-Meteo)') if globals().get('_has_tracks') else ('Corriente media del Caribe' if lang == 'es' else 'Caribbean mean current')}</div>"
             f"</div>"
         )
 
 # Tip banner sits on the SAME row as the zoom control (below the reserved
 # "Filtros" lane) and starts to the right of it, so the three top-left overlays
 # — Filtros pill, zoom buttons, tip — stack instead of piling on each other.
-m.get_root().html.add_child(folium.Element(
-    f"<div id='sarg-tip' style='position:absolute;top:{_MAP_TOP_LANE}px;left:60px;"
-    f"z-index:1000;background:rgba(0,96,100,.88);color:#fff;border-radius:10px;"
-    f"padding:8px 14px;font-size:12px;font-weight:700;backdrop-filter:blur(4px)'>"
-    f"{L['tip']}</div>"
-))
+# Only until a beach is open: after that it has done its job and just covers map.
+if not st.session_state.get("selected_beach"):
+    m.get_root().html.add_child(folium.Element(
+        f"<div id='sarg-tip' style='position:absolute;top:{_MAP_TOP_LANE}px;left:60px;"
+        f"z-index:1000;background:rgba(0,96,100,.88);color:#fff;border-radius:10px;"
+        f"padding:8px 14px;font-size:12px;font-weight:700;backdrop-filter:blur(4px)'>"
+        f"{L['tip']}</div>"
+    ))
 if _ml_drift_mode:
     m.get_root().html.add_child(folium.Element(
         f"<div style='position:absolute;bottom:36px;left:60px;z-index:1000;"
