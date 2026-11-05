@@ -498,15 +498,43 @@ The `dashboard/beaches.py` app provides an interactive tropical map with:
 
 ## Conoce esta playa
 
-Each beach card has a panel below the risk reading, which always comes first. It opens with a reference photo where there is one, followed by three sections:
+**"Conoce esta playa"** ("Get to know this beach") is a panel on every beach card that shows what lives at a beach, what it's made of and its history. It sits below the risk reading, which always comes first, and opens expanded.
 
-- **Vida** — the ecosystem and up to 3 featured species, then more on request. Species come from research-grade iNaturalist observations near the beach, with marine ones tagged by OBIS and ranked first. iNaturalist's privacy flags are respected, and no observation coordinates are stored.
-- **Roca** — geology and why sargassum arrives, for the beach's coastal unit.
-- **Historia** — dated history items.
+### What it shows
 
-Every fact carries its source and how it was obtained. Empty sections are hidden, and the app never invents content to fill them. Roca and Historia are hand-written and still being added.
+- **Reference photo** — a real photo of the beach at the top, with a caption giving the year (only when the source states it), author, licence and a link to the original. 35 of 55 beaches have one so far.
+- **🐠 Vida** — the beach's ecosystem, then up to 8 species seen nearby:
+  - The first 3 are featured, each with a photo, Spanish and English names, scientific name and photo credit; the rest are under "Ver más".
+  - Species without an open-licence photo show an emoji for their group (🐦 🐟 🦎 🐚 🌿…).
+  - Marine species are ranked first. The top 3 can include at most 2 from the same group and only 1 plant, so a beach isn't summed up by three birds.
+  - Each species links to the iNaturalist search behind it.
+  - Optional hand-written notes add a short blurb or a "🌿 Sargazo" note on how a species relates to sargassum.
+  - 54 of 55 beaches have species data; Playa Cambiaso has none yet.
+- **🪨 Roca** — the rock type, how the coast formed, what the sand is made of, and why sargassum reaches this stretch of coast. Written once per coastal unit.
+- **📜 Historia** — dated events and stories about the beach.
+- **Teaser** — a one-line hook under the panel's title.
 
-Images are self-hosted, so opening a card contacts no image host. The panel is rendered from local files, and a failure there hides the panel without touching the risk card. Refresh the species data with `.venv-ingest/bin/python scripts/fetch_species.py`; see [its data card](docs/data-cards/species_auto.md).
+Roca, Historia and the teaser are written by hand and published only once checked against sources. **None are published yet**, so for now the panel shows the photo and Vida. Empty sections are hidden, and the app never invents content to fill them.
+
+### How it behaves
+
+- **Fully bilingual:** every label and every piece of text follows the language switch.
+- **One section open at a time:** Vida, Roca and Historia work as an accordion, with Vida open first. Sections open and close smoothly, and the reduced-motion setting turns that off.
+- **Sources on everything:** each fact links to its source, and each record keeps how it was obtained (iNaturalist, OBIS or hand-written).
+- **Light and fast:** the panel is under 12 KB of HTML and renders in under 1 ms. It's built from local files only, so opening a card contacts no outside image host. At most 4 images load: the photo and 3 thumbnails.
+- **Safe by construction:** every value is escaped, image addresses must match a hash-named local file, and links must be `https`. If anything fails, the panel is hidden and the risk card is unaffected.
+- **Accessible:** keyboard focus is visible, touch targets are larger on phones, photos have written alt text, and the decorative emoji are hidden from screen readers.
+
+### Where the data comes from
+
+| Part | Source | Refreshed by |
+| --- | --- | --- |
+| Species and their photos | Research-grade [iNaturalist](https://www.inaturalist.org) observations within 2 km of each beach by default; iNaturalist's privacy flags are respected and no observation coordinates are stored | `.venv-ingest/bin/python scripts/fetch_species.py` |
+| Marine tags | [OBIS](https://obis.org), with a few documented corrections | The same script |
+| Beach photos | Wikimedia Commons or the maintainer's own, reviewed one by one | [Adding a beach photo](#adding-a-beach-photo) |
+| Roca, Historia, teasers | Hand-written in `dashboard/beach_profiles.py`, each with sources | By hand |
+
+See [the species data card](docs/data-cards/species_auto.md) for licences and limits.
 
 ---
 
