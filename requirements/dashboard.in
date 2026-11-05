@@ -1,0 +1,13 @@
+# Direct dependencies of the Cloud Run dashboard image. See README.md in this folder.
+streamlit
+streamlit-folium
+folium
+requests
+httpx
+certifi
+python-dotenv
+shapely
+# Streamlit 1.58 returns HTTP 500 for every static file with newer starlette.
+starlette
+uvicorn
+pillow

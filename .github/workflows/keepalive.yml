@@ -8,13 +8,16 @@ on:
     - cron: "0 12 * * *"   # 12:00 UTC every day
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Ping /health
         run: |
           curl --fail --silent --show-error \
-            "${{ secrets.API_BASE_URL }}/health"
+            --max-time 60 "$API_BASE_URL/health"
         env:
           API_BASE_URL: ${{ secrets.API_BASE_URL }}

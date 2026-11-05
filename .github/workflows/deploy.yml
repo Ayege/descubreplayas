@@ -1,7 +1,9 @@
 # ── Deploy to GCP Cloud Run — GitHub Actions ──────────────────────────────────
-# Triggered on every push to main. Builds API + Dashboard images in PARALLEL
-# and deploys each to Cloud Run using the gcloud CLI directly (avoids the
-# Node 20 deprecation warning emitted by google-github-actions/deploy-cloudrun).
+# Triggered on pushes to main. Runs the CI checks first, then builds API + Dashboard
+# images in PARALLEL and deploys each to Cloud Run using the gcloud CLI directly (avoids
+# the Node 20 deprecation warning emitted by google-github-actions/deploy-cloudrun).
+# A new revision gets traffic only after it passes a smoke check. Manual runs deploy
+# only from main.
 #
 # Required GitHub Secrets  (Settings → Secrets and variables → Actions),
 # read directly via ${{ secrets.X }} below:
@@ -29,56 +31,52 @@ on:
       - "api/**"
       - "dashboard/**"
       - "pipeline/**"
+      - "static/**"
       - "Dockerfile.*"
-      - "requirements.txt"
+      - "docker-entrypoint-dashboard.sh"
+      - "requirements/*.lock"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
+  # ── Same checks as pull requests; nothing deploys unless they pass ──────────
+  test:
+    uses: ./.github/workflows/ci.yml
+
   # ── Detect which services actually changed ──────────────────────────────────
   # Skips the API job when only dashboard/ changed, and vice-versa, so a
   # dashboard-only tweak doesn't rebuild + redeploy the API unnecessarily.
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       api:       ${{ steps.diff.outputs.api }}
       dashboard: ${{ steps.diff.outputs.dashboard }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          fetch-depth: 2          # need parent commit for git diff
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies (for sitemap generation)
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Generate sitemap
-        run: |
-          python scripts/generate_sitemap.py
+          fetch-depth: 0          # a push can hold several commits
 
       - id: diff
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
         run: |
-          # On manual dispatch always deploy both.
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          # A manual run, a first push or an unknown base deploys both.
+          if [[ "$EVENT_NAME" != "push" ]] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
             echo "api=true"       >> "$GITHUB_OUTPUT"
             echo "dashboard=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Empty-tree hash is the safe fallback when there is no parent commit.
-          BASE=$(git rev-parse HEAD~1 2>/dev/null \
-                 || git hash-object -t tree /dev/null)
-          CHANGED=$(git diff --name-only "$BASE" HEAD)
-          if echo "$CHANGED" | grep -qE '^(api/|pipeline/|Dockerfile\.api|requirements\.txt)'; then
+          CHANGED=$(git diff --name-only "$BEFORE" HEAD)
+          if echo "$CHANGED" | grep -qE '^(api/|pipeline/|Dockerfile\.api|requirements/api\.lock)'; then
             echo "api=true"  >> "$GITHUB_OUTPUT"
           else
             echo "api=false" >> "$GITHUB_OUTPUT"
           fi
-          if echo "$CHANGED" | grep -qE '^(dashboard/|Dockerfile\.dashboard|requirements\.txt)'; then
+          if echo "$CHANGED" | grep -qE '^(dashboard/|static/|Dockerfile\.dashboard|docker-entrypoint-dashboard\.sh|requirements/dashboard\.lock)'; then
             echo "dashboard=true"  >> "$GITHUB_OUTPUT"
           else
             echo "dashboard=false" >> "$GITHUB_OUTPUT"
@@ -86,18 +84,18 @@ jobs:
 
   # ── Build + deploy API ──────────────────────────────────────────────────────
   deploy-api:
-    needs: changes
-    if: needs.changes.outputs.api == 'true'
+    needs: [test, changes]
+    if: github.ref == 'refs/heads/main' && needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       IMAGE: us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sargapprepo/sargapp-api
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
@@ -137,22 +135,36 @@ jobs:
             --cpu       1 \
             --update-env-vars    "API_BASE_URL=${{ secrets.API_BASE_URL }}" \
             --update-secrets     "SUPABASE_URL=sargapp-supabase-url:latest,SUPABASE_KEY=sargapp-supabase-key:latest,TELEGRAM_BOT_TOKEN=sargapp-telegram-bot-token:latest,TELEGRAM_WEBHOOK_SECRET=sargapp-telegram-webhook-secret:latest" \
-            --update-labels      "managed-by=github-actions,commit-sha=${{ github.sha }}"
+            --update-labels      "managed-by=github-actions,commit-sha=${{ github.sha }}" \
+            --no-traffic \
+            --tag candidate
+
+      # The new revision has no traffic yet. If a check fails, visitors stay on the old one.
+      - name: Check the new revision
+        run: |
+          URL=$(gcloud run services describe sargapp-api --region "${{ secrets.GCP_REGION }}" --format=json \
+                | jq -r '.status.traffic[] | select(.tag=="candidate") | .url')
+          curl --fail --silent --show-error --output /dev/null --max-time 60 --retry 5 --retry-delay 10 --retry-all-errors "$URL/health"
+
+      - name: Send traffic to the new revision
+        run: |
+          gcloud run services update-traffic sargapp-api --region "${{ secrets.GCP_REGION }}" \
+            --to-latest --remove-tags candidate
 
   # ── Build + deploy Dashboard ────────────────────────────────────────────────
   deploy-dashboard:
-    needs: changes
-    if: needs.changes.outputs.dashboard == 'true'
+    needs: [test, changes]
+    if: github.ref == 'refs/heads/main' && needs.changes.outputs.dashboard == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       IMAGE: us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sargapprepo/sargapp-dashboard
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
@@ -189,17 +201,47 @@ jobs:
             --cpu       1 \
             --update-env-vars  "API_BASE_URL=https://api.descubreplayas.com.do,APP_CANONICAL_URL=${{ secrets.APP_CANONICAL_URL }},GA_MEASUREMENT_ID=${{ secrets.GA_MEASUREMENT_ID }}" \
             --update-secrets   "SUPABASE_URL=sargapp-supabase-url:latest,SUPABASE_KEY=sargapp-supabase-key:latest" \
-            --update-labels    "managed-by=github-actions,commit-sha=${{ github.sha }}"
+            --update-labels    "managed-by=github-actions,commit-sha=${{ github.sha }}" \
+            --no-traffic \
+            --tag candidate
 
-  # ── Summary (always runs, even when one job is skipped) ─────────────────────
+      # The new revision has no traffic yet. If a check fails, visitors stay on the old one.
+      - name: Check the new revision
+        run: |
+          URL=$(gcloud run services describe sargapp-dashboard --region "${{ secrets.GCP_REGION }}" --format=json \
+                | jq -r '.status.traffic[] | select(.tag=="candidate") | .url')
+          curl --fail --silent --show-error --output /dev/null --max-time 60 --retry 5 --retry-delay 10 --retry-all-errors "$URL/_stcore/health"
+          curl --fail --silent --show-error --output /dev/null --max-time 60 --retry 5 --retry-delay 10 --retry-all-errors "$URL/app/static/beaches/.gitkeep"
+
+      - name: Send traffic to the new revision
+        run: |
+          gcloud run services update-traffic sargapp-dashboard --region "${{ secrets.GCP_REGION }}" \
+            --to-latest --remove-tags candidate
+
+  # ── Summary (always runs, and fails if anything before it failed) ───────────
   summary:
-    needs: [deploy-api, deploy-dashboard]
+    needs: [test, changes, deploy-api, deploy-dashboard]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Deployment summary
+        env:
+          TEST: ${{ needs.test.result }}
+          CHANGES: ${{ needs.changes.result }}
+          API: ${{ needs.deploy-api.result }}
+          DASHBOARD: ${{ needs.deploy-dashboard.result }}
+          SHA: ${{ github.sha }}
         run: |
-          echo "### Deployment complete ✅" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **API**: https://api.descubreplayas.com.do" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Dashboard**: https://descubreplayas.com.do" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Commit**: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Deployment results"
+            echo "- **Tests**: $TEST"
+            echo "- **API**: $API (https://api.descubreplayas.com.do)"
+            echo "- **Dashboard**: $DASHBOARD (https://descubreplayas.com.do)"
+            echo "- **Commit**: \`$SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for result in "$TEST" "$CHANGES" "$API" "$DASHBOARD"; do
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              exit 1
+            fi
+          done

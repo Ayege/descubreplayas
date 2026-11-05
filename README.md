@@ -3,7 +3,7 @@
 > **POC** · Dominican Republic EEZ · Free-tier · ~$0/month
 
 Detects floating sargassum from satellite imagery, models its drift with ocean currents and wind, computes an arrival ETA for 11 DR coastal zones, and sends Telegram alerts to fishermen and hotels.
-Also ships a tourist **beach explorer** — 56 DR beaches with live sargassum risk, per-beach arrival time estimates, activities, wildlife, parking, and Google Maps links.
+Also ships a tourist **beach explorer** — 55 DR beaches with live sargassum risk, per-beach arrival time estimates, a "Conoce esta playa" panel on each beach's wildlife, activities, parking, and Google Maps links.
 An ML extended forecast layer adds 7 / 14 / 21-day outlooks that bridge the gap between the 72-hour physics drift model and monthly seasonal climatology.
 
 <p align="center">
@@ -14,11 +14,13 @@ An ML extended forecast layer adds 7 / 14 / 21-day outlooks that bridge the gap 
   <em>Detected sargassum masses (brown) drifting across the DR EEZ, monitoring zones (dashed), and per-beach risk with arrival ETA.</em>
 </p>
 
+**Contents:** [Quick start](#quick-start-5-minutes-to-a-running-dashboard) · [Environment variables](#environment-variables) · [Architecture](#architecture) · [API](#api-reference) · [Database](#database-schema) · [Telegram](#telegram-bot-commands) · [Deployment](#deployment) · [Risk calculation](#how-sargassum-risk-is-calculated) · [Beach explorer](#beach-explorer-features) · [Conoce esta playa](#conoce-esta-playa) · [Adding a beach photo](#adding-a-beach-photo) · [Surf & wind](#surf--wind-conditions) · [Testing](#testing) · [Limitations](#limitations-and-known-gaps) · [License](#license)
+
 ---
 
 ## Quick start (5 minutes to a running dashboard)
 
-You don't need Earth Engine or Copernicus credentials to run the beach explorer. Credentials unlock the full detection pipeline.
+You don't need any credentials to run the beach explorer: steps 1–3 and 7 are enough. Supabase is only for the API and pipeline, and Earth Engine and Copernicus credentials only for the detection pipeline.
 
 ```bash
 # 1 — clone & enter the repo
@@ -35,17 +37,19 @@ pip install -r requirements.txt
 # 4 — copy the env template and fill in your values (see table below)
 cp .env.example .env
 
-# 5 — provision the database (run once in Supabase SQL editor)
+# 5 — optional: provision the database (run once in the Supabase SQL editor)
 #     open sql/schema.sql and execute it in your Supabase project
 
-# 6 — seed the beach catalog into Supabase
+# 6 — optional: seed the beach catalog into Supabase. This writes to the project in
+#     your .env. It adds and updates beaches, but never deletes one removed from the
+#     catalogue, so delete those rows yourself.
 python -m scripts.seed_beaches
 
 # 7 — launch the beach explorer (works offline — no API needed)
 streamlit run dashboard/beaches.py
 ```
 
-Open http://localhost:8501 — you'll see the interactive tropical map with 56 DR beaches.
+Open http://localhost:8501 — you'll see the interactive tropical map with 55 DR beaches.
 
 > **To see detected sargassum on the map, the API has to be running too.** The
 > explorer reads masses from `GET /detections`, so with `API_BASE_URL` pointing
@@ -83,12 +87,18 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `SUPABASE_KEY`            | All                    | Service-role key (pipeline/API) or anon key (read-only)               |
 | `TELEGRAM_BOT_TOKEN`      | Alerts                 | Bot token from @BotFather                                             |
 | `TELEGRAM_WEBHOOK_SECRET` | Alerts                 | Shared secret echoed in Telegram's webhook header (prevents spoofing) |
-| `API_BASE_URL`            | Dashboard risk overlay | Public Render URL — leave blank to skip live risk                    |
+| `API_BASE_URL`            | Dashboard risk overlay | Public API URL. Unset, it uses the production API; blank skips live risk |
 | `FORECAST_HOURS_PHYSICS`  | Pipeline (optional)    | Physics drift horizon in hours (default`72`)                        |
 | `FORECAST_HOURS_EXTENDED` | Pipeline (optional)    | ML forecast horizon cap in hours (default`168` = 7 d)               |
 | `ML_RETRAIN_EVERY_N_RUNS` | Pipeline (optional)    | Retrain ML model every N pipeline runs (default`28` ≈ 1 week)      |
 | `WIND_DRIFT_FACTOR`       | Pipeline (optional)    | Fraction of wind speed applied as surface windage (default`0.02`)   |
-| `FAI_THRESHOLD`           | Pipeline (optional)    | Floating Algae Index detection threshold (default`0.02`)            |
+| `FAI_THRESHOLD`           | Pipeline (optional)    | Floating Algae Index detection threshold (default`0.005`)           |
+| `ZONE_BOX_HALF_DEG`       | Pipeline (optional)    | Half-width of each zone's detection box in degrees (default`0.35`)  |
+| `CORS_ORIGINS`            | API (optional)         | Origins allowed to call the API                                       |
+| `APP_CANONICAL_URL`       | Dashboard (optional)   | Canonical site URL for SEO tags                                       |
+| `APP_OG_IMAGE_URL`        | Dashboard (optional)   | Social preview image URL                                              |
+| `GA_MEASUREMENT_ID`       | Dashboard (optional)   | Google Analytics 4 ID                                                 |
+| `DONATE_URL`              | Dashboard (optional)   | Donation link in the sidebar                                          |
 
 > **Beach explorer with no credentials** — leave `API_BASE_URL` blank.
 > The map loads from the built-in dataset; the sargassum risk badges show "no data".
@@ -143,15 +153,26 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `pipeline/config.py`        | EEZ bbox, zones, thresholds, ML settings — all from env vars            |
 | `api/`                      | FastAPI: health, zones, forecasts, extended forecasts, beaches, Telegram |
 | `dashboard/beaches.py`      | Streamlit beach explorer (tropical UI, bilingual ES/EN)                  |
-| `dashboard/beaches_data.py` | 56-beach offline dataset (canonical, English — filters and API key on it) |
-| `dashboard/beaches_i18n.py` | Spanish display layer: 183 vocabulary terms + prose for all 56 beaches   |
+| `dashboard/beaches_data.py` | 55-beach offline dataset (canonical, English — filters and API key on it) |
+| `dashboard/beaches_i18n.py` | Spanish display layer: 183 vocabulary terms + prose for all 55 beaches   |
 | `dashboard/climatology.py`  | Caribbean monthly risk index (seasonal fallback)                         |
 | `dashboard/risk_overlay.py` | Live risk fetch + nearest-zone mapping                                   |
 | `dashboard/surf.py`         | Live surf/kite scoring from Open-Meteo wave + wind (no stored data)      |
 | `dashboard/surf_data.py`    | Per-beach shore orientation and swell/wind windows used to score surf    |
+| `dashboard/conoce.py`       | Renders the "Conoce esta playa" panel; every value is escaped            |
+| `dashboard/conoce_data.py`  | Validates and indexes species, photos and hand-written beach content     |
+| `dashboard/beach_profiles.py` | Hand-written beach content, with sources                               |
+| `dashboard/map_perf.py`     | Parallel loading, compact map markers, smooth map and card motion        |
+| `dashboard/data/`           | `species_auto.json` (generated) and `beach_photos.json` (reviewed)       |
+| `dashboard/static/`         | Self-hosted images, re-encoded with no metadata, served at `/app/static/` |
 | `sql/schema.sql`            | PostGIS tables, seed zones (including La Romana), indexes, RLS policies  |
 | `scripts/seed_beaches.py`   | Idempotent Supabase beach seeder                                         |
-| `.github/workflows/`        | `pipeline.yml` (cron every 6 h) + `keepalive.yml` (daily ping)       |
+| `scripts/fetch_species.py`  | Refreshes species data and thumbnails from iNaturalist and OBIS          |
+| `scripts/beach_photo_candidates.py` | Lists Commons photos near each beach for review                  |
+| `scripts/review_photos.py`  | Local-only server for choosing photos in the browser                     |
+| `scripts/import_beach_photo.py` | The only script that writes beach photos                             |
+| `requirements/`             | Hashed lockfiles per service; see [its README](requirements/README.md)   |
+| `.github/workflows/`        | `ci.yml` (tests + security scans), `deploy.yml` (Cloud Run), `pipeline.yml` (cron every 6 h), `keepalive.yml` (daily ping) |
 
 ---
 
@@ -182,7 +203,7 @@ Interactive docs at `/docs` when the API is running.
 | `forecasts`    | 72-h physics zone risk + ETA per pipeline run (with optional`horizons` JSON) |
 | `ml_forecasts` | ML extended forecasts per (zone, lead_days); unique on (run_at, zone, lead)    |
 | `subscribers`  | Telegram subscribers per zone                                                  |
-| `beaches`      | 56 DR beaches with metadata + PostGIS point geometry                           |
+| `beaches`      | 55 DR beaches with metadata + PostGIS point geometry                           |
 
 Risk levels: `none` · `low` · `medium` · `high`
 
@@ -205,14 +226,15 @@ Once deployed and webhook registered:
 
 ## Deployment
 
-| Service                             | What runs there                                  | Free tier                    |
-| ----------------------------------- | ------------------------------------------------ | ---------------------------- |
-| **Render**                    | FastAPI (`api/`)                               | 750 h/month free web service |
-| **Streamlit Community Cloud** | `dashboard/beaches.py` or `dashboard/app.py` | Free                         |
-| **Supabase**                  | Postgres + PostGIS                               | 500 MB free                  |
-| **GitHub Actions**            | Pipeline cron + keep-alive                       | 2 000 min/month free         |
+| Service                | What runs there                                       |
+| ---------------------- | ----------------------------------------------------- |
+| **Google Cloud Run**   | FastAPI (`api/`) and the dashboard (`dashboard/beaches.py`), as Docker images |
+| **Supabase**           | Postgres + PostGIS                                    |
+| **GitHub Actions**     | CI, deploys, pipeline cron and keep-alive             |
 
-See `render.yaml` for the Render service definition.
+A push to `main` that touches the app runs `deploy.yml`: the CI checks run first, then both images are built and deployed without traffic, and each new revision gets traffic only after it passes a smoke check. `deploy/gcp-setup.sh` sets up the project, and secrets live in GCP Secret Manager. Cloud Run scales to zero when idle; check your own usage against its free tier.
+
+`render.yaml` is an unused stub.
 
 ---
 
@@ -233,7 +255,7 @@ See `render.yaml` for the Render service definition.
 
 ## How sargassum risk is calculated
 
-The pipeline runs four steps automatically every 6 hours via GitHub Actions.
+The pipeline runs six steps automatically every 6 hours via GitHub Actions. Steps 1–4 produce the risk reading below; steps 5–6 send alerts and add the extended forecast.
 
 ### Step 1 — Detection (Sentinel-2 / FAI)
 
@@ -245,7 +267,7 @@ $$
 \text{FAI} = \rho_\text{NIR} - \left( \rho_\text{Red} + (\rho_\text{SWIR} - \rho_\text{Red}) \cdot \frac{\lambda_\text{NIR} - \lambda_\text{Red}}{\lambda_\text{SWIR} - \lambda_\text{Red}} \right)
 $$
 
-Pixels with FAI > threshold (default **0.02**, tunable via `FAI_THRESHOLD` env var) are flagged as floating biomass.
+Pixels with FAI > threshold (default **0.005**, tunable via `FAI_THRESHOLD` env var) are flagged as floating biomass.
 Contiguous flagged pixels are vectorised into patch polygons. Patches smaller than 0.05 km² are discarded as noise.
 
 ### Step 2 — Ocean forcing (Copernicus Marine / Open-Meteo)
@@ -275,7 +297,7 @@ $$
 
 where $\Delta t = 3600$ s and $\alpha = 0.02$ (2 % windage — empirical value for surface biomass, tunable via `WIND_DRIFT_FACTOR`).
 
-When a patch centroid enters a **zone bounding box** (0.1 ° half-width square around each coastal zone centre), the arrival hour and projected area are recorded.
+When a patch centroid enters a **zone bounding box** (0.35 ° half-width square around each coastal zone centre, tunable via `ZONE_BOX_HALF_DEG`), the arrival hour and projected area are recorded.
 
 ### Step 4 — Risk classification
 
@@ -359,9 +381,9 @@ Results are stored in the `ml_forecasts` table and served at `GET /forecast/exte
 
 The `dashboard/beaches.py` app provides an interactive tropical map with:
 
-- **56 DR beaches** catalogued with province, region, activities, wildlife, facilities, and Google Maps links.
+- **55 DR beaches** catalogued with province, region, activities, wildlife, facilities, and Google Maps links.
 - **"Go to beach" picker** — type-ahead search over the current results; picking one flies the map to it and opens its panel, so you never have to hunt for a pin.
-- **Accent-insensitive search** — "Bavaro" finds *Playa Bávaro*, "Aguilas" finds *Bahía de las Águilas*. 13 of the 56 names carry an accent, and Streamlit's own fuzzy filter does not fold diacritics, so each affected option also shows its plain spelling.
+- **Accent-insensitive search** — "Bavaro" finds *Playa Bávaro*, "Aguilas" finds *Bahía de las Águilas*. 12 of the 55 names carry an accent, and Streamlit's own fuzzy filter does not fold diacritics, so each affected option also shows its plain spelling.
 - **Auto-framing** — narrowing a filter (region, province, activity, risk) re-frames the map on what is left, computed in Web Mercator from the result set's bounds.
 - **Opens clean** — national map, no beach card. The panel appears only when you pick a beach, click a pin, or open a `?beach=…` link (which centres the map on it).
 - **Fully bilingual (ES/EN)** — not just the interface: every beach description, access note, ecosystem, activity, species and facility is translated. 183 vocabulary terms plus per-beach prose live in `dashboard/beaches_i18n.py`; `beaches_data.py` stays English because the filters, the API and the Supabase seeder all key on it.
@@ -378,6 +400,8 @@ The `dashboard/beaches.py` app provides an interactive tropical map with:
   - South/central default: −0.13 m/s
 - **Live wind** from Open-Meteo (free, no key required), cached 1 hour via `@st.cache_data`.
 - **Custom loading spinner** (pure CSS, no JavaScript) replaces the Streamlit branding splash screen.
+- **Smooth motion** — the card slides in when you open or change a beach, sections open and close gradually, and the map flies to a beach you pick. Your own panning and zooming are untouched, and all of it respects the reduced-motion setting.
+- **Pins on the shore** — every pin is within 50 m of the OpenStreetMap coastline.
 
 <p align="center">
   <img src="docs/media/sidebar.png" alt="Sidebar with the go-to-beach picker on top and the filter, layers and prediction-method sections collapsed below" width="320">
@@ -386,6 +410,50 @@ The `dashboard/beaches.py` app provides an interactive tropical map with:
 <p align="center">
   <em>Sidebar: the primary action sits on top; filters, map layers and forecast settings stay collapsed until needed.</em>
 </p>
+
+---
+
+## Conoce esta playa
+
+Each beach card has a panel below the risk reading, which always comes first. It opens with a reference photo where there is one, followed by three sections:
+
+- **Vida** — the ecosystem and up to 3 featured species, then more on request. Species come from research-grade iNaturalist observations near the beach, with marine ones tagged by OBIS and ranked first. iNaturalist's privacy flags are respected, and no observation coordinates are stored.
+- **Roca** — geology and why sargassum arrives, for the beach's coastal unit.
+- **Historia** — dated history items.
+
+Every fact carries its source and how it was obtained. Empty sections are hidden, and the app never invents content to fill them. Roca and Historia are hand-written and still being added.
+
+Images are self-hosted, so opening a card contacts no image host. The panel is rendered from local files, and a failure there hides the panel without touching the risk card. Refresh the species data with `.venv-ingest/bin/python scripts/fetch_species.py`; see [its data card](docs/data-cards/species_auto.md).
+
+---
+
+## Adding a beach photo
+
+Photos come only from Wikimedia Commons or your own camera. Scripts that download images need a separate environment, set up as described in [`requirements/README.md`](requirements/README.md).
+
+```bash
+# 1 — list candidates near each beach, filtered by licence and Commons category
+.venv-ingest/bin/python scripts/beach_photo_candidates.py --html info/photo_candidates.html
+
+# 2 — choose in the browser: tick one per beach and press Submit (saved locally)
+.venv-ingest/bin/python scripts/review_photos.py
+
+# 3 — add alt text in Spanish and English to info/photo_picks.json, then import
+.venv-ingest/bin/python scripts/import_beach_photo.py --manifest info/photo_picks.json
+
+# Or add one of your own photos (credited to the maintainer, CC BY 4.0)
+.venv-ingest/bin/python scripts/import_beach_photo.py --beach "Playa Rincón" \
+    --own path/to/photo.jpg --year 2024 --alt-es "..." --alt-en "..."
+```
+
+**Check every photo at full size before importing:**
+
+- no identifiable person and no child
+- the beach is recognisable
+- the alt text describes the scene, not the file
+- the year in the caption comes from the source, not a guess
+
+The importer fetches the licence and author again, accepts only CC0, CC BY and CC BY-SA, refuses files whose licence name and URL disagree, and strips all metadata. Add `--replace` to change an existing photo. As of this writing, 35 of 55 beaches have a photo. Their alt text was drafted by AI from the image.
 
 ---
 
@@ -410,7 +478,7 @@ demand from [Open-Meteo's free Marine and Forecast APIs](https://open-meteo.com/
 - **Kite/windsurf spots score differently**: wind *strength* is the resource
   rather than the spoiler, side-shore wind is ideal, and a straight-offshore
   wind is flagged unsafe (it blows a rider out to sea if they lose power).
-- **All 56 beaches are rated**, not just named spots. 13 curated surf/kite
+- **All 55 beaches are rated**, not just named spots. 13 curated surf/kite
   destinations use an individually calibrated shore orientation; every other
   beach falls back to its coastal region's orientation plus a
   sheltered/exposed read of its own `water_conditions` text, and the panel
@@ -422,10 +490,31 @@ demand from [Open-Meteo's free Marine and Forecast APIs](https://open-meteo.com/
   each day, so a visitor planning tomorrow isn't judged by this minute's wind.
 - **Surf mode** recolours every beach marker by live surf quality instead of
   region, with matching filters for surf-only spots and minimum quality.
-- Fully bilingual and fetched lazily: a default page load makes **no** surf
-  request at all; one fires only once surf mode, the quality filter, or a
-  beach panel actually needs it (see `dashboard/surf.py` for the scoring code
-  and honest limits — mainly that shore orientation is estimated to ±15°).
+- Fully bilingual and fetched in the background: one batched request starts
+  when the page loads and never holds it up (see `dashboard/surf.py` for the
+  scoring code and honest limits — mainly that shore orientation is estimated
+  to ±15°).
+
+---
+
+## Testing
+
+The offline suites make no network calls and are what CI runs:
+
+```bash
+for s in beaches conoce dispatch drift images map_perf profiles risk_overlay surf workflows; do
+  python -m tests.test_$s || break
+done
+
+# These need the ingest environment (see requirements/README.md)
+for s in fetch_species image_pipeline beach_photos review_photos; do
+  .venv-ingest/bin/python -m tests.test_$s || break
+done
+```
+
+> **Don't run `test_store`, `test_detect` or `test_ocean` casually.** They use live services, and `test_store` writes to the Supabase project in your `.env`. CI never runs them.
+
+Every pull request also runs Ruff, Bandit, pip-audit and gitleaks. Accepted dependency advisories are listed in `requirements/audit-ignore.txt`.
 
 ---
 
@@ -435,7 +524,8 @@ demand from [Open-Meteo's free Marine and Forecast APIs](https://open-meteo.com/
 - One failed pipeline step logs an error but does not crash the whole run
 - All times stored as UTC; Telegram alerts display local DR time (UTC−4)
 - The `streamlit-folium` component is pinned at `0.27.2` — upgrading may break the map component asset loading behind custom-domain reverse proxies
-- `.streamlit/config.toml` disables Streamlit's XSRF and CORS checks so the folium iframe loads correctly on `descubreplayas.com.do`
+- `.streamlit/config.toml` keeps Streamlit's XSRF and CORS protection on, matching the Cloud Run image, and enables static file serving for the self-hosted images
+- **Never put a `<style>` tag inside the beach card.** `dashboard/beaches.py` hides any container holding one, which would hide the risk reading too. Add CSS in its own `st.markdown` block.
 - Maps use **OpenStreetMap tiles** (free, no API key required). CartoDB tiles required an API key after their free-tier policy changed in 2023–2024.
 - **No sargassum on the map usually means the API is not running.** The explorer reads masses from `GET /detections`; with `API_BASE_URL` pointing at a dead host the call returns `[]` and the map draws beaches only. Start `uvicorn api.main:app` alongside the dashboard.
 - **Streamlit strips `<script>` from `st.markdown`.** Anything that must execute in the page has to go through `st.components.v1.html`, which renders a real same-origin iframe and can reach `window.parent.document` — that is how `_inject_head()` installs `<html lang>` and the meta tags. Inert `<script type="application/ld+json">` is the exception: it survives, which is why the JSON-LD block still works.
@@ -486,7 +576,7 @@ Understanding these constraints is essential before relying on the system for pl
 
 | Limitation           | Detail                                                                                                              |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 11 zones, 56 beaches | Each beach is matched to its nearest zone by Haversine distance; no beach has its own independent forecast          |
+| 11 zones, 55 beaches | Each beach is matched to its nearest zone by Haversine distance; no beach has its own independent forecast          |
 | Max zone radius      | The largest gap before La Romana was added was 62 km (Bayahibe / Dominicus). La Romana zone now covers it at ~21 km |
 | Zone geometry        | All zones are simple square bounding boxes; real bay shapes and headlands are not modelled                          |
 
@@ -496,7 +586,7 @@ Understanding these constraints is essential before relying on the system for pl
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Untuned heuristic      | The size/direction/period/wind weighting is physically-grounded but has not been validated against reported surf | Treat the score as "is it worth the drive", not a substitute for looking at the water |
 | Shore-normal estimate  | Each curated spot's shore-facing angle is read off the coastline, accurate to roughly ±15°                       | Direction scoring can be off for spots close to that margin                          |
-| Region-level fallback  | 43 of 56 beaches have no curated spot and inherit their coastal region's orientation, not their own              | Marked "approximate" in the panel; a single cove can still face away from the regional norm |
+| Region-level fallback  | 42 of 55 beaches have no curated spot and inherit their coastal region's orientation, not their own              | Marked "approximate" in the panel; a single cove can still face away from the regional norm |
 | Offshore grid sampling | Open-Meteo's wave grid snaps to the nearest ocean cell, 9–20 km from some beaches                                | Correct for open-water swell, but not a literal beach-front reading; the panel shows the distance |
 
 ---
@@ -573,7 +663,8 @@ This project is licensed in two parts.
 | What | Licence | File |
 | --- | --- | --- |
 | **Code** — pipeline, API, dashboard, models | [Apache License 2.0](LICENSE) | `LICENSE` + [`NOTICE`](NOTICE) |
-| **Beach dataset** — the 56-beach catalogue and its Spanish translations | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | [`LICENSE-DATA.md`](LICENSE-DATA.md) |
+| **Beach dataset** — the 55-beach catalogue and its Spanish translations | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | [`LICENSE-DATA.md`](LICENSE-DATA.md) |
+| **Images and species records** — `dashboard/static/`, `dashboard/data/` | Each keeps its source's licence, listed per item | [`LICENSE-DATA.md`](LICENSE-DATA.md) |
 
 © 2026 Ayesha Yege.
 
@@ -611,7 +702,10 @@ check them before redistributing derived datasets:
 | **Copernicus Sentinel-2** (ESA) | Sargassum detection imagery | Free and open, attribution required |
 | **Copernicus Marine Service** | Ocean currents (`uo`, `vo`) | Free with registration; cite the product |
 | **Open-Meteo** | 10 m wind | Free for non-commercial use (CC BY 4.0) |
-| **OpenStreetMap** | Map tiles | © OpenStreetMap contributors, ODbL |
+| **OpenStreetMap** | Map tiles; checking and aligning beach pins to the coastline | © OpenStreetMap contributors, ODbL |
+| **iNaturalist** | Species records and photos | Per record; each photo is shown with its own credit and licence |
+| **OBIS** | Marine tags on species | See [the data card](docs/data-cards/species_auto.md) |
+| **Wikimedia Commons** | Beach photos | Per file: CC0, CC BY or CC BY-SA, credited on each photo |
 
 Beach amenity, fee and access notes are local observations that change over
 time. Treat them as a starting point, not an authority — and do not rely on the

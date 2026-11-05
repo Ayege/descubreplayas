@@ -1,0 +1,8 @@
+# Keeps the pinned action SHAs up to date. Python packages stay out on purpose: they
+# change through requirements/compile.sh, after the tests have run on them.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

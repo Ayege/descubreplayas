@@ -1,0 +1,47 @@
+{
+ "batchcomplete": true,
+ "query": {
+  "pages": [
+   {
+    "pageid": 52178919,
+    "ns": 6,
+    "title": "File:Рынок - Bávaro - Kirill Flerov.jpg",
+    "index": -1,
+    "imagerepository": "local",
+    "imageinfo": [
+     {
+      "size": 2652288,
+      "width": 3872,
+      "height": 2592,
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/32/%D0%A0%D1%8B%D0%BD%D0%BE%D0%BA_-_B%C3%A1varo_-_Kirill_Flerov.jpg/500px-%D0%A0%D1%8B%D0%BD%D0%BE%D0%BA_-_B%C3%A1varo_-_Kirill_Flerov.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 500,
+      "thumbheight": 335,
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/32/%D0%A0%D1%8B%D0%BD%D0%BE%D0%BA_-_B%C3%A1varo_-_Kirill_Flerov.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:%D0%A0%D1%8B%D0%BD%D0%BE%D0%BA_-_B%C3%A1varo_-_Kirill_Flerov.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=52178919",
+      "extmetadata": {
+       "DateTimeOriginal": {
+        "value": "Taken on 23 December 2008",
+        "source": "commons-desc-page"
+       },
+       "Artist": {
+        "value": "<a rel=\"nofollow\" class=\"external text\" href=\"https://web.archive.org/web/20161013004653/http://www.panoramio.com/user/1002900?with_photo_id=18058204\">Kirill Flerov</a>",
+        "source": "commons-desc-page"
+       },
+       "LicenseShortName": {
+        "value": "CC BY 3.0",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "LicenseUrl": {
+        "value": "https://creativecommons.org/licenses/by/3.0",
+        "source": "commons-desc-page"
+       }
+      },
+      "mime": "image/jpeg"
+     }
+    ]
+   }
+  ]
+ }
+}

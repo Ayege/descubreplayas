@@ -1,0 +1,9 @@
+# Direct dependencies of the Cloud Run API image. See README.md in this folder.
+fastapi
+uvicorn[standard]
+pydantic
+supabase
+python-dotenv
+httpx
+certifi
+python-telegram-bot

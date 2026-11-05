@@ -274,8 +274,8 @@ BEACH_TEXT_ES: dict[str, dict[str, str]] = {
         "water_conditions": "Generalmente tranquila, con brisa constante hacia la costa",
     },
     "Playa Blanca": {
-        "description": "Ensenada en media luna junto a la marina de Cap Cana, con un club de playa popular y agua tranquila para nadar.",
-        "access_description": "En la zona de la marina de Cap Cana; se llega en carro o en transporte del resort.",
+        "description": "Playa dentro del recinto cerrado de Punta Cana Resort & Club, con un conocido restaurante frente al mar.",
+        "access_description": "Dentro del recinto cerrado de Punta Cana Resort & Club; quienes no son huéspedes pueden tener que dejar una identificación en la entrada.",
         "ecosystem": "Ensenada caribeña resguardada",
         "water_conditions": "Tranquila y poco profunda",
     },
@@ -485,7 +485,7 @@ BEACH_TEXT_ES: dict[str, dict[str, str]] = {
     },
     "Playa Cambiaso": {
         "description": "Playa apartada rodeada de manglares, a la que se llega en 4x4 o en bote; ideal para los amantes de la naturaleza.",
-        "access_description": "Playa remota al este de Puerto Plata; camino difícil o bote.",
+        "access_description": "Playa remota al oeste de Puerto Plata, cerca de Luperón; camino difícil o bote.",
         "ecosystem": "Manglares y dunas en la desembocadura del río",
         "water_conditions": "Tranquila donde el río se encuentra con el mar",
     },
@@ -500,12 +500,6 @@ BEACH_TEXT_ES: dict[str, dict[str, str]] = {
         "access_description": "Justo al oeste de la bahía de Cabarete; acceso desde la carretera.",
         "ecosystem": "Zona de kite a sotavento con agua plana",
         "water_conditions": "Plana por dentro, con olas por fuera del arrecife",
-    },
-    "Playa Sosúa Bay (Charamicos)": {
-        "description": "La entrada del lado local a la bahía de Sosúa, con agua tranquila de arrecife y operadores de tours en bote económicos.",
-        "access_description": "Extremo oeste de la bahía de Sosúa, por el barrio de Charamicos.",
-        "ecosystem": "Bahía de arrecife resguardada",
-        "water_conditions": "Tranquila, protegida por el arrecife",
     },
     "Playa Diamante": {
         "description": "Laguna escondida en media luna cerca de Cabrera, de agua tranquila y poco profunda: ideal para familias.",

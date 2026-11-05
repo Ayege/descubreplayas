@@ -1,0 +1,7226 @@
+{
+ "beaches": {
+  "Bahía de las Águilas": [
+   {
+    "observation_count": 6,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49500
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 193946
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 1099504
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 131705
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 3938
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 128853
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 254640
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4940
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 208739
+   }
+  ],
+  "Bayahibe Beach": [
+   {
+    "observation_count": 18,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 17,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 15,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 12,
+    "taxon_id": 49491
+   },
+   {
+    "observation_count": 11,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 10,
+    "taxon_id": 3938
+   },
+   {
+    "observation_count": 10,
+    "taxon_id": 49272
+   },
+   {
+    "observation_count": 9,
+    "taxon_id": 871060
+   },
+   {
+    "observation_count": 9,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 9,
+    "taxon_id": 130053
+   },
+   {
+    "observation_count": 9,
+    "taxon_id": 49404
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 72458
+   }
+  ],
+  "Boca Chica Beach": [
+   {
+    "observation_count": 6,
+    "taxon_id": 62600
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 60335
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 49272
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 180708
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 1660386
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 47251
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 98317
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 81989
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49753
+   }
+  ],
+  "Cabarete Beach": [
+   {
+    "observation_count": 6,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 96993
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 130743
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 130818
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 118583
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 3756
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 173412
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 127284
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 49761
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 48865
+   }
+  ],
+  "Cabo Rojo": [
+   {
+    "observation_count": 9,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 3892
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 4836
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 4257
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 3893
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 3850
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 60335
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 6951
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 3864
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 2548
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49500
+   }
+  ],
+  "Canto de la Playa (Saona)": [
+   {
+    "observation_count": 3,
+    "taxon_id": 871060
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49491
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49272
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 1099504
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 577603
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 110084
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 504639
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 60335
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49923
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 322730
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 48865
+   }
+  ],
+  "Cayo Levantado": [
+   {
+    "observation_count": 14,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 8,
+    "taxon_id": 49500
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49272
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49440
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 130743
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 1099504
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 120130
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 52293
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 112557
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 194210
+   }
+  ],
+  "Dominicus Beach": [
+   {
+    "observation_count": 21,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 20,
+    "taxon_id": 49491
+   },
+   {
+    "observation_count": 18,
+    "taxon_id": 4940
+   },
+   {
+    "observation_count": 15,
+    "taxon_id": 871060
+   },
+   {
+    "observation_count": 14,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 14,
+    "taxon_id": 49272
+   },
+   {
+    "observation_count": 12,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 12,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 12,
+    "taxon_id": 3938
+   },
+   {
+    "observation_count": 12,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 10,
+    "taxon_id": 130053
+   },
+   {
+    "observation_count": 9,
+    "taxon_id": 47238
+   }
+  ],
+  "Isla Catalina Beach": [
+   {
+    "observation_count": 15,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 131705
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 47238
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 120130
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 62600
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 49753
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 49304
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 49491
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 52290
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 131703
+   }
+  ],
+  "Kite Beach": [
+   {
+    "observation_count": 7,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 130818
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 96993
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 292440
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 118583
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 254234
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 3756
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 173412
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 130743
+   }
+  ],
+  "La Ensenada": [
+   {
+    "observation_count": 5,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 3893
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 255612
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 254234
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 130743
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 112557
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 363690
+   }
+  ],
+  "Playa Alicia": [
+   {
+    "observation_count": 14,
+    "taxon_id": 120130
+   },
+   {
+    "observation_count": 13,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 11,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 9,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 8,
+    "taxon_id": 871060
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 52956
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 112166
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 577603
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49753
+   }
+  ],
+  "Playa Bibijagua": [
+   {
+    "observation_count": 43,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 38,
+    "taxon_id": 495710
+   },
+   {
+    "observation_count": 25,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 15,
+    "taxon_id": 6951
+   },
+   {
+    "observation_count": 10,
+    "taxon_id": 72458
+   },
+   {
+    "observation_count": 10,
+    "taxon_id": 116999
+   },
+   {
+    "observation_count": 9,
+    "taxon_id": 49500
+   },
+   {
+    "observation_count": 8,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 1316792
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 81989
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 4956
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 3938
+   }
+  ],
+  "Playa Blanca": [
+   {
+    "observation_count": 7,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 577603
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 322730
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 49491
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 3938
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 3849
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 49272
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 49500
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 130743
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 1099504
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 133675
+   }
+  ],
+  "Playa Blanca (Pedernales)": [
+   {
+    "observation_count": 3,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 130743
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 438336
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 67706
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 61503
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 365010
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 781804
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 173793
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 277412
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 275393
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 164333
+   }
+  ],
+  "Playa Boca de Yuma": [
+   {
+    "observation_count": 3,
+    "taxon_id": 130743
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 292441
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 116999
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 2118
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 127284
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 121022
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 51589
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49150
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 277412
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 62934
+   }
+  ],
+  "Playa Bonita": [
+   {
+    "observation_count": 7,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 72458
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 128110
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 60335
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 366863
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 136915
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 84965
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 253288
+   }
+  ],
+  "Playa Bávaro": [
+   {
+    "observation_count": 59,
+    "taxon_id": 6951
+   },
+   {
+    "observation_count": 8,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 322730
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 4793
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 4940
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 49500
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 134103
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 366863
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 4836
+   }
+  ],
+  "Playa Cabeza de Toro": [
+   {
+    "observation_count": 47,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 29,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 15,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 10,
+    "taxon_id": 60335
+   },
+   {
+    "observation_count": 9,
+    "taxon_id": 253288
+   },
+   {
+    "observation_count": 8,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 253481
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 461145
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 1099504
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 4381
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 49257
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 134103
+   }
+  ],
+  "Playa Caletón": [
+   {
+    "observation_count": 9,
+    "taxon_id": 60335
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 72458
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 292990
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 136915
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 130818
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 84965
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 253288
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 549648
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 96993
+   }
+  ],
+  "Playa Cambiaso": [],
+  "Playa Cofresí": [
+   {
+    "observation_count": 2,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 254234
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 60335
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 47251
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 59704
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 72458
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 1196340
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4956
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 525804
+   }
+  ],
+  "Playa Costambar": [
+   {
+    "observation_count": 12,
+    "taxon_id": 72458
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 3849
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 254234
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 4817
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 4956
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 253288
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 116999
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 134103
+   }
+  ],
+  "Playa Cosón": [
+   {
+    "observation_count": 1,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 4756
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 411086
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 5020
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 133669
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 50342
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 60879
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 348469
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 50336
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 36455
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 166894
+   }
+  ],
+  "Playa Diamante": [
+   {
+    "observation_count": 2,
+    "taxon_id": 82768
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 1665501
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 202229
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 121022
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 348469
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 278899
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 1452029
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 166488
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 782079
+   }
+  ],
+  "Playa Dorada": [
+   {
+    "observation_count": 4,
+    "taxon_id": 4956
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 107889
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 322730
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 72458
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 3864
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 871060
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 253288
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 260318
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 96993
+   }
+  ],
+  "Playa El Bretón": [
+   {
+    "observation_count": 1,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 72458
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 67706
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49540
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 53768
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 51589
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 154798
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 131242
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 48865
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 56314
+   }
+  ],
+  "Playa El Cortecito": [
+   {
+    "observation_count": 42,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 38,
+    "taxon_id": 495710
+   },
+   {
+    "observation_count": 24,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 15,
+    "taxon_id": 6951
+   },
+   {
+    "observation_count": 11,
+    "taxon_id": 72458
+   },
+   {
+    "observation_count": 9,
+    "taxon_id": 49500
+   },
+   {
+    "observation_count": 8,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 1316792
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 81989
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 116999
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 3938
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 96740
+   }
+  ],
+  "Playa El Valle": [
+   {
+    "observation_count": 3,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 84965
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 96740
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4793
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 179469
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 127284
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 553515
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 2118
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 50073
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 7434
+   }
+  ],
+  "Playa Encuentro": [
+   {
+    "observation_count": 8,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 254230
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 292441
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 254234
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 130743
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 292990
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 255547
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 62850
+   }
+  ],
+  "Playa Frontón": [
+   {
+    "observation_count": 8,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 871060
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 128110
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 49491
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49256
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 577603
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 504639
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49606
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 128853
+   }
+  ],
+  "Playa Grande": [
+   {
+    "observation_count": 2,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 295346
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 41428
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 48865
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 50336
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 154842
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 1557770
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 127284
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 161121
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49150
+   }
+  ],
+  "Playa Guayacanes": [
+   {
+    "observation_count": 5,
+    "taxon_id": 504639
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 1099504
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 504640
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 62600
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 60335
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49955
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 366863
+   }
+  ],
+  "Playa Juan Dolio": [
+   {
+    "observation_count": 7,
+    "taxon_id": 504639
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 106051
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 1099504
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 105090
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 49257
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49272
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 130046
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 871060
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 72458
+   }
+  ],
+  "Playa Juan de Bolaños": [
+   {
+    "observation_count": 12,
+    "taxon_id": 62529
+   },
+   {
+    "observation_count": 9,
+    "taxon_id": 3864
+   },
+   {
+    "observation_count": 8,
+    "taxon_id": 62853
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 130743
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 3862
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 72458
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 4817
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 4836
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 60335
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 3893
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 4956
+   }
+  ],
+  "Playa Juanillo": [
+   {
+    "observation_count": 27,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 12,
+    "taxon_id": 60335
+   },
+   {
+    "observation_count": 8,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 107889
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 6951
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 62600
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 4836
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 493347
+   }
+  ],
+  "Playa Las Ballenas": [
+   {
+    "observation_count": 6,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 504639
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 72458
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 120130
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49491
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 322730
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 132288
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49259
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 100104
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 519935
+   }
+  ],
+  "Playa Las Galeras": [
+   {
+    "observation_count": 12,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 49272
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 1099504
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 96993
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49625
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 134103
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 4956
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49269
+   }
+  ],
+  "Playa Los Patos": [
+   {
+    "observation_count": 8,
+    "taxon_id": 41005
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 194074
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 5020
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 127284
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 163862
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 1971
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 77468
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 976070
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 148542
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 48380
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 142724
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 144455
+   }
+  ],
+  "Playa Macao": [
+   {
+    "observation_count": 3,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 1315642
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 1196340
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 62853
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 215338
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 3864
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 3862
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4817
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 292990
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 295215
+   }
+  ],
+  "Playa Madama": [
+   {
+    "observation_count": 12,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 11,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 871060
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 128110
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 49491
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 49256
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 504639
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 577603
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49514
+   }
+  ],
+  "Playa Maimón": [
+   {
+    "observation_count": 22,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 14,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 9,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 4956
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 253288
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 255219
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 253481
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 363690
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 253457
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 517492
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 1372353
+   }
+  ],
+  "Playa Mano Juan (Saona)": [
+   {
+    "observation_count": 5,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 3938
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 517492
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 120130
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 4836
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 254230
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 254234
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 1099504
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 292441
+   }
+  ],
+  "Playa Minitas": [
+   {
+    "observation_count": 6,
+    "taxon_id": 121669
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 52313
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 3938
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 52956
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 96740
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 254569
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 52290
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 119875
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 62600
+   }
+  ],
+  "Playa Najayo": [
+   {
+    "observation_count": 1,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 194691
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 122099
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 514934
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 61503
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 83246
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 326015
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4756
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 133669
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 76205
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 363206
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 309685
+   }
+  ],
+  "Playa Palenque": [
+   {
+    "observation_count": 1,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 127284
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 53768
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 62821
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 309685
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 1493141
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 47219
+   }
+  ],
+  "Playa Palmar de Ocoa": [
+   {
+    "observation_count": 1,
+    "taxon_id": 135311
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 47238
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4940
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4836
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 106051
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49500
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 47299
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 131132
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 132526
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49404
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 3893
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 127284
+   }
+  ],
+  "Playa Punta Popy": [
+   {
+    "observation_count": 5,
+    "taxon_id": 120130
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 96993
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 504639
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49259
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 52290
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49491
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 132288
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 128110
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 100104
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 519935
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 62600
+   }
+  ],
+  "Playa Quemaíto": [
+   {
+    "observation_count": 1,
+    "taxon_id": 549648
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 295217
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49432
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 2548
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 48380
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 121022
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 130082
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 39336
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49761
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 51536
+   }
+  ],
+  "Playa Rincón": [
+   {
+    "observation_count": 12,
+    "taxon_id": 60335
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 72458
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 84965
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 47227
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 81989
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 134103
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 4793
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 179537
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 52293
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 3849
+   }
+  ],
+  "Playa Saladilla": [
+   {
+    "observation_count": 5,
+    "taxon_id": 49272
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 128172
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 121195
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 60335
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 871060
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 97202
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 486394
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 52290
+   }
+  ],
+  "Playa San Rafael": [
+   {
+    "observation_count": 6,
+    "taxon_id": 254230
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49514
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 260318
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 4793
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 255547
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 49634
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 47299
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 10,
+    "taxon_id": 133669
+   }
+  ],
+  "Playa Sosúa": [
+   {
+    "observation_count": 14,
+    "taxon_id": 120130
+   },
+   {
+    "observation_count": 10,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 9,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 871060
+   },
+   {
+    "observation_count": 6,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 112166
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 493347
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 52956
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 577603
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 128172
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 49955
+   }
+  ],
+  "Playa Uvero Alto": [
+   {
+    "observation_count": 6,
+    "taxon_id": 49402
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 4793
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 81989
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 134103
+   },
+   {
+    "observation_count": 5,
+    "taxon_id": 49491
+   },
+   {
+    "observation_count": 4,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 4940
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 121196
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49947
+   },
+   {
+    "observation_count": 2,
+    "taxon_id": 49923
+   }
+  ],
+  "Punta Rucia": [
+   {
+    "observation_count": 7,
+    "taxon_id": 133675
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 3893
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 1660386
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 255612
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 62850
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 53875
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 4328
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 130743
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 112557
+   },
+   {
+    "observation_count": 1,
+    "taxon_id": 363690
+   },
+   {
+    "observation_count": 7,
+    "taxon_id": 82768
+   },
+   {
+    "observation_count": 3,
+    "taxon_id": 194074
+   }
+  ]
+ },
+ "schema_version": 1,
+ "taxa": {
+  "100104": {
+   "common_name": {
+    "en": "Red Hind",
+    "es": "Cabrilla colorada"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Epinephelus guttatus",
+   "taxon_id": 100104
+  },
+  "105090": {
+   "common_name": {
+    "en": "Yellow Pencil Coral",
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Jay Brasher",
+    "file": "species/66afd1dd79f26030771da5c156c3eb68e19fcba7a0ca0f06bdb5f4846577fe9f.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "66afd1dd79f26030771da5c156c3eb68e19fcba7a0ca0f06bdb5f4846577fe9f",
+    "source_url": "https://www.inaturalist.org/photos/151192432",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/151192432/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Madracis auretenra",
+   "taxon_id": 105090
+  },
+  "106051": {
+   "common_name": {
+    "en": "Greater Star Coral",
+    "es": "Gran coral de estrellas"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Pauline Walsh Jacobson",
+    "file": "species/5f04f0428075023a366309adfa8a7b4fe6c6e532dcf15fdb21bc9668036683be.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "5f04f0428075023a366309adfa8a7b4fe6c6e532dcf15fdb21bc9668036683be",
+    "source_url": "https://www.inaturalist.org/photos/258098088",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/258098088/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Montastraea cavernosa",
+   "taxon_id": 106051
+  },
+  "107889": {
+   "common_name": {
+    "en": "Mozambique Tilapia",
+    "es": "Tilapia de Mozambique"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Greg Hume",
+    "file": "species/2185c1e8d81487fb6bb0f0f9851f1179d5beb47488c9c716bb85d25fb1fbfb39.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "2185c1e8d81487fb6bb0f0f9851f1179d5beb47488c9c716bb85d25fb1fbfb39",
+    "source_url": "https://www.inaturalist.org/photos/91336460",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/91336460/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Oreochromis mossambicus",
+   "taxon_id": 107889
+  },
+  "1099504": {
+   "common_name": {
+    "en": "Queen Conch",
+    "es": "Caracol pala"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "H. Zell",
+    "file": "species/249efce66a6375ec062ed55fa26b22804d1290130171063d6a7106f21214ec08.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "249efce66a6375ec062ed55fa26b22804d1290130171063d6a7106f21214ec08",
+    "source_url": "https://www.inaturalist.org/photos/428264530",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/428264530/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Aliger gigas",
+   "taxon_id": 1099504
+  },
+  "110084": {
+   "common_name": {
+    "en": "Mustard Hill Coral",
+    "es": "Coral mostaza"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Pauline Walsh Jacobson",
+    "file": "species/81131ff2df44dbd03f3f28ce6e5bfb4ebbe616faa8002ecfd1c2586d5910b596.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "81131ff2df44dbd03f3f28ce6e5bfb4ebbe616faa8002ecfd1c2586d5910b596",
+    "source_url": "https://www.inaturalist.org/photos/247788853",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/247788853/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Porites astreoides",
+   "taxon_id": 110084
+  },
+  "112166": {
+   "common_name": {
+    "en": "Princess Parrotfish",
+    "es": "Loro alargado"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Robin White",
+    "file": "species/b083a05763912113f033d2c21cb5bff2cbf3c00f5866a7cd785c9b4c0804afdd.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "b083a05763912113f033d2c21cb5bff2cbf3c00f5866a7cd785c9b4c0804afdd",
+    "source_url": "https://www.inaturalist.org/photos/280967217",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/280967217/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Scarus taeniopterus",
+   "taxon_id": 112166
+  },
+  "112557": {
+   "common_name": {
+    "en": "Massive Starlet Coral",
+    "es": "Coral estrella masiva"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Siderastrea siderea",
+   "taxon_id": 112557
+  },
+  "116999": {
+   "common_name": {
+    "en": "Osprey",
+    "es": "Águila pescadora"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Lawrence Hylton",
+    "file": "species/67be2f4152688be55021e91fdc0263b328de47d97acf87044f8ebcb21340542d.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "67be2f4152688be55021e91fdc0263b328de47d97acf87044f8ebcb21340542d",
+    "source_url": "https://www.inaturalist.org/photos/451322170",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/451322170/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Pandion haliaetus",
+   "taxon_id": 116999
+  },
+  "118583": {
+   "common_name": {
+    "en": "Five-slotted Sand Dollar",
+    "es": "Dólar de arena de cinco agujeros"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Sharon Mooney (see User:Edwardtbabinski)",
+    "file": "species/1b58a449dd189121f888d7e17ef38bbe4005ba9955e1868ea96833c757661aaa.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "1b58a449dd189121f888d7e17ef38bbe4005ba9955e1868ea96833c757661aaa",
+    "source_url": "https://www.inaturalist.org/photos/14783501",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/14783501/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Mellita quinquiesperforata",
+   "taxon_id": 118583
+  },
+  "1196340": {
+   "common_name": {
+    "en": null,
+    "es": null
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Juan Carlos Pérez Magaña",
+    "file": "species/1886342713a3de9b84debe4112c5de2ad487fb1868979f6b628b40429dcb67fa.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "default_photo",
+    "sha256": "1886342713a3de9b84debe4112c5de2ad487fb1868979f6b628b40429dcb67fa",
+    "source_url": "https://www.inaturalist.org/photos/12369010",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/12369010/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Alsidium triquetrum",
+   "taxon_id": 1196340
+  },
+  "119875": {
+   "common_name": {
+    "en": "Lettuce Sea Slug",
+    "es": "Babosa lechuga de mar"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Elysia crispata",
+   "taxon_id": 119875
+  },
+  "120130": {
+   "common_name": {
+    "en": "Purple Sea Fan",
+    "es": "Abanico de mar"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "James St. John",
+    "file": "species/dd4109e9e9bc4df7dcab972826438c7cc4183f6fa77f5507b68fa4f51a91245f.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "dd4109e9e9bc4df7dcab972826438c7cc4183f6fa77f5507b68fa4f51a91245f",
+    "source_url": "https://www.inaturalist.org/photos/178460633",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/178460633/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Gorgonia ventalina",
+   "taxon_id": 120130
+  },
+  "121022": {
+   "common_name": {
+    "en": "Noni",
+    "es": "Noni asiático"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "葉子",
+    "file": "species/6b192960299a0a335eeb76acb8e5122ec33414dd7631ff2cd96bae6f1ddabb42.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "taxon_photos",
+    "sha256": "6b192960299a0a335eeb76acb8e5122ec33414dd7631ff2cd96bae6f1ddabb42",
+    "source_url": "https://www.inaturalist.org/photos/231162626",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/231162626/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Morinda citrifolia",
+   "taxon_id": 121022
+  },
+  "121195": {
+   "common_name": {
+    "en": "Doctorfish",
+    "es": "Cirujano rayado"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Bernard Picton",
+    "file": "species/dd1eec15a9cb13824d17934efabfb42e028b85c244e0eb62aa3e38aa931f3f8e.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "dd1eec15a9cb13824d17934efabfb42e028b85c244e0eb62aa3e38aa931f3f8e",
+    "source_url": "https://www.inaturalist.org/photos/110637703",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/110637703/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Acanthurus chirurgus",
+   "taxon_id": 121195
+  },
+  "121196": {
+   "common_name": {
+    "en": "Atlantic Blue Tang",
+    "es": "Cirujano azul"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Brian Gratwicke",
+    "file": "species/6437b03f2df2eb53c55531b2e8844413c89e782fdfdb53be0b3f652cb11c6fad.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "6437b03f2df2eb53c55531b2e8844413c89e782fdfdb53be0b3f652cb11c6fad",
+    "source_url": "https://www.inaturalist.org/photos/138660297",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/138660297/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Acanthurus coeruleus",
+   "taxon_id": 121196
+  },
+  "121669": {
+   "common_name": {
+    "en": "Banded Coral Shrimp",
+    "es": "Camarón boxeador"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Jean-Paul Boerekamps",
+    "file": "species/131796266a46dbce7bab62b4ff3f2dd027a253814df0a7fcee9911e657b60e13.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "taxon_photos",
+    "sha256": "131796266a46dbce7bab62b4ff3f2dd027a253814df0a7fcee9911e657b60e13",
+    "source_url": "https://www.inaturalist.org/photos/129009994",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/129009994/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Stenopus hispidus",
+   "taxon_id": 121669
+  },
+  "122099": {
+   "common_name": {
+    "en": "Rosary pea",
+    "es": "Coralillo asiático"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Douglas Goldman",
+    "file": "species/30534f71517c49a6d0f400fb99113708d1cee7a0e0cd554aa7bdcb7f7708d9ed.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "30534f71517c49a6d0f400fb99113708d1cee7a0e0cd554aa7bdcb7f7708d9ed",
+    "source_url": "https://www.inaturalist.org/photos/54569844",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/54569844/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Abrus precatorius",
+   "taxon_id": 122099
+  },
+  "127284": {
+   "common_name": {
+    "en": "Sea grape",
+    "es": "Uvero"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Ben Machado",
+    "file": "species/5f48ed74a9e48ba9591cdcbbca9a029191ce419f37f7ebea80099cd832ef9f2b.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "5f48ed74a9e48ba9591cdcbbca9a029191ce419f37f7ebea80099cd832ef9f2b",
+    "source_url": "https://www.inaturalist.org/photos/16933906",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/16933906/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Coccoloba uvifera",
+   "taxon_id": 127284
+  },
+  "128110": {
+   "common_name": {
+    "en": "Giant Anemone",
+    "es": "Anémona gigante del Caribe"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "LASZLO ILYES",
+    "file": "species/8480c32eae87ae379998f461d0bfe53fd738a35996a95266e5a3d128f188a3ec.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "8480c32eae87ae379998f461d0bfe53fd738a35996a95266e5a3d128f188a3ec",
+    "source_url": "https://www.inaturalist.org/photos/114864",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/114864/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Condylactis gigantea",
+   "taxon_id": 128110
+  },
+  "128172": {
+   "common_name": {
+    "en": "Yellow Goatfish",
+    "es": "Chivo amarillo"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Jay Brasher",
+    "file": "species/c7f5c0de4c2a6a21afd0b088350e2ed8989aa222782a3507c17598e09273c32d.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "c7f5c0de4c2a6a21afd0b088350e2ed8989aa222782a3507c17598e09273c32d",
+    "source_url": "https://www.inaturalist.org/photos/151095227",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/151095227/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Mulloidichthys martinicus",
+   "taxon_id": 128172
+  },
+  "128853": {
+   "common_name": {
+    "en": "Atlantic Peacock Flounder",
+    "es": "Lenguado lunado"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Eamon Corbett",
+    "file": "species/8622357061a39b2e3c93214fa6c6445cc0dab239ce268d1fd75085e56cbe8051.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "8622357061a39b2e3c93214fa6c6445cc0dab239ce268d1fd75085e56cbe8051",
+    "source_url": "https://www.inaturalist.org/photos/60009071",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/60009071/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Bothus lunatus",
+   "taxon_id": 128853
+  },
+  "130046": {
+   "common_name": {
+    "en": "Giant Barrel Sponge",
+    "es": "Esponja gigante de barril"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "NOAA Photo Library",
+    "file": "species/ea1c0be27504e25feee79ef815c5c06b3dafeb03e52b4909e7e08d032ab7c0d6.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "ea1c0be27504e25feee79ef815c5c06b3dafeb03e52b4909e7e08d032ab7c0d6",
+    "source_url": "https://www.inaturalist.org/photos/138391",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/138391/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Xestospongia muta",
+   "taxon_id": 130046
+  },
+  "130053": {
+   "common_name": {
+    "en": "Caribbean Redlip Blenny",
+    "es": "Borracho labio rojo"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Ophioblennius macclurei",
+   "taxon_id": 130053
+  },
+  "130082": {
+   "common_name": {
+    "en": "Tropical Tent-web Spider",
+    "es": "Araña de Tela Carpa Tropical"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Arachnida",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Cyrtophora citricola",
+   "taxon_id": 130082
+  },
+  "130743": {
+   "common_name": {
+    "en": "Sea purslane",
+    "es": "Verdolaga de playa"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Nick Block",
+    "file": "species/fc87cb602fa3ebe39d971e6803e7a1c7fb58b0eeadb8d4bc29ac377e553272b6.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "fc87cb602fa3ebe39d971e6803e7a1c7fb58b0eeadb8d4bc29ac377e553272b6",
+    "source_url": "https://www.inaturalist.org/photos/2743722",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2743722/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Sesuvium portulacastrum",
+   "taxon_id": 130743
+  },
+  "130818": {
+   "common_name": {
+    "en": "Giant leather fern",
+    "es": "Helecho de playa"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Homer Edward Price",
+    "file": "species/986d553fbaea6c394faedb5287ca674c0e3eb92c87346b9dce4bd975728b9766.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "986d553fbaea6c394faedb5287ca674c0e3eb92c87346b9dce4bd975728b9766",
+    "source_url": "https://www.inaturalist.org/photos/1351718",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/1351718/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Acrostichum danaeifolium",
+   "taxon_id": 130818
+  },
+  "131132": {
+   "common_name": {
+    "en": "Magnificent Feather Duster Worm",
+    "es": "Gusano plumero gigante"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Nhobgood Nick Hobgood",
+    "file": "species/5a88d8c169fefdcc220b2744e842309c690b555bba40a429e9a05625d32fab78.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "default_photo",
+    "sha256": "5a88d8c169fefdcc220b2744e842309c690b555bba40a429e9a05625d32fab78",
+    "source_url": "https://www.inaturalist.org/photos/1542906",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/1542906/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Sabellastarte magnifica",
+   "taxon_id": 131132
+  },
+  "131242": {
+   "common_name": {
+    "en": "Beach Bean",
+    "es": "Frijol de playa"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Canavalia rosea",
+   "taxon_id": 131242
+  },
+  "1315642": {
+   "common_name": {
+    "en": "Honeycomb Cowfish",
+    "es": "Torito hexagonal"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Jay Brasher",
+    "file": "species/51e83c1de844b845e62fe91e09e77288da7952c2cf896634c26085a0900d0df1.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "51e83c1de844b845e62fe91e09e77288da7952c2cf896634c26085a0900d0df1",
+    "source_url": "https://www.inaturalist.org/photos/151885815",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/151885815/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Acanthostracion polygonium",
+   "taxon_id": 1315642
+  },
+  "1316792": {
+   "common_name": {
+    "en": "Yellow Jack",
+    "es": "Cojinuda amarilla"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Dan Schofield",
+    "file": "species/774a2950c00832cd2e7a0c8e1be7b339beeca3a800bb769cd69be0bd908ce6e1.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "774a2950c00832cd2e7a0c8e1be7b339beeca3a800bb769cd69be0bd908ce6e1",
+    "source_url": "https://www.inaturalist.org/photos/332936305",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/332936305/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Caranx bartholomaei",
+   "taxon_id": 1316792
+  },
+  "131703": {
+   "common_name": {
+    "en": null,
+    "es": null
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Aplysina lacunosa",
+   "taxon_id": 131703
+  },
+  "131705": {
+   "common_name": {
+    "en": "Yellow Tube Sponge",
+    "es": "Esponja de tubo amarillo"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Don Loarie",
+    "file": "species/9f371d774c07fe436599fe4fc5e438602d8211a1dcfe0e20de890a7fbebdb52c.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "9f371d774c07fe436599fe4fc5e438602d8211a1dcfe0e20de890a7fbebdb52c",
+    "source_url": "https://www.inaturalist.org/photos/59976304",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/59976304/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Aplysina fistularis",
+   "taxon_id": 131705
+  },
+  "132288": {
+   "common_name": {
+    "en": "Corky Sea Finger",
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "James St. John",
+    "file": "species/457ca7f315a21b08d3a0fd272c7a5f49c47d8742ce8400761afb9fd69adb6d65.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "457ca7f315a21b08d3a0fd272c7a5f49c47d8742ce8400761afb9fd69adb6d65",
+    "source_url": "https://www.inaturalist.org/photos/58911734",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/58911734/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Briareum asbestinum",
+   "taxon_id": 132288
+  },
+  "132526": {
+   "common_name": {
+    "en": "Planehead Filefish",
+    "es": "Lija áspera"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Stephanolepis hispida",
+   "taxon_id": 132526
+  },
+  "133669": {
+   "common_name": {
+    "en": "Trumpetwood",
+    "es": "Yagrumo"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Leonora Enking",
+    "file": "species/b2a871e9ed5e3191e854084dd57ad012f4bff85df3beb759f2a631134985d7d0.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "default_photo",
+    "sha256": "b2a871e9ed5e3191e854084dd57ad012f4bff85df3beb759f2a631134985d7d0",
+    "source_url": "https://www.inaturalist.org/photos/146335",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/146335/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Cecropia schreberiana",
+   "taxon_id": 133669
+  },
+  "133675": {
+   "common_name": {
+    "en": "Caribbean Land Hermit Crab",
+    "es": "Cangrejo ermitaño caribeño"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "John Matthew Erickson",
+    "file": "species/01a394dad4e5e2cd1c9f4acfeee101d4d4350b7c7b286c851b189e7722d37b09.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "01a394dad4e5e2cd1c9f4acfeee101d4d4350b7c7b286c851b189e7722d37b09",
+    "source_url": "https://www.inaturalist.org/photos/197403718",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/197403718/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Coenobita clypeatus",
+   "taxon_id": 133675
+  },
+  "134103": {
+   "common_name": {
+    "en": "Broad-leaved gulfweed",
+    "es": "Sargazo flotante III"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Chromista",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Tyler Bishop",
+    "file": "species/6b9492c6a8ebb393a53141150486f3ecf038411cee5d526508ef1b8cb45b0152.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "6b9492c6a8ebb393a53141150486f3ecf038411cee5d526508ef1b8cb45b0152",
+    "source_url": "https://www.inaturalist.org/photos/18905929",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/18905929/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Sargassum fluitans",
+   "taxon_id": 134103
+  },
+  "135311": {
+   "common_name": {
+    "en": "Furry Sea Cucumber",
+    "es": "Pepino peludo de mar"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Anne-Marie Lejeune",
+    "file": "species/bc2b2c7adb55611fd7d25ee12d4a01be2e39b992e528043be2dacaac6203b363.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "default_photo",
+    "sha256": "bc2b2c7adb55611fd7d25ee12d4a01be2e39b992e528043be2dacaac6203b363",
+    "source_url": "https://www.inaturalist.org/photos/95835137",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/95835137/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Astichopus multifidus",
+   "taxon_id": 135311
+  },
+  "136915": {
+   "common_name": {
+    "en": "Golden Leather Fern",
+    "es": "Palmita del río"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Jay Horn",
+    "file": "species/0787b8d53a0b43aa15a3d4ca8f35d40bb6da5f2e497ba415a7ab4194e3a5edb1.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "0787b8d53a0b43aa15a3d4ca8f35d40bb6da5f2e497ba415a7ab4194e3a5edb1",
+    "source_url": "https://www.inaturalist.org/photos/109034351",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/109034351/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Acrostichum aureum",
+   "taxon_id": 136915
+  },
+  "1372353": {
+   "common_name": {
+    "en": "Mossy Ark",
+    "es": "Arca musgosa"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Lamarcka imbricata",
+   "taxon_id": 1372353
+  },
+  "142724": {
+   "common_name": {
+    "en": "Two-spotted Prepona",
+    "es": "Mariposa Hojarasca de Dos Manchas"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Archaeoprepona demophoon",
+   "taxon_id": 142724
+  },
+  "144455": {
+   "common_name": {
+    "en": "Great Egret",
+    "es": "Garza blanca"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Aves",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Ardea alba",
+   "taxon_id": 144455
+  },
+  "1452029": {
+   "common_name": {
+    "en": null,
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Gesneria pedicellaris",
+   "taxon_id": 1452029
+  },
+  "148542": {
+   "common_name": {
+    "en": "Gold-spotted Aguna",
+    "es": "Saltarina Aguna de Puntos Dorados"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Aguna asander",
+   "taxon_id": 148542
+  },
+  "1493141": {
+   "common_name": {
+    "en": "Mesquite",
+    "es": "Algarrobo blando"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Rohit Naniwadekar",
+    "file": "species/9b9127394473b097249d12dfd20b0bcd4c22bb1f003ca3eae202cd3cb9a34b8d.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "9b9127394473b097249d12dfd20b0bcd4c22bb1f003ca3eae202cd3cb9a34b8d",
+    "source_url": "https://www.inaturalist.org/photos/115623761",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/115623761/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Neltuma juliflora",
+   "taxon_id": 1493141
+  },
+  "154798": {
+   "common_name": {
+    "en": "Piñuela",
+    "es": "Piñuela"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Bromelia pinguin",
+   "taxon_id": 154798
+  },
+  "154842": {
+   "common_name": {
+    "en": "Ylang Ylang",
+    "es": "Ilang-ilang"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Joan Simon",
+    "file": "species/58dd352fb1e212f386489076748cf7be944cecf3dbfb24c726887099c3ded92b.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "58dd352fb1e212f386489076748cf7be944cecf3dbfb24c726887099c3ded92b",
+    "source_url": "https://www.inaturalist.org/photos/101822208",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/101822208/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Cananga odorata",
+   "taxon_id": 154842
+  },
+  "1557770": {
+   "common_name": {
+    "en": "Caribbean Skipper",
+    "es": "Saltarín rojizo"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Choranthus antiqua",
+   "taxon_id": 1557770
+  },
+  "161121": {
+   "common_name": {
+    "en": "Calabash Tree",
+    "es": "Tecomate"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Crescentia cujete",
+   "taxon_id": 161121
+  },
+  "163862": {
+   "common_name": {
+    "en": "Sandbox Tree",
+    "es": "Jabilla"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Cheng-Tao Lin",
+    "file": "species/0ac48569afc47337ec9728a4d09e2a57b32db314ebb42cfb005aab69507e888f.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "0ac48569afc47337ec9728a4d09e2a57b32db314ebb42cfb005aab69507e888f",
+    "source_url": "https://www.inaturalist.org/photos/59821058",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/59821058/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Hura crepitans",
+   "taxon_id": 163862
+  },
+  "164333": {
+   "common_name": {
+    "en": "Air Plant",
+    "es": "Hoja del aire"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Kalanchoe pinnata",
+   "taxon_id": 164333
+  },
+  "1660386": {
+   "common_name": {
+    "en": "Scattered Pore Rope Sponge",
+    "es": null
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Dan Schofield",
+    "file": "species/f917b66e8bd2222b8fe7e69267b62c30df0160edae27359fdcf173f858ff1070.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "f917b66e8bd2222b8fe7e69267b62c30df0160edae27359fdcf173f858ff1070",
+    "source_url": "https://www.inaturalist.org/photos/304063799",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/304063799/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Amphimedon nodosa",
+   "taxon_id": 1660386
+  },
+  "166488": {
+   "common_name": {
+    "en": "Spoonleaf peperomia",
+    "es": "Compañera de tiscoc'"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Peperomia magnoliifolia",
+   "taxon_id": 166488
+  },
+  "1665501": {
+   "common_name": {
+    "en": null,
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Arachnida",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Epitrimerus calophylli",
+   "taxon_id": 1665501
+  },
+  "166894": {
+   "common_name": {
+    "en": "Spiked pepper",
+    "es": "Matico"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Piper aduncum",
+   "taxon_id": 166894
+  },
+  "173412": {
+   "common_name": {
+    "en": "Guppy",
+    "es": "Gupi"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Poecilia reticulata",
+   "taxon_id": 173412
+  },
+  "173793": {
+   "common_name": {
+    "en": "Hieroglyphic Moth",
+    "es": "Polilla jeroglífica"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Diphthera festiva",
+   "taxon_id": 173793
+  },
+  "179469": {
+   "common_name": {
+    "en": "Lookdown",
+    "es": "Jorobado penacho"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Milla-Maria Salo",
+    "file": "species/743bc4da12ee54dee6eae325c36b2d788879e05911ff93ba2b7d5a43f7e62263.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "default_photo",
+    "sha256": "743bc4da12ee54dee6eae325c36b2d788879e05911ff93ba2b7d5a43f7e62263",
+    "source_url": "https://www.inaturalist.org/photos/1048616",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/1048616/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Selene vomer",
+   "taxon_id": 179469
+  },
+  "179537": {
+   "common_name": {
+    "en": "White Mullet",
+    "es": "Lebrancha"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Alberto Alcalá",
+    "file": "species/35d858f82352712a18a712846292f995cf702b1f43fdb12f9fa69fb24e7b09bd.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "35d858f82352712a18a712846292f995cf702b1f43fdb12f9fa69fb24e7b09bd",
+    "source_url": "https://www.inaturalist.org/photos/261702416",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/261702416/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Mugil curema",
+   "taxon_id": 179537
+  },
+  "180708": {
+   "common_name": {
+    "en": "Beaugregory",
+    "es": "Jaqueta bonita"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Pauline Walsh Jacobson",
+    "file": "species/911020dd71b57803725b8480db6dc2027427fc3c3bb5b63abbd0e5117b7a6f2e.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "911020dd71b57803725b8480db6dc2027427fc3c3bb5b63abbd0e5117b7a6f2e",
+    "source_url": "https://www.inaturalist.org/photos/400731532",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/400731532/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Stegastes leucostictus",
+   "taxon_id": 180708
+  },
+  "193946": {
+   "common_name": {
+    "en": "Sunrise tellin",
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "nebrooks",
+    "file": "species/af6cf38667bd19c3933081344d30af434335de3d151b75e606af003f8fd78a86.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "af6cf38667bd19c3933081344d30af434335de3d151b75e606af003f8fd78a86",
+    "source_url": "https://www.inaturalist.org/photos/451061214",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/451061214/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Tellina radiata",
+   "taxon_id": 193946
+  },
+  "194074": {
+   "common_name": {
+    "en": "Caribbean Giant Centipede",
+    "es": "Ciempiés Gigante Caribeño"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Kevin Judge",
+    "file": "species/0b1b237b47ced5a951f0211ef5fbf72c17709cf19308f7d16a4f25173a623bcc.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "0b1b237b47ced5a951f0211ef5fbf72c17709cf19308f7d16a4f25173a623bcc",
+    "source_url": "https://www.inaturalist.org/photos/106521375",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/106521375/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Scolopendra alternans",
+   "taxon_id": 194074
+  },
+  "194210": {
+   "common_name": {
+    "en": "Sun anemone",
+    "es": "Anémona sol"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Stichodactyla helianthus",
+   "taxon_id": 194210
+  },
+  "194691": {
+   "common_name": {
+    "en": "Atlantic Rock-boring Urchin",
+    "es": "Erizo de las rocas"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Thomas Irvine",
+    "file": "species/60618add6375e5db2ee87e31714097f2fcae6a0d0068d1ecd2dd334d6029500a.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "60618add6375e5db2ee87e31714097f2fcae6a0d0068d1ecd2dd334d6029500a",
+    "source_url": "https://www.inaturalist.org/photos/546984451",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/546984451/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Echinometra lucunter",
+   "taxon_id": 194691
+  },
+  "1971": {
+   "common_name": {
+    "en": "Smooth-billed Ani",
+    "es": "Garrapatero pico liso"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Aves",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Esteban Poveda",
+    "file": "species/0cf3c688aca9a1de96b55daf0b9cfc9d0826f84ecbf5d0dcbe0a13f53abedd14.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "0cf3c688aca9a1de96b55daf0b9cfc9d0826f84ecbf5d0dcbe0a13f53abedd14",
+    "source_url": "https://www.inaturalist.org/photos/114342665",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/114342665/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Crotophaga ani",
+   "taxon_id": 1971
+  },
+  "202229": {
+   "common_name": {
+    "en": "Caribbean Paper Wasp",
+    "es": "Avispa papelera caribeña"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Polistes crinitus",
+   "taxon_id": 202229
+  },
+  "208739": {
+   "common_name": {
+    "en": "True Tulip",
+    "es": "Caracol campechana"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Fasciolaria tulipa",
+   "taxon_id": 208739
+  },
+  "2118": {
+   "common_name": {
+    "en": "Broad-billed Tody",
+    "es": "Barrancolí"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Aves",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Aitor",
+    "file": "species/09aae366129b022f2bc6cf743a717bccea393e1ba8c75690aca0c3ced8f7403b.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "09aae366129b022f2bc6cf743a717bccea393e1ba8c75690aca0c3ced8f7403b",
+    "source_url": "https://www.inaturalist.org/photos/105084457",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/105084457/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Todus subulatus",
+   "taxon_id": 2118
+  },
+  "215338": {
+   "common_name": {
+    "en": "Scorched Mussel",
+    "es": null
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Thomas Irvine",
+    "file": "species/29ac0ec912d781bd946fe60bb71f889366d966593ce3aeb186a98313f3f67be9.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "29ac0ec912d781bd946fe60bb71f889366d966593ce3aeb186a98313f3f67be9",
+    "source_url": "https://www.inaturalist.org/photos/110791152",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/110791152/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Brachidontes exustus",
+   "taxon_id": 215338
+  },
+  "253288": {
+   "common_name": {
+    "en": "Red-Brown Ark",
+    "es": null
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "James St. John",
+    "file": "species/9285441f7bf6187a22541aef6aaec8d9e33267624e05f1a726eee7f3733920ee.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "9285441f7bf6187a22541aef6aaec8d9e33267624e05f1a726eee7f3733920ee",
+    "source_url": "https://www.inaturalist.org/photos/430153470",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/430153470/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Barbatia cancellaria",
+   "taxon_id": 253288
+  },
+  "253457": {
+   "common_name": {
+    "en": "Pretty jewel box",
+    "es": "Almeja joyero"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Chama florida",
+   "taxon_id": 253457
+  },
+  "253481": {
+   "common_name": {
+    "en": "Tiger Lucine",
+    "es": "Almeja blanca"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Rafael Rosa",
+    "file": "species/f318948d6eaeacd0e90348792d12b06528980d7ad0d6580429b03d65d54758df.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "f318948d6eaeacd0e90348792d12b06528980d7ad0d6580429b03d65d54758df",
+    "source_url": "https://www.inaturalist.org/photos/318584666",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/318584666/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Codakia orbicularis",
+   "taxon_id": 253481
+  },
+  "254230": {
+   "common_name": {
+    "en": "Bleeding Tooth Nerite",
+    "es": "Caracol nerita de dientes sangrados"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Eridan Xharahi",
+    "file": "species/21a79309f700159f559c36de9912b9b348d61aefdd75e4a2fb8fea2814178890.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "21a79309f700159f559c36de9912b9b348d61aefdd75e4a2fb8fea2814178890",
+    "source_url": "https://www.inaturalist.org/photos/9348078",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/9348078/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Nerita peloronta",
+   "taxon_id": 254230
+  },
+  "254234": {
+   "common_name": {
+    "en": "Checkered Nerite",
+    "es": "Nerita cuadriculada"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "W. Terry Hunefeld",
+    "file": "species/0d1e0d95b4a2c0347f6cd36331d77dc99ec9837f016243a6d18ef01c04d097b5.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "0d1e0d95b4a2c0347f6cd36331d77dc99ec9837f016243a6d18ef01c04d097b5",
+    "source_url": "https://www.inaturalist.org/photos/13477080",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/13477080/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Nerita tessellata",
+   "taxon_id": 254234
+  },
+  "254569": {
+   "common_name": {
+    "en": "Reticulated Cowry Helmet",
+    "es": null
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Pauline Walsh Jacobson",
+    "file": "species/640ef3b01a53ed7e2b88f1447555abaa1f210a810195feeb4fe05bc8330e8a13.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "640ef3b01a53ed7e2b88f1447555abaa1f210a810195feeb4fe05bc8330e8a13",
+    "source_url": "https://www.inaturalist.org/photos/305061199",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/305061199/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Cypraecassis testiculus",
+   "taxon_id": 254569
+  },
+  "254640": {
+   "common_name": {
+    "en": "Atlantic Triton Snail",
+    "es": "Fotuto"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Charonia variegata",
+   "taxon_id": 254640
+  },
+  "2548": {
+   "common_name": {
+    "en": "Belted Kingfisher",
+    "es": "Martín pescador norteño"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "chloe ⋆˚꩜｡",
+    "file": "species/5a61e8eb320269248044bb042cd67cb800ce673ec7e99b68487b60377f1e52e2.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "5a61e8eb320269248044bb042cd67cb800ce673ec7e99b68487b60377f1e52e2",
+    "source_url": "https://www.inaturalist.org/photos/104964567",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/104964567/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Megaceryle alcyon",
+   "taxon_id": 2548
+  },
+  "255219": {
+   "common_name": {
+    "en": "Atlantic White Hoof Snail",
+    "es": "Caracol pezuña"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "James St. John",
+    "file": "species/eff07da6d7032eb94c733549e21515ad1f1ed293a2614327f430d7fe9913ca69.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "eff07da6d7032eb94c733549e21515ad1f1ed293a2614327f430d7fe9913ca69",
+    "source_url": "https://www.inaturalist.org/photos/3282863",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/3282863/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Hipponix antiquatus",
+   "taxon_id": 255219
+  },
+  "255547": {
+   "common_name": {
+    "en": "West Indian Green Chiton",
+    "es": null
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "James St. John",
+    "file": "species/189befbc66e38ccb13453948053d4cf534836591a292c68c5db8effa7c45d9e2.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "189befbc66e38ccb13453948053d4cf534836591a292c68c5db8effa7c45d9e2",
+    "source_url": "https://www.inaturalist.org/photos/2202673",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2202673/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Chiton tuberculatus",
+   "taxon_id": 255547
+  },
+  "255612": {
+   "common_name": {
+    "en": "Fat Sea Biscuit",
+    "es": "Dólar rosa de arena"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Photo by David J. Stang",
+    "file": "species/a7e6bb39f5d734da3809f37f8d78459a65eddf329e27010b2c197520e2813be8.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "a7e6bb39f5d734da3809f37f8d78459a65eddf329e27010b2c197520e2813be8",
+    "source_url": "https://www.inaturalist.org/photos/43161458",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/43161458/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Clypeaster rosaceus",
+   "taxon_id": 255612
+  },
+  "260318": {
+   "common_name": {
+    "en": "Orangeclaw Hermit Crab",
+    "es": "Cangrejo ermitaño de pinzas naranjas"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Diogo Luiz",
+    "file": "species/1e14d4a8fadb53988da610cac157478d12a3be195969115ec60e1ee9cd9836dc.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "1e14d4a8fadb53988da610cac157478d12a3be195969115ec60e1ee9cd9836dc",
+    "source_url": "https://www.inaturalist.org/photos/41998948",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/41998948/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Calcinus tibicen",
+   "taxon_id": 260318
+  },
+  "275393": {
+   "common_name": {
+    "en": "Coastal Beach Sandmat",
+    "es": "Alfombra de arena costera"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Euphorbia mesembryanthemifolia",
+   "taxon_id": 275393
+  },
+  "277412": {
+   "common_name": {
+    "en": "Devil's Potato",
+    "es": "Papa del diablo"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Echites umbellatus",
+   "taxon_id": 277412
+  },
+  "278899": {
+   "common_name": {
+    "en": "Mago",
+    "es": "Palo de chicalpexte"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Hernandia sonora",
+   "taxon_id": 278899
+  },
+  "292440": {
+   "common_name": {
+    "en": null,
+    "es": null
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Udo Schmidt",
+    "file": "species/22ddc7a6677346667b55c4e3d166819676347e9538b391e5d6f19d6a3c8d50f1.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "22ddc7a6677346667b55c4e3d166819676347e9538b391e5d6f19d6a3c8d50f1",
+    "source_url": "https://www.inaturalist.org/photos/33729804",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/33729804/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Echinolittorina tuberculata",
+   "taxon_id": 292440
+  },
+  "292441": {
+   "common_name": {
+    "en": "Zebra Periwinkle",
+    "es": "Caracol Cebra"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Eridan Xharahi",
+    "file": "species/876ef582e9f92ebbba1c02716ef1f4230c06e743e0ea20f4d637cfd06264ec7d.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "876ef582e9f92ebbba1c02716ef1f4230c06e743e0ea20f4d637cfd06264ec7d",
+    "source_url": "https://www.inaturalist.org/photos/9352403",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/9352403/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Echinolittorina ziczac",
+   "taxon_id": 292441
+  },
+  "292990": {
+   "common_name": {
+    "en": "Scaly Chiton",
+    "es": "Quitón escamoso"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Annika Lindqvist",
+    "file": "species/8143ddaca8935037705bfa47fa79befe5207c25fa31d7c246b76e84bc91d11fa.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "8143ddaca8935037705bfa47fa79befe5207c25fa31d7c246b76e84bc91d11fa",
+    "source_url": "https://www.inaturalist.org/photos/6086574",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/6086574/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Chiton squamosus",
+   "taxon_id": 292990
+  },
+  "295215": {
+   "common_name": {
+    "en": "Antillean Hermit Crab",
+    "es": null
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Clibanarius antillensis",
+   "taxon_id": 295215
+  },
+  "295217": {
+   "common_name": {
+    "en": "Blue-legged Hermit Crab",
+    "es": "Cangrejo Ermitaño de patas azules"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Dan Schofield",
+    "file": "species/94d5654acaf72470297b40599a9e7dc991fd9101f80dd13dccd8a81a603e25ef.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "94d5654acaf72470297b40599a9e7dc991fd9101f80dd13dccd8a81a603e25ef",
+    "source_url": "https://www.inaturalist.org/photos/338402283",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/338402283/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Clibanarius tricolor",
+   "taxon_id": 295217
+  },
+  "295346": {
+   "common_name": {
+    "en": "American Nipper",
+    "es": "Cangrejo laberinto"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "66dodge",
+    "file": "species/589cecb1bfe0103e92cac674ae72cd89c6b34c08300db1d49541f6cc7ac36caf.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "589cecb1bfe0103e92cac674ae72cd89c6b34c08300db1d49541f6cc7ac36caf",
+    "source_url": "https://www.inaturalist.org/photos/372896",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/372896/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Geograpsus lividus",
+   "taxon_id": 295346
+  },
+  "309685": {
+   "common_name": {
+    "en": "Cactus Lady Beetle",
+    "es": "Catarina del nopal"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Sam Fraser-Smith",
+    "file": "species/7839e1045bdbc7de5594c476e6c6b75dc271a100b8dab17470606b15b56c3bef.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "7839e1045bdbc7de5594c476e6c6b75dc271a100b8dab17470606b15b56c3bef",
+    "source_url": "https://www.inaturalist.org/photos/13158920",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/13158920/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Chilocorus cacti",
+   "taxon_id": 309685
+  },
+  "322730": {
+   "common_name": {
+    "en": "Blistered Saucer Leaf Alga",
+    "es": "Alga hoja de plato"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Chromista",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "James St. John",
+    "file": "species/cbddef2a13bb274295220b66e4c0f13b399775fba706e3b5375099e6774af29d.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "cbddef2a13bb274295220b66e4c0f13b399775fba706e3b5375099e6774af29d",
+    "source_url": "https://www.inaturalist.org/photos/1845160",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/1845160/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Turbinaria turbinata",
+   "taxon_id": 322730
+  },
+  "326015": {
+   "common_name": {
+    "en": "Wood Ear mushroom",
+    "es": "Oreja de viejita"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Fungi",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Wes Gapp",
+    "file": "species/7efa3823ce66910c2bb7e0aa8b6b408d99c5d4b0d79300f8ee9f96c6fc8a8d36.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "7efa3823ce66910c2bb7e0aa8b6b408d99c5d4b0d79300f8ee9f96c6fc8a8d36",
+    "source_url": "https://www.inaturalist.org/photos/135097790",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/135097790/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Auricularia polytricha",
+   "taxon_id": 326015
+  },
+  "348469": {
+   "common_name": {
+    "en": "Virgin Island passionflower",
+    "es": "Calzoncillo"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Carrie Seltzer",
+    "file": "species/cfbf947a9572ac4ba7147c4a41236a55f02ac9017315230618f952e6f783e28f.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "cfbf947a9572ac4ba7147c4a41236a55f02ac9017315230618f952e6f783e28f",
+    "source_url": "https://www.inaturalist.org/photos/8615492",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8615492/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Passiflora murucuja",
+   "taxon_id": 348469
+  },
+  "363206": {
+   "common_name": {
+    "en": "Euphorbia Bug",
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Chariesterus antennator",
+   "taxon_id": 363206
+  },
+  "363690": {
+   "common_name": {
+    "en": "Chestnut Turban",
+    "es": null
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Turbo castanea",
+   "taxon_id": 363690
+  },
+  "36455": {
+   "common_name": {
+    "en": "Bark Anole",
+    "es": "Abaniquillo Grácil de la Española"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Reptilia",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Anolis distichus",
+   "taxon_id": 36455
+  },
+  "365010": {
+   "common_name": {
+    "en": null,
+    "es": "Guanito de Cabo Rojo"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Yolanda M. Leon",
+    "file": "species/bb1a7e613c419066abd6e06594f720ab11c457a587dadccbd3ea9660efe5d6bd.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "default_photo",
+    "sha256": "bb1a7e613c419066abd6e06594f720ab11c457a587dadccbd3ea9660efe5d6bd",
+    "source_url": "https://www.inaturalist.org/photos/63018307",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/63018307/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Coccothrinax ekmanii",
+   "taxon_id": 365010
+  },
+  "366863": {
+   "common_name": {
+    "en": "Sailor's eyeball alga",
+    "es": "Alga perla"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Susan Prior",
+    "file": "species/f93c02220de77cdcda1af4f7b35e0912744bbbe598cbab515918b9d654029605.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "f93c02220de77cdcda1af4f7b35e0912744bbbe598cbab515918b9d654029605",
+    "source_url": "https://www.inaturalist.org/photos/137567230",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/137567230/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Valonia ventricosa",
+   "taxon_id": 366863
+  },
+  "3756": {
+   "common_name": {
+    "en": "Glossy Ibis",
+    "es": "Ibis cara oscura"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Atk3196",
+    "file": "species/54caa2bc0ab47e845bcb25c98609d6631cc4ddd73c8b81525d38b8a5c35848b0.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "54caa2bc0ab47e845bcb25c98609d6631cc4ddd73c8b81525d38b8a5c35848b0",
+    "source_url": "https://www.inaturalist.org/photos/70670219",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/70670219/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Plegadis falcinellus",
+   "taxon_id": 3756
+  },
+  "3849": {
+   "common_name": {
+    "en": "Sanderling",
+    "es": "Playero blanco"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Marco Chan",
+    "file": "species/1e1b6b12f2ff48434e53385d3d7d5eb453475f602525710310dce151bffcc345.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "1e1b6b12f2ff48434e53385d3d7d5eb453475f602525710310dce151bffcc345",
+    "source_url": "https://www.inaturalist.org/photos/232281217",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/232281217/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Calidris alba",
+   "taxon_id": 3849
+  },
+  "3850": {
+   "common_name": {
+    "en": "Stilt Sandpiper",
+    "es": "Playero zancón"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Dan Pancamo",
+    "file": "species/a0f385a344a06eafc27231229dfad3f1c45e50f2c239088067cb72af6aa595de.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "a0f385a344a06eafc27231229dfad3f1c45e50f2c239088067cb72af6aa595de",
+    "source_url": "https://www.inaturalist.org/photos/143287",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/143287/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Calidris himantopus",
+   "taxon_id": 3850
+  },
+  "3862": {
+   "common_name": {
+    "en": "Semipalmated Sandpiper",
+    "es": "Playero semipalmeado"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Bill Keim",
+    "file": "species/cc963b4409fb6bb1f5308ab9988af9a97dc1471cf9045089152046415f0e8512.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "cc963b4409fb6bb1f5308ab9988af9a97dc1471cf9045089152046415f0e8512",
+    "source_url": "https://www.inaturalist.org/photos/56449398",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/56449398/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Calidris pusilla",
+   "taxon_id": 3862
+  },
+  "3864": {
+   "common_name": {
+    "en": "Least Sandpiper",
+    "es": "Playero Diminuto"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "David Bird",
+    "file": "species/65833bf6e90b21f31d6c886ec6533e2351252f41690d25fb50c88fddc7039a8a.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "taxon_photos",
+    "sha256": "65833bf6e90b21f31d6c886ec6533e2351252f41690d25fb50c88fddc7039a8a",
+    "source_url": "https://www.inaturalist.org/photos/227232097",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/227232097/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Calidris minutilla",
+   "taxon_id": 3864
+  },
+  "3892": {
+   "common_name": {
+    "en": "Greater Yellowlegs",
+    "es": "Patamarilla mayor"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Adam Jackson",
+    "file": "species/21255ba29a9393d65e47730567052cf09afd8d1bffecab4adee996e7cfe4d956.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "taxon_photos",
+    "sha256": "21255ba29a9393d65e47730567052cf09afd8d1bffecab4adee996e7cfe4d956",
+    "source_url": "https://www.inaturalist.org/photos/433087980",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/433087980/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Tringa melanoleuca",
+   "taxon_id": 3892
+  },
+  "3893": {
+   "common_name": {
+    "en": "Lesser Yellowlegs",
+    "es": "Patamarilla menor"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Esteban Poveda",
+    "file": "species/ae64c8de5085b5de3e34eb63107d39c2128048ccc8ac92ba7bc8b360c1f79f32.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "ae64c8de5085b5de3e34eb63107d39c2128048ccc8ac92ba7bc8b360c1f79f32",
+    "source_url": "https://www.inaturalist.org/photos/177376689",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/177376689/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Tringa flavipes",
+   "taxon_id": 3893
+  },
+  "39336": {
+   "common_name": {
+    "en": "Barahona Curlytail Lizard",
+    "es": "Lagarto Enmascarado de Barahona"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Reptilia",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Leiocephalus barahonensis",
+   "taxon_id": 39336
+  },
+  "3938": {
+   "common_name": {
+    "en": "Ruddy Turnstone",
+    "es": "Vuelvepiedras Rojizo"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Henggang Cui",
+    "file": "species/3edb0de7d89bfb9f6cdd8391b98d65e06e8e759e8a24eb36a7b059dedb9f8f05.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "taxon_photos",
+    "sha256": "3edb0de7d89bfb9f6cdd8391b98d65e06e8e759e8a24eb36a7b059dedb9f8f05",
+    "source_url": "https://www.inaturalist.org/photos/105634647",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/105634647/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Arenaria interpres",
+   "taxon_id": 3938
+  },
+  "41005": {
+   "common_name": {
+    "en": "Jamaican Fruit-eating Bat",
+    "es": "Murciélago frutero"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Mammalia",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Juan Cruzado Cortés",
+    "file": "species/4e15114830d69289eb0c5eb22cfc21ba74fc28b1a64f3f703615a25cfdfeaccb.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "4e15114830d69289eb0c5eb22cfc21ba74fc28b1a64f3f703615a25cfdfeaccb",
+    "source_url": "https://www.inaturalist.org/photos/58980445",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/58980445/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Artibeus jamaicensis",
+   "taxon_id": 41005
+  },
+  "411086": {
+   "common_name": {
+    "en": "Western Cattle-Egret",
+    "es": "Garcilla bueyera occidental"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Dan Vickers",
+    "file": "species/c8b44379d5ed73d56677f4ace427c65e18f68833352a1b94550dfea65e6e7ca7.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "c8b44379d5ed73d56677f4ace427c65e18f68833352a1b94550dfea65e6e7ca7",
+    "source_url": "https://www.inaturalist.org/photos/470085232",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/470085232/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Ardea ibis",
+   "taxon_id": 411086
+  },
+  "41428": {
+   "common_name": {
+    "en": "Cuvier's Beaked Whale",
+    "es": "Ballena picuda de Couvier"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Mammalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Charlotte Kirchner",
+    "file": "species/f930c7ddfc082f75505d4e858ffa32629fe9c29f2bfdf7d2335d96761d39998d.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "f930c7ddfc082f75505d4e858ffa32629fe9c29f2bfdf7d2335d96761d39998d",
+    "source_url": "https://www.inaturalist.org/photos/45358353",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/45358353/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Ziphius cavirostris",
+   "taxon_id": 41428
+  },
+  "4257": {
+   "common_name": {
+    "en": "American Flamingo",
+    "es": "Flamenco americano"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Katja Schulz",
+    "file": "species/0a127032eaa0bece2d981d9384c04a20ceae9f2ed8f4882baf8795e1633df4a0.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "0a127032eaa0bece2d981d9384c04a20ceae9f2ed8f4882baf8795e1633df4a0",
+    "source_url": "https://www.inaturalist.org/photos/2440313",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2440313/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Phoenicopterus ruber",
+   "taxon_id": 4257
+  },
+  "4328": {
+   "common_name": {
+    "en": "Brown Pelican",
+    "es": "Pelícano café"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Jay Pruett",
+    "file": "species/f86719169e386a7afdb4658290f27c16357471d9fb3258bdbcf040ed40dd4310.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "f86719169e386a7afdb4658290f27c16357471d9fb3258bdbcf040ed40dd4310",
+    "source_url": "https://www.inaturalist.org/photos/172548873",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/172548873/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Pelecanus occidentalis",
+   "taxon_id": 4328
+  },
+  "4381": {
+   "common_name": {
+    "en": "Lesser Black-backed Gull",
+    "es": "Gaviota Sombría"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Larus fuscus",
+   "taxon_id": 4381
+  },
+  "438336": {
+   "common_name": {
+    "en": null,
+    "es": "Alpargata"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Kristof Zyskowski",
+    "file": "species/c495e04b5d0f7b44068f333070a187864d4cfdb2fae4e677dde7c8446cb4a527.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "c495e04b5d0f7b44068f333070a187864d4cfdb2fae4e677dde7c8446cb4a527",
+    "source_url": "https://www.inaturalist.org/photos/49429187",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/49429187/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Consolea moniliformis",
+   "taxon_id": 438336
+  },
+  "461145": {
+   "common_name": {
+    "en": "Cross-hatched Lucine",
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "James St. John",
+    "file": "species/75ca6a8bcd84fc82c40379f12f052b798353e65b46da6555ebe25441603eb7c8.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "75ca6a8bcd84fc82c40379f12f052b798353e65b46da6555ebe25441603eb7c8",
+    "source_url": "https://www.inaturalist.org/photos/1747948",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/1747948/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Divalinga quadrisulcata",
+   "taxon_id": 461145
+  },
+  "47219": {
+   "common_name": {
+    "en": "Western Honey Bee",
+    "es": "Abeja melífera europea"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Apis mellifera",
+   "taxon_id": 47219
+  },
+  "47227": {
+   "common_name": {
+    "en": "Horse-eye Jack",
+    "es": "Jurel blanco"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Pauline Walsh Jacobson",
+    "file": "species/e2cde582779cfc0441c4c5bcfd3782b6f8f31e3c38e79ef792b2f4d5a68f3c38.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "e2cde582779cfc0441c4c5bcfd3782b6f8f31e3c38e79ef792b2f4d5a68f3c38",
+    "source_url": "https://www.inaturalist.org/photos/286934574",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/286934574/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Caranx latus",
+   "taxon_id": 47227
+  },
+  "47238": {
+   "common_name": {
+    "en": "Western Atlantic Trumpetfish",
+    "es": "Pez trompeta"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Paul and Jill",
+    "file": "species/dcc60c1e9929a45ce5979f33394e694e85a927b3072d834cccbb45642917902c.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "dcc60c1e9929a45ce5979f33394e694e85a927b3072d834cccbb45642917902c",
+    "source_url": "https://www.inaturalist.org/photos/7198",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/7198/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Aulostomus maculatus",
+   "taxon_id": 47238
+  },
+  "47251": {
+   "common_name": {
+    "en": "Great Barracuda",
+    "es": "Barracuda gigante"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Quinn",
+    "file": "species/195068e3f551ddbc0ef0fdefec9deeb67738e86bdbc2b6eb2138d7f3e824e6f5.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "195068e3f551ddbc0ef0fdefec9deeb67738e86bdbc2b6eb2138d7f3e824e6f5",
+    "source_url": "https://www.inaturalist.org/photos/460773257",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/460773257/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Sphyraena barracuda",
+   "taxon_id": 47251
+  },
+  "47299": {
+   "common_name": {
+    "en": "Caribbean Spiny Lobster",
+    "es": "Langosta del Caribe"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Michael Bommerer",
+    "file": "species/6e7d2b5d4247551c69efdc42cdcca684fa0224c8a80c4bfabb59a164f3c08c42.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "6e7d2b5d4247551c69efdc42cdcca684fa0224c8a80c4bfabb59a164f3c08c42",
+    "source_url": "https://www.inaturalist.org/photos/360035331",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/360035331/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Panulirus argus",
+   "taxon_id": 47299
+  },
+  "4756": {
+   "common_name": {
+    "en": "Turkey Vulture",
+    "es": "Zopilote aura"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Seig",
+    "file": "species/a5f10bdc2c9c1107f40e430db0cebab39517485d1e2c8e442c4ac7ac85397dde.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "a5f10bdc2c9c1107f40e430db0cebab39517485d1e2c8e442c4ac7ac85397dde",
+    "source_url": "https://www.inaturalist.org/photos/52277010",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/52277010/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Cathartes aura",
+   "taxon_id": 4756
+  },
+  "4793": {
+   "common_name": {
+    "en": "Killdeer",
+    "es": "Chorlo tildío"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Eugene Zelenko",
+    "file": "species/1fbf456eedd5a16755a9deffe450e3a5e983b5f5718b16a4e94b3a9d5aa44cec.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "1fbf456eedd5a16755a9deffe450e3a5e983b5f5718b16a4e94b3a9d5aa44cec",
+    "source_url": "https://www.inaturalist.org/photos/275634261",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/275634261/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Charadrius vociferus",
+   "taxon_id": 4793
+  },
+  "4817": {
+   "common_name": {
+    "en": "Semipalmated Plover",
+    "es": "Chorlo semipalmeado"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Gregory Smith",
+    "file": "species/e0c10e9724b17ddb434774a49612443067c164271978c43def7eaec5e311d4de.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "e0c10e9724b17ddb434774a49612443067c164271978c43def7eaec5e311d4de",
+    "source_url": "https://www.inaturalist.org/photos/171322539",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/171322539/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Charadrius semipalmatus",
+   "taxon_id": 4817
+  },
+  "4836": {
+   "common_name": {
+    "en": "Black-necked Stilt",
+    "es": "Monjita Americana"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Diego Carús",
+    "file": "species/e4e37ef8793a1ab14bbdab73c181956a04f864f2ccd5279ed99f8af76f5f7452.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "taxon_photos",
+    "sha256": "e4e37ef8793a1ab14bbdab73c181956a04f864f2ccd5279ed99f8af76f5f7452",
+    "source_url": "https://www.inaturalist.org/photos/27203989",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/27203989/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Himantopus mexicanus",
+   "taxon_id": 4836
+  },
+  "48380": {
+   "common_name": {
+    "en": "Coral Vine",
+    "es": "San Miguelito"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "portioid",
+    "file": "species/0236db47bd3d3fc7a89855542467058f5c7a5d54b8fc8e9090c6281007c7b3d4.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "0236db47bd3d3fc7a89855542467058f5c7a5d54b8fc8e9090c6281007c7b3d4",
+    "source_url": "https://www.inaturalist.org/photos/25523058",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/25523058/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Antigonon leptopus",
+   "taxon_id": 48380
+  },
+  "486394": {
+   "common_name": {
+    "en": "Yellow Prickly Cockle",
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Dallocardia muricata",
+   "taxon_id": 486394
+  },
+  "48865": {
+   "common_name": {
+    "en": "Coconut palm",
+    "es": "Cocotero"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Douglas Goldman",
+    "file": "species/be7d7b5b12c5bb6fe1bcc3d4e0feb4def9890deeedf088d0b870619de3b6ea3f.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "be7d7b5b12c5bb6fe1bcc3d4e0feb4def9890deeedf088d0b870619de3b6ea3f",
+    "source_url": "https://www.inaturalist.org/photos/234982213",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/234982213/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Cocos nucifera",
+   "taxon_id": 48865
+  },
+  "49150": {
+   "common_name": {
+    "en": "Gulf Fritillary",
+    "es": "Mariposa pasionaria motas blancas"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Dione vanillae",
+   "taxon_id": 49150
+  },
+  "49256": {
+   "common_name": {
+    "en": "Goldentail Moray",
+    "es": "Morena dorada"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Pauline Walsh Jacobson",
+    "file": "species/aa6f23668693c3ac678bc979c48149f00c018e257d75f2c0aecc35e81ef0b516.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "aa6f23668693c3ac678bc979c48149f00c018e257d75f2c0aecc35e81ef0b516",
+    "source_url": "https://www.inaturalist.org/photos/362043704",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/362043704/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Gymnothorax miliaris",
+   "taxon_id": 49256
+  },
+  "49257": {
+   "common_name": {
+    "en": "French Angelfish",
+    "es": "Gallineta negra"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "LASZLO ILYES",
+    "file": "species/93b0aaa6d67b8a88f13fe69392aa955f5cd33794d9d7f79c7bfb7d40327af322.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "93b0aaa6d67b8a88f13fe69392aa955f5cd33794d9d7f79c7bfb7d40327af322",
+    "source_url": "https://www.inaturalist.org/photos/92794858",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/92794858/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Pomacanthus paru",
+   "taxon_id": 49257
+  },
+  "49259": {
+   "common_name": {
+    "en": "Flamingo Tongue Snail",
+    "es": "Caracol lengua de flamenco"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Dan Schofield",
+    "file": "species/007bf963a72ab42ee1281ede78c5685208f10e3f7492ead9bb3d97768a220a4a.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "007bf963a72ab42ee1281ede78c5685208f10e3f7492ead9bb3d97768a220a4a",
+    "source_url": "https://www.inaturalist.org/photos/319305000",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/319305000/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Cyphoma gibbosum",
+   "taxon_id": 49259
+  },
+  "49269": {
+   "common_name": {
+    "en": "Longspined Porcupinefish",
+    "es": "Pez erizo apache"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Diodon holocanthus",
+   "taxon_id": 49269
+  },
+  "49272": {
+   "common_name": {
+    "en": "Slippery Dick",
+    "es": "Doncella rayada"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Brian Gratwicke",
+    "file": "species/fa5058c3bea83d641fb3a31ca7883af566f6e4580d36a0bbcda6d20433a6cf59.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "fa5058c3bea83d641fb3a31ca7883af566f6e4580d36a0bbcda6d20433a6cf59",
+    "source_url": "https://www.inaturalist.org/photos/65957",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/65957/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Halichoeres bivittatus",
+   "taxon_id": 49272
+  },
+  "49304": {
+   "common_name": {
+    "en": "Threespot Damselfish",
+    "es": "Jaqueta de tres puntos"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Jay Brasher",
+    "file": "species/e7cf98aef2aa87085e7b7f6086af17d9d0f2a910e9216f9011c3c19fb612b1fa.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "e7cf98aef2aa87085e7b7f6086af17d9d0f2a910e9216f9011c3c19fb612b1fa",
+    "source_url": "https://www.inaturalist.org/photos/151189288",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/151189288/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Stegastes planifrons",
+   "taxon_id": 49304
+  },
+  "493347": {
+   "common_name": {
+    "en": "Beaded Periwinkle",
+    "es": "Caracol bígaro con cuentas"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Bob Peterson",
+    "file": "species/acd563d672b14793b2117dd5d07efb5d1f606d13d1f4599a60cbc6b38bb97311.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "acd563d672b14793b2117dd5d07efb5d1f606d13d1f4599a60cbc6b38bb97311",
+    "source_url": "https://www.inaturalist.org/photos/3449013",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/3449013/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Cenchritis muricatus",
+   "taxon_id": 493347
+  },
+  "4940": {
+   "common_name": {
+    "en": "Snowy Egret",
+    "es": "Garza dedos dorados"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Bill Levine",
+    "file": "species/41ff3e4d2ecfe4936d1a36b4c0a8a6b6073c027d6114f37086036cded2f59fa1.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "41ff3e4d2ecfe4936d1a36b4c0a8a6b6073c027d6114f37086036cded2f59fa1",
+    "source_url": "https://www.inaturalist.org/photos/330856993",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/330856993/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Egretta thula",
+   "taxon_id": 4940
+  },
+  "49402": {
+   "common_name": {
+    "en": "Atlantic Sergeant Major",
+    "es": "Petaca rayada"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Brian Gratwicke",
+    "file": "species/d075c44f79f43ed9274a7e8663eea666155cbdc80d71f2ceef105dc99ddf7515.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "d075c44f79f43ed9274a7e8663eea666155cbdc80d71f2ceef105dc99ddf7515",
+    "source_url": "https://www.inaturalist.org/photos/201212501",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/201212501/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Abudefduf saxatilis",
+   "taxon_id": 49402
+  },
+  "49404": {
+   "common_name": {
+    "en": "Sand Diver",
+    "es": "Chile manchado"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Synodus intermedius",
+   "taxon_id": 49404
+  },
+  "49432": {
+   "common_name": {
+    "en": "Hogfish",
+    "es": "Boquinete"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Marissa Balfour",
+    "file": "species/797edcce62163b042b8a30356c4e9bf662554fca4e115a47f5ea0eb5bde715c9.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "taxon_photos",
+    "sha256": "797edcce62163b042b8a30356c4e9bf662554fca4e115a47f5ea0eb5bde715c9",
+    "source_url": "https://www.inaturalist.org/photos/109126412",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/109126412/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Lachnolaimus maximus",
+   "taxon_id": 49432
+  },
+  "49440": {
+   "common_name": {
+    "en": "Caribbean Reef Squid",
+    "es": "Calamar de arrecife caribeño"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Matteo Cassella",
+    "file": "species/683ff671532841c85d46fe4df6646266e044c2072d766cefcf5b985bf35edb21.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "default_photo",
+    "sha256": "683ff671532841c85d46fe4df6646266e044c2072d766cefcf5b985bf35edb21",
+    "source_url": "https://www.inaturalist.org/photos/63623021",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/63623021/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Sepioteuthis sepioidea",
+   "taxon_id": 49440
+  },
+  "49491": {
+   "common_name": {
+    "en": "Caribbean Bluehead Wrasse",
+    "es": "Cara de cotorra"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Pauline Walsh Jacobson",
+    "file": "species/bf3e117596dded614823141ed381d9a871e512346b2e417539259a60cd218247.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "bf3e117596dded614823141ed381d9a871e512346b2e417539259a60cd218247",
+    "source_url": "https://www.inaturalist.org/photos/323848392",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/323848392/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Thalassoma bifasciatum",
+   "taxon_id": 49491
+  },
+  "49500": {
+   "common_name": {
+    "en": "Red Cushion Sea Star",
+    "es": "Estrella cojín"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "James St. John",
+    "file": "species/7b7a955da3bf707082b2a7c090e8e6145d4d350dbd45bb52e9054dc30783f23f.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "7b7a955da3bf707082b2a7c090e8e6145d4d350dbd45bb52e9054dc30783f23f",
+    "source_url": "https://www.inaturalist.org/photos/3288756",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/3288756/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Oreaster reticulatus",
+   "taxon_id": 49500
+  },
+  "49514": {
+   "common_name": {
+    "en": "West Indian Fuzzy Chiton",
+    "es": "Quitón de las Antillas"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "m a b",
+    "file": "species/631eabc5bfcab8d9307346f670990ad8fe9031420ba7d743d0879a1ba2dfc5ce.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "taxon_photos",
+    "sha256": "631eabc5bfcab8d9307346f670990ad8fe9031420ba7d743d0879a1ba2dfc5ce",
+    "source_url": "https://www.inaturalist.org/photos/178044227",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/178044227/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Acanthopleura granulata",
+   "taxon_id": 49514
+  },
+  "49540": {
+   "common_name": {
+    "en": "Spinybacked Orbweaver",
+    "es": "Araña tejedora espinosa"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Arachnida",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Meghan Cassidy",
+    "file": "species/9121d1b81db934cc21607ac330596720c07031162bed37048e27eaba9b93c7ff.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "9121d1b81db934cc21607ac330596720c07031162bed37048e27eaba9b93c7ff",
+    "source_url": "https://www.inaturalist.org/photos/10541003",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/10541003/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Gasteracantha cancriformis",
+   "taxon_id": 49540
+  },
+  "4956": {
+   "common_name": {
+    "en": "Great Blue Heron",
+    "es": "Garza morena"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Basar",
+    "file": "species/5b47899e36e4304d2f7ae340d0cdf1b4e79c8615ce725a3404e4635b95ceec2d.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "5b47899e36e4304d2f7ae340d0cdf1b4e79c8615ce725a3404e4635b95ceec2d",
+    "source_url": "https://www.inaturalist.org/photos/452211592",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/452211592/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Ardea herodias",
+   "taxon_id": 4956
+  },
+  "495710": {
+   "common_name": {
+    "en": "Virgin Nerite",
+    "es": null
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Udo Schmidt",
+    "file": "species/cee896f49a1da50c3706875f3dbc8ce7a7058f3ea947b83a75d398264972e23e.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "cee896f49a1da50c3706875f3dbc8ce7a7058f3ea947b83a75d398264972e23e",
+    "source_url": "https://www.inaturalist.org/photos/3921064",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/3921064/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Vitta virginea",
+   "taxon_id": 495710
+  },
+  "49606": {
+   "common_name": {
+    "en": "Grey Triggerfish",
+    "es": "Pejepuerco blanco"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Balistes capriscus",
+   "taxon_id": 49606
+  },
+  "49625": {
+   "common_name": {
+    "en": "Longspine Squirrelfish",
+    "es": "Candil rufo"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Dan Schofield",
+    "file": "species/e9a2ed9364d7c33ad5fe834326dd9b6ef831724c5f2086383e9f3e2cb6072189.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "e9a2ed9364d7c33ad5fe834326dd9b6ef831724c5f2086383e9f3e2cb6072189",
+    "source_url": "https://www.inaturalist.org/photos/487226222",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/487226222/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Holocentrus rufus",
+   "taxon_id": 49625
+  },
+  "49634": {
+   "common_name": {
+    "en": "Batwing Coral Crab",
+    "es": "Cangrejo de coral"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Carpilius corallinus",
+   "taxon_id": 49634
+  },
+  "49753": {
+   "common_name": {
+    "en": "Yellowtail Damselfish",
+    "es": "Jaqueta coliamarilla"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Matteo Cassella",
+    "file": "species/5e6bc08d704a904eb4f20b7fb18f0073b0503ad4a09f0f299cd8646e46e963f2.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "5e6bc08d704a904eb4f20b7fb18f0073b0503ad4a09f0f299cd8646e46e963f2",
+    "source_url": "https://www.inaturalist.org/photos/58894996",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/58894996/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Microspathodon chrysurus",
+   "taxon_id": 49753
+  },
+  "49761": {
+   "common_name": {
+    "en": "White Peacock",
+    "es": "Mariposa Pavo Real Blanca"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Anartia jatrophae",
+   "taxon_id": 49761
+  },
+  "49923": {
+   "common_name": {
+    "en": "Dusky Damselfish",
+    "es": "Jaqueta prieta"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Stegastes adustus",
+   "taxon_id": 49923
+  },
+  "49947": {
+   "common_name": {
+    "en": "Porkfish",
+    "es": "Burro payaso"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Anisotremus virginicus",
+   "taxon_id": 49947
+  },
+  "49955": {
+   "common_name": {
+    "en": "West Indian Sea Egg",
+    "es": "Erizo blanco de mar"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Tripneustes ventricosus",
+   "taxon_id": 49955
+  },
+  "50073": {
+   "common_name": {
+    "en": "Julia Heliconian",
+    "es": "Mariposa Julia"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Dryas iulia",
+   "taxon_id": 50073
+  },
+  "5020": {
+   "common_name": {
+    "en": "Green Heron",
+    "es": "Garcita Verde"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Tom Kennedy",
+    "file": "species/931c0d316f959ee8ebea3aa4037e846415efedb789ad04a80455b94d74a6c280.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "931c0d316f959ee8ebea3aa4037e846415efedb789ad04a80455b94d74a6c280",
+    "source_url": "https://www.inaturalist.org/photos/175041644",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/175041644/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Butorides virescens",
+   "taxon_id": 5020
+  },
+  "50336": {
+   "common_name": {
+    "en": "Malachite",
+    "es": "Mariposa malaquita"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "xulescu_g",
+    "file": "species/78feccbfd06ab4828003023c51dd41ca0c24732a0869524567c98a1be617fff8.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "default_photo",
+    "sha256": "78feccbfd06ab4828003023c51dd41ca0c24732a0869524567c98a1be617fff8",
+    "source_url": "https://www.inaturalist.org/photos/469657134",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/469657134/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Siproeta stelenes",
+   "taxon_id": 50336
+  },
+  "50342": {
+   "common_name": {
+    "en": "Band-winged Dragonlet",
+    "es": "Rayadora de bandas negras"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Juan Cruzado Cortés",
+    "file": "species/270b0c5f03b3b1074ebb18996a11b75d2b8b912bf0bde76fe8258e3dda601d90.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "270b0c5f03b3b1074ebb18996a11b75d2b8b912bf0bde76fe8258e3dda601d90",
+    "source_url": "https://www.inaturalist.org/photos/1732932",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/1732932/square.JPG",
+    "width": 96
+   },
+   "scientific_name": "Erythrodiplax umbrata",
+   "taxon_id": 50342
+  },
+  "504639": {
+   "common_name": {
+    "en": "Symmetrical Brain Coral",
+    "es": "Coral cerebro"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Paul Asman and Jill Lenoble",
+    "file": "species/a60b8a4390d0060a5077066653f95bf9efbb0f5a59fb5aea6c8f052ba0a8796a.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "a60b8a4390d0060a5077066653f95bf9efbb0f5a59fb5aea6c8f052ba0a8796a",
+    "source_url": "https://www.inaturalist.org/photos/169040952",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/169040952/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Pseudodiploria strigosa",
+   "taxon_id": 504639
+  },
+  "504640": {
+   "common_name": {
+    "en": "Knobby brain coral",
+    "es": "Coral cerebro nudoso"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Eric Knight",
+    "file": "species/839e26a73cc0c3892f095ecbd5ce7d32020a583580ff3429602ffc5e096841b9.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "839e26a73cc0c3892f095ecbd5ce7d32020a583580ff3429602ffc5e096841b9",
+    "source_url": "https://www.inaturalist.org/photos/2566424",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2566424/square.png",
+    "width": 96
+   },
+   "scientific_name": "Pseudodiploria clivosa",
+   "taxon_id": 504640
+  },
+  "514934": {
+   "common_name": {
+    "en": null,
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Zygy",
+    "file": "species/cabb70ce45ddcba7ff244e7f336ed9071abb6b2420214f8961a295aaec4edf3e.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "default_photo",
+    "sha256": "cabb70ce45ddcba7ff244e7f336ed9071abb6b2420214f8961a295aaec4edf3e",
+    "source_url": "https://www.inaturalist.org/photos/250709539",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/250709539/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Agroiconota propinqua",
+   "taxon_id": 514934
+  },
+  "51536": {
+   "common_name": {
+    "en": "Great Southern White",
+    "es": "Mariposa blanca gigante"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Ascia monuste",
+   "taxon_id": 51536
+  },
+  "51589": {
+   "common_name": {
+    "en": "Tree Seaside Tansy",
+    "es": "Té de playa"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Sam Fraser-Smith",
+    "file": "species/86ac911ee399bf58c9f50e297b5cb9c6bad4589e72259c8ff766fa3f7eec9b38.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "86ac911ee399bf58c9f50e297b5cb9c6bad4589e72259c8ff766fa3f7eec9b38",
+    "source_url": "https://www.inaturalist.org/photos/103493",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/103493/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Borrichia arborescens",
+   "taxon_id": 51589
+  },
+  "517492": {
+   "common_name": {
+    "en": "Barbados Keyhole Limpet",
+    "es": "Lapa de cerradura"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Mollusca",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Thomas Irvine",
+    "file": "species/07341481cd3febc74ba637c1b1edcc89386ce37cb4dc9acf0747dc2588c0b9a8.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "07341481cd3febc74ba637c1b1edcc89386ce37cb4dc9acf0747dc2588c0b9a8",
+    "source_url": "https://www.inaturalist.org/photos/235717323",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/235717323/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Fissurella barbadensis",
+   "taxon_id": 517492
+  },
+  "519935": {
+   "common_name": {
+    "en": "Encrusting Gorgonian",
+    "es": "Gorgonia Incrustante"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Erythropodium caribaeorum",
+   "taxon_id": 519935
+  },
+  "52290": {
+   "common_name": {
+    "en": "Atlantic Long-spined Sea Urchin",
+    "es": "Erizo diadema"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Greg Grimes",
+    "file": "species/f2edbe3196601ec0044ace4d85c92325092ea55415aaa163e97441ab0f26a1ee.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "f2edbe3196601ec0044ace4d85c92325092ea55415aaa163e97441ab0f26a1ee",
+    "source_url": "https://www.inaturalist.org/photos/3272389",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/3272389/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Diadema antillarum",
+   "taxon_id": 52290
+  },
+  "52293": {
+   "common_name": {
+    "en": "Highhat",
+    "es": "Payasito largo"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Pareques acuminatus",
+   "taxon_id": 52293
+  },
+  "52313": {
+   "common_name": {
+    "en": "Spotted Porcupinefish",
+    "es": "Pez erizo pecoso"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Matteo Cassella",
+    "file": "species/ae3d468ea4c8f1454fbe44c229658f4fbaaf53a1e3a457ae61f440c06fef50aa.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "ae3d468ea4c8f1454fbe44c229658f4fbaaf53a1e3a457ae61f440c06fef50aa",
+    "source_url": "https://www.inaturalist.org/photos/64070029",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/64070029/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Diodon hystrix",
+   "taxon_id": 52313
+  },
+  "525804": {
+   "common_name": {
+    "en": "Caribbean Warty Anemone",
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Bunodosoma granuliferum",
+   "taxon_id": 525804
+  },
+  "52956": {
+   "common_name": {
+    "en": "Four-eyed Butterflyfish",
+    "es": "Pez mariposa de cuatro ojos"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Pauline Walsh Jacobson",
+    "file": "species/eae470e3122cb1a59d4673caff36ac0570bad076e57538e9a99a33babfbff16b.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "eae470e3122cb1a59d4673caff36ac0570bad076e57538e9a99a33babfbff16b",
+    "source_url": "https://www.inaturalist.org/photos/364062446",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/364062446/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Chaetodon capistratus",
+   "taxon_id": 52956
+  },
+  "53768": {
+   "common_name": {
+    "en": null,
+    "es": "Araña de franjas blancas"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Arachnida",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Judy Gallagher",
+    "file": "species/46fe23875836cd240eca8470c9b925b37ded9af012427c1f60b5ba4744914797.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "default_photo",
+    "sha256": "46fe23875836cd240eca8470c9b925b37ded9af012427c1f60b5ba4744914797",
+    "source_url": "https://www.inaturalist.org/photos/4966759",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4966759/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Leucauge argyra",
+   "taxon_id": 53768
+  },
+  "53875": {
+   "common_name": {
+    "en": "Atlantic Ghost Crab",
+    "es": "Cangrejo fantasma del Atlántico"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Judy Gallagher",
+    "file": "species/b3e94b8044bc77571f55790864bf5440789285295163ea0fa8a9d527450109f3.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "b3e94b8044bc77571f55790864bf5440789285295163ea0fa8a9d527450109f3",
+    "source_url": "https://www.inaturalist.org/photos/275486911",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/275486911/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Ocypode quadrata",
+   "taxon_id": 53875
+  },
+  "549648": {
+   "common_name": {
+    "en": "Ocellated Box Crab",
+    "es": "Cangrejo Caja Pintado"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Benjamin Mako Hill",
+    "file": "species/c7c1134dc84924d8590c22c01e2eaeed2ad373cb35e4ec5d69977f9a92229d3a.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "c7c1134dc84924d8590c22c01e2eaeed2ad373cb35e4ec5d69977f9a92229d3a",
+    "source_url": "https://www.inaturalist.org/photos/231491701",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/231491701/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Calappa ocellata",
+   "taxon_id": 549648
+  },
+  "553515": {
+   "common_name": {
+    "en": "Cane Toad",
+    "es": "Sapo gigante"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Amphibia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Rhinella marina",
+   "taxon_id": 553515
+  },
+  "56314": {
+   "common_name": {
+    "en": "Trooping Crumble Cap",
+    "es": "Sombrillitas"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Fungi",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Coprinellus disseminatus",
+   "taxon_id": 56314
+  },
+  "577603": {
+   "common_name": {
+    "en": "Smooth Trunkfish",
+    "es": "Pez cofre"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Dan Schofield",
+    "file": "species/f517223171f72511566233eab17c8bc1fdd41ebe288fbd787bf1cfa0e72aebd8.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "f517223171f72511566233eab17c8bc1fdd41ebe288fbd787bf1cfa0e72aebd8",
+    "source_url": "https://www.inaturalist.org/photos/345297505",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/345297505/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Lactophrys triqueter",
+   "taxon_id": 577603
+  },
+  "59704": {
+   "common_name": {
+    "en": "Mermaid's wine glass",
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Bernard Picton",
+    "file": "species/41a16a9b38a8a27b6488458407319dd4dc1cb06d295f922e22dec6cb291e4e9c.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "41a16a9b38a8a27b6488458407319dd4dc1cb06d295f922e22dec6cb291e4e9c",
+    "source_url": "https://www.inaturalist.org/photos/115808000",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/115808000/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Acetabularia acetabulum",
+   "taxon_id": 59704
+  },
+  "60335": {
+   "common_name": {
+    "en": "Red mangrove",
+    "es": "Mangle colorado"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "James St. John",
+    "file": "species/5284842fecfe362cbdf350ba263ffb4a000c6e92727d42527f2de4e071ccb570.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "5284842fecfe362cbdf350ba263ffb4a000c6e92727d42527f2de4e071ccb570",
+    "source_url": "https://www.inaturalist.org/photos/125165299",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/125165299/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Rhizophora mangle",
+   "taxon_id": 60335
+  },
+  "60879": {
+   "common_name": {
+    "en": "Beach Morning Glory",
+    "es": "Bejuco de mar"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "David George",
+    "file": "species/9def4b26346db40a58be9cb6ae38d5436ad1aea7d310fd0636ca55316a2a630c.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "9def4b26346db40a58be9cb6ae38d5436ad1aea7d310fd0636ca55316a2a630c",
+    "source_url": "https://www.inaturalist.org/photos/127923487",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/127923487/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Ipomoea pes-caprae",
+   "taxon_id": 60879
+  },
+  "61503": {
+   "common_name": {
+    "en": "Black Witch",
+    "es": "Polilla Bruja"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Insecta",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Katja Schulz",
+    "file": "species/709a5d1daf278db475c04aa5d703208b38c9290262f9ab39efdba714c1abc822.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "709a5d1daf278db475c04aa5d703208b38c9290262f9ab39efdba714c1abc822",
+    "source_url": "https://www.inaturalist.org/photos/139251",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/139251/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Ascalapha odorata",
+   "taxon_id": 61503
+  },
+  "62529": {
+   "common_name": {
+    "en": "Roseate Spoonbill",
+    "es": "Espátula rosada"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Nigel Voaden",
+    "file": "species/c9df3435147e1a0777c64fdc13eaa6996d3fe00748c7fd810abc1b3b41e56e1f.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "c9df3435147e1a0777c64fdc13eaa6996d3fe00748c7fd810abc1b3b41e56e1f",
+    "source_url": "https://www.inaturalist.org/photos/2069153",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2069153/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Platalea ajaja",
+   "taxon_id": 62529
+  },
+  "62600": {
+   "common_name": {
+    "en": "French Grunt",
+    "es": "Ronco condenado"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Matteo Cassella",
+    "file": "species/54f862b5741db3d8401e2fb7c25decfa6df6296f41884f8926214e46e2c59a91.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "54f862b5741db3d8401e2fb7c25decfa6df6296f41884f8926214e46e2c59a91",
+    "source_url": "https://www.inaturalist.org/photos/59015002",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/59015002/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Haemulon flavolineatum",
+   "taxon_id": 62600
+  },
+  "62821": {
+   "common_name": {
+    "en": "Sea Almond",
+    "es": "Almendro malabar"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Forest & Kim Starr",
+    "file": "species/1c909da68de18aa2b440927a604e45afb44e4004ea1136ffadbdbd237052f329.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "1c909da68de18aa2b440927a604e45afb44e4004ea1136ffadbdbd237052f329",
+    "source_url": "https://www.inaturalist.org/photos/14371751",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/14371751/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Terminalia catappa",
+   "taxon_id": 62821
+  },
+  "62850": {
+   "common_name": {
+    "en": "Green Buttonwood",
+    "es": "Mangle Botoncillo"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Douglas Goldman",
+    "file": "species/5d62af9aab77d1b4b65c2c8afcdd9e86729ec8df8a7c4d48e1e8faa0dfc35934.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "5d62af9aab77d1b4b65c2c8afcdd9e86729ec8df8a7c4d48e1e8faa0dfc35934",
+    "source_url": "https://www.inaturalist.org/photos/78712818",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/78712818/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Conocarpus erectus",
+   "taxon_id": 62850
+  },
+  "62853": {
+   "common_name": {
+    "en": "Black mangrove",
+    "es": "Mangle prieto"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Douglas Goldman",
+    "file": "species/56f69b30e9323852e21193f5d1e6e960cdba71c0bf18aec7638b884f94533c5f.webp",
+    "height": 96,
+    "license_code": "cc-by-sa",
+    "origin": "taxon_photos",
+    "sha256": "56f69b30e9323852e21193f5d1e6e960cdba71c0bf18aec7638b884f94533c5f",
+    "source_url": "https://www.inaturalist.org/photos/78910697",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/78910697/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Avicennia germinans",
+   "taxon_id": 62853
+  },
+  "62934": {
+   "common_name": {
+    "en": "Mottled Spurge",
+    "es": "Lechero asiático"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Euphorbia lactea",
+   "taxon_id": 62934
+  },
+  "67706": {
+   "common_name": {
+    "en": "Silver Garden Orbweaver",
+    "es": "Araña plateada de jardín"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Arachnida",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Manuel Vicente Miranda del Solar",
+    "file": "species/eb54fb8fea9841f68692cb46a5301308e76c29ea7717a8ea3936140188af192e.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "eb54fb8fea9841f68692cb46a5301308e76c29ea7717a8ea3936140188af192e",
+    "source_url": "https://www.inaturalist.org/photos/2416203",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2416203/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Argiope argentata",
+   "taxon_id": 67706
+  },
+  "6951": {
+   "common_name": {
+    "en": "White-cheeked Pintail",
+    "es": "Pato gargantilla"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Christoph Moning",
+    "file": "species/7b366d16177244e2fba2fabd14509aef571665756a5bac9cd849f122d7cf57eb.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "7b366d16177244e2fba2fabd14509aef571665756a5bac9cd849f122d7cf57eb",
+    "source_url": "https://www.inaturalist.org/photos/94136093",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/94136093/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Anas bahamensis",
+   "taxon_id": 6951
+  },
+  "72458": {
+   "common_name": {
+    "en": "Spotted Sandpiper",
+    "es": "Playero alzacolita"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Aves",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Blake Ross",
+    "file": "species/f236f3392e95e92beb02e831e3f00a0ea230813b666771002197a4bd23d3db0b.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "f236f3392e95e92beb02e831e3f00a0ea230813b666771002197a4bd23d3db0b",
+    "source_url": "https://www.inaturalist.org/photos/198183635",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/198183635/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Actitis macularius",
+   "taxon_id": 72458
+  },
+  "7434": {
+   "common_name": {
+    "en": "Palmchat",
+    "es": "Cigua Palmera"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Aves",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Dulus dominicus",
+   "taxon_id": 7434
+  },
+  "76205": {
+   "common_name": {
+    "en": "Southern Sandbur",
+    "es": "Zacate cadillo"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Cenchrus echinatus",
+   "taxon_id": 76205
+  },
+  "77468": {
+   "common_name": {
+    "en": "Hydrilla",
+    "es": "Tomillo de agua del Viejo Mundo"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "mfeaver",
+    "file": "species/f9a18e50e170927ebe08b992db9e440d9b3c6777c86f9ce2f859e9fb3d174baf.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "f9a18e50e170927ebe08b992db9e440d9b3c6777c86f9ce2f859e9fb3d174baf",
+    "source_url": "https://www.inaturalist.org/photos/54124580",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/54124580/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Hydrilla verticillata",
+   "taxon_id": 77468
+  },
+  "781804": {
+   "common_name": {
+    "en": "Jackswitch",
+    "es": "Gallito cimarrón"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Yolanda M. Leon",
+    "file": "species/91eb8260c8b86ccaf56d3480ee7edd1aa0534c0d89746b4759e4d89a4fad5995.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "taxon_photos",
+    "sha256": "91eb8260c8b86ccaf56d3480ee7edd1aa0534c0d89746b4759e4d89a4fad5995",
+    "source_url": "https://www.inaturalist.org/photos/57705442",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57705442/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Corchorus hirsutus",
+   "taxon_id": 781804
+  },
+  "782079": {
+   "common_name": {
+    "en": "Tropical resurrection fern",
+    "es": "Helecho siempre vivo"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Pleopeltis polypodioides",
+   "taxon_id": 782079
+  },
+  "81989": {
+   "common_name": {
+    "en": "Schoolmaster Snapper",
+    "es": "Pargo canchix"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Pauline Walsh Jacobson",
+    "file": "species/478544ff9a2aed951b5febfb8d8ec362a8f689d9528c16cec13cc6aa539e1588.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "478544ff9a2aed951b5febfb8d8ec362a8f689d9528c16cec13cc6aa539e1588",
+    "source_url": "https://www.inaturalist.org/photos/415486737",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/415486737/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Lutjanus apodus",
+   "taxon_id": 81989
+  },
+  "82768": {
+   "common_name": {
+    "en": "Indian tulip tree",
+    "es": "Clemón"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Daniel Cahen",
+    "file": "species/dc58eca4011aea3c70f8115a8ae110330c0e877d4d05e0c88b25a3d777c642dd.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "dc58eca4011aea3c70f8115a8ae110330c0e877d4d05e0c88b25a3d777c642dd",
+    "source_url": "https://www.inaturalist.org/photos/61022916",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/61022916/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Thespesia populnea",
+   "taxon_id": 82768
+  },
+  "83246": {
+   "common_name": {
+    "en": "Lobed Croton",
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Plantae",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Étienne Lacroix-Carignan",
+    "file": "species/0e32e0370af462cbba67ea3f42768a2a611667da95718428981e998e41afdd76.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "taxon_photos",
+    "sha256": "0e32e0370af462cbba67ea3f42768a2a611667da95718428981e998e41afdd76",
+    "source_url": "https://www.inaturalist.org/photos/32247330",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/32247330/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Astraea lobata",
+   "taxon_id": 83246
+  },
+  "84965": {
+   "common_name": {
+    "en": "Mangrove Tree Crab",
+    "es": "Cangrejo de mangle"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Annika Lindqvist",
+    "file": "species/9fb0fd53fca00ff8ed0140b8ab9d272468b86a98ec882a18525f4554dfe69c98.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "9fb0fd53fca00ff8ed0140b8ab9d272468b86a98ec882a18525f4554dfe69c98",
+    "source_url": "https://www.inaturalist.org/photos/2989026",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2989026/square.JPG",
+    "width": 96
+   },
+   "scientific_name": "Aratus pisonii",
+   "taxon_id": 84965
+  },
+  "871060": {
+   "common_name": {
+    "en": "Caribbean Ocean Surgeonfish",
+    "es": "Cirujano pardo"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Pauline Walsh Jacobson",
+    "file": "species/11fa93cf53ea4d21104637ce6ba8a5f5f5cd80865dfa704fdb2dc4edd6927363.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "default_photo",
+    "sha256": "11fa93cf53ea4d21104637ce6ba8a5f5f5cd80865dfa704fdb2dc4edd6927363",
+    "source_url": "https://www.inaturalist.org/photos/415505249",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/415505249/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Acanthurus tractus",
+   "taxon_id": 871060
+  },
+  "96740": {
+   "common_name": {
+    "en": "Blue Runner",
+    "es": "Cojinuda negra"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "NOAA Photo Library",
+    "file": "species/b29164946731b1b1e13c20c661b9553ebfedfca9e072d6dd1d7a074703d7ec06.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "b29164946731b1b1e13c20c661b9553ebfedfca9e072d6dd1d7a074703d7ec06",
+    "source_url": "https://www.inaturalist.org/photos/137450",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/137450/square.jpg",
+    "width": 96
+   },
+   "scientific_name": "Caranx crysos",
+   "taxon_id": 96740
+  },
+  "96993": {
+   "common_name": {
+    "en": "Coney",
+    "es": "Cabrilla roja"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Roger Rittmaster",
+    "file": "species/b454af8e594eb65830c9b02a3a7297344d9b694237608f4b0629fcdd2a7e1586.webp",
+    "height": 96,
+    "license_code": "cc-by",
+    "origin": "taxon_photos",
+    "sha256": "b454af8e594eb65830c9b02a3a7297344d9b694237608f4b0629fcdd2a7e1586",
+    "source_url": "https://www.inaturalist.org/photos/31706145",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/31706145/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Cephalopholis fulva",
+   "taxon_id": 96993
+  },
+  "97202": {
+   "common_name": {
+    "en": "Banded Butterflyfish",
+    "es": "Mariposa rayada"
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Actinopterygii",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Chaetodon striatus",
+   "taxon_id": 97202
+  },
+  "976070": {
+   "common_name": {
+    "en": null,
+    "es": null
+   },
+   "fetched_at": "2026-11-04",
+   "iconic_group": "Arachnida",
+   "marine": false,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-04",
+   "method": "api:inaturalist",
+   "photo": {
+    "attribution": "Adam Kranz",
+    "file": "species/c8e4c9ab9fdeffdaa3735487dbcb9f7483119dddf7ef9ba3aa5da679ea1aa6ec.webp",
+    "height": 96,
+    "license_code": "cc0",
+    "origin": "default_photo",
+    "sha256": "c8e4c9ab9fdeffdaa3735487dbcb9f7483119dddf7ef9ba3aa5da679ea1aa6ec",
+    "source_url": "https://www.inaturalist.org/photos/241258752",
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/241258752/square.jpeg",
+    "width": 96
+   },
+   "scientific_name": "Aceria guazumae",
+   "taxon_id": 976070
+  },
+  "98317": {
+   "common_name": {
+    "en": "Boulder Brain Coral",
+    "es": "Coral cerebro de valles amplios"
+   },
+   "fetched_at": "2026-11-05",
+   "iconic_group": "Animalia",
+   "marine": true,
+   "marine_source": "obis",
+   "marine_tagged_at": "2026-11-05",
+   "method": "api:inaturalist",
+   "photo": null,
+   "scientific_name": "Colpophyllia natans",
+   "taxon_id": 98317
+  }
+ }
+}

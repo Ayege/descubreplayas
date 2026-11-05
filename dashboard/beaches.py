@@ -19,8 +19,11 @@ Run from repo root:
 """
 from __future__ import annotations
 
+import logging
 import os
 import sys
+from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from pathlib import Path
 
 if __package__ is None:
@@ -50,7 +53,6 @@ from dashboard.risk_overlay import (
     fetch_detections,
     fetch_live_risk,
     risk_for_beach,
-    haversine_km,
     risk_from_detections,
 )
 from dashboard.climatology import seasonal_index, seasonal_risk, zone_region
@@ -73,8 +75,18 @@ from dashboard.surf_data import (
     spot_points as surf_spot_points,
 )
 from dashboard.beaches_i18n import BEACH_TEXT_ES, TERMS_ES
+from dashboard.conoce import conoce_panel
+from dashboard.map_perf import (
+    CompactCircles,
+    SmoothMapMoves,
+    beach_from_map_click,
+    next_card_motion,
+    run_parallel,
+)
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.descubreplayas.com.do")
 
@@ -120,11 +132,11 @@ import json as _json_mod
 
 _APP_URL = os.environ.get("APP_CANONICAL_URL", "https://descubreplayas.com.do")
 _DESC_ES = (
-    "Guía de 56 playas de República Dominicana con alertas de sargazo en tiempo "
+    "Guía de 55 playas de República Dominicana con alertas de sargazo en tiempo "
     "real, riesgo por playa, pronóstico de llegada, actividades y acceso."
 )
 _DESC_EN = (
-    "Guide to 56 Dominican Republic beaches with live sargassum risk forecast, "
+    "Guide to 55 Dominican Republic beaches with live sargassum risk forecast, "
     "activities, access info and early-warning sargassum alerts."
 )
 _KEYWORDS = (
@@ -144,7 +156,7 @@ def _strip_accents(text: str) -> str:
 def _fold(text: str) -> str:
     """Case- and accent-insensitive form, for matching.
 
-    People type "Bavaro", "Rincon", "Aguilas" — 13 of the 56 beach names carry
+    People type "Bavaro", "Rincon", "Aguilas" — 12 of the 55 beach names carry
     an accent, and an exact match would hide them.
     """
     return _strip_accents(text).lower()
@@ -204,7 +216,7 @@ _json_ld = {
                 "containedInPlace": {"@type": "Country", "name": "Dominican Republic"},
             },
             "featureList": [
-                "Alertas de sargazo en tiempo real — 56 playas RD",
+                "Alertas de sargazo en tiempo real — 55 playas RD",
                 "Pronóstico de llegada por playa (72 h física + ML extendido)",
                 "Filtros por región, provincia, actividad y riesgo",
                 "Masas de sargazo detectadas vía satélite Sentinel-2",
@@ -264,7 +276,7 @@ DONATE_URL = os.environ.get("DONATE_URL", "https://buymeacoffee.com/yegeayeshaj"
 APACHE_URL = "https://www.apache.org/licenses/LICENSE-2.0"
 CC_BY_URL = "https://creativecommons.org/licenses/by/4.0/"
 
-_OG_TITLE = "Descubre Playas RD 🌴 — 56 Playas + Alertas de Sargazo"
+_OG_TITLE = "Descubre Playas RD 🌴 — 55 Playas + Alertas de Sargazo"
 _TW_TITLE = "Descubre Playas RD — Alertas Sargazo Tiempo Real"
 # BCP-47 for <html lang> and the Open Graph locale, per UI language.
 _HTML_LANG = {"es": "es-DO", "en": "en"}
@@ -373,7 +385,7 @@ st.markdown(
 _T = {
     "es": {
         "title": "🌴 Descubre Playas RD 🇩🇴",
-        "subtitle": "56 playas dominicanas: acceso, actividades, fauna, y sargazo y surf en vivo.",
+        "subtitle": "55 playas dominicanas: acceso, actividades, fauna, y sargazo y surf en vivo.",
         "filters_header": "🔎 Filtrar playas",
         "region": "Región",
         "province": "Provincia",
@@ -488,10 +500,24 @@ _T = {
         "surf_cross_onshore": "lat. entrante",
         "surf_cross_offshore": "lat. terral",
         "surf_wind_unknown": "sin datos",
+        "conoce_title": "🧭 Conoce esta playa",
+        "lens_vida": "🐠 Vida",
+        "lens_roca": "🪨 Roca",
+        "lens_historia": "📜 Historia",
+        "see_more": "Ver más ({n})",
+        "source": "Fuente",
+        "sources": "Fuentes",
+        "photos_credit": "Foto de la especie",
+        "sand": "Arena",
+        "sargassum_why": "¿Por qué llega el sargazo aquí?",
+        "sargassum_note": "🌿 Sargazo",
+        "reference_photo": "Foto de referencia",
+        "photo_by": "Foto de",
+        "licence": "Licencia",
     },
     "en": {
         "title": "🌴 Discover DR Beaches",
-        "subtitle": "56 Dominican beaches: access, activities, wildlife, live sargassum and surf.",
+        "subtitle": "55 Dominican beaches: access, activities, wildlife, live sargassum and surf.",
         "filters_header": "🔎 Filter beaches",
         "region": "Region",
         "province": "Province",
@@ -606,6 +632,20 @@ _T = {
         "surf_cross_onshore": "cross-on",
         "surf_cross_offshore": "cross-off",
         "surf_wind_unknown": "no data",
+        "conoce_title": "🧭 Get to know this beach",
+        "lens_vida": "🐠 Life",
+        "lens_roca": "🪨 Rock",
+        "lens_historia": "📜 History",
+        "see_more": "See more ({n})",
+        "source": "Source",
+        "sources": "Sources",
+        "photos_credit": "Species photo",
+        "sand": "Sand",
+        "sargassum_why": "Why does sargassum arrive here?",
+        "sargassum_note": "🌿 Sargassum",
+        "reference_photo": "Reference photo",
+        "photo_by": "Photo by",
+        "licence": "Licence",
     },
 }
 
@@ -1020,6 +1060,62 @@ iframe[title="streamlit_folium.st_folium"] {
     border-radius: 22px; padding: 18px 16px 16px;
     box-shadow: 0 12px 50px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.1);
     font-family: 'Nunito', sans-serif; z-index: 99999; color: #e0f7fa;
+    transition: opacity .2s ease;
+}
+
+/* ── Motion ──
+   CSS only. The two identical keyframes exist so the card can replay its entrance:
+   changing the animation name restarts it, so the class flips when the beach changes
+   and stays put on unrelated reruns (see next_card_motion). */
+@keyframes beach-card-a {
+    from { opacity: 0; transform: var(--card-enter, translateX(10px)); }
+    to   { opacity: 1; transform: none; }
+}
+@keyframes beach-card-b {
+    from { opacity: 0; transform: var(--card-enter, translateX(10px)); }
+    to   { opacity: 1; transform: none; }
+}
+.beach-detail.card-motion-a { animation: beach-card-a .22s ease-out; }
+.beach-detail.card-motion-b { animation: beach-card-b .22s ease-out; }
+
+/* Streamlit fades everything on the page during each rerun, which reads as a
+   flicker. Keep the page solid; only the card dims, and only if the rerun is slow. */
+[data-stale="true"] {
+    opacity: 1 !important;
+    transition: none !important;
+}
+[data-stale="true"] .beach-detail {
+    opacity: .85;
+    transition: opacity .2s ease .25s;
+}
+
+/* Open and close sections smoothly. A browser without ::details-content or
+   interpolate-size ignores this and opens them instantly, as before. */
+.beach-detail { interpolate-size: allow-keywords; }
+.beach-detail details::details-content {
+    height: 0;
+    overflow: clip;
+    opacity: 0;
+    transition: height .24s ease, opacity .2s ease, content-visibility .24s allow-discrete;
+}
+.beach-detail details[open]::details-content {
+    height: auto;
+    opacity: 1;
+}
+.beach-detail a { transition: filter .15s ease, opacity .15s ease; }
+.beach-detail a:hover { filter: brightness(1.15); }
+.beach-detail summary { transition: color .15s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+    .beach-detail,
+    .beach-detail a,
+    .beach-detail summary,
+    [data-stale="true"] .beach-detail,
+    .beach-detail details::details-content,
+    html body [data-testid="stSidebar"] {
+        animation: none !important;
+        transition: none !important;
+    }
 }
 
 /* ── SEO helper iframe (see _inject_head) ──
@@ -1159,6 +1255,7 @@ iframe[title="streamlit_folium.st_folium"] {
         border-radius: 18px 18px 0 0 !important;
         padding: 22px 16px 20px !important;
         box-shadow: 0 -6px 32px rgba(0,0,0,.6) !important;
+        --card-enter: translateY(16px);  /* a bottom sheet rises instead of sliding */
     }
     /* Drag-handle pill — positioned above the scrollable content so it never
        scrolls away. position:absolute works because .beach-detail is position:fixed
@@ -1330,7 +1427,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# Static beach dataset — cached so the 56-beach list (with Google Maps URLs)
+# Static beach dataset — cached so the 55-beach list (with Google Maps URLs)
 # is built once per session instead of on every rerun / beach click.
 # ---------------------------------------------------------------------------
 @st.cache_data
@@ -1431,19 +1528,19 @@ def tr_text(beach: dict, field: str) -> str:
 # ---------------------------------------------------------------------------
 # Cached API helpers — TTL 5 min so beach-click reruns don't re-hit the API.
 # ---------------------------------------------------------------------------
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def _cached_fetch_live_risk(url: str):
     return fetch_live_risk(url)
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def _cached_fetch_detections(url: str):
     # Fetch a bounded number of masses; the map only needs the significant
     # ones, and a smaller payload means faster JSON transfer + render.
     return fetch_detections(url, limit=800)
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def _cached_fetch_ml_forecasts(url: str) -> list[dict]:
     """Fetch ML extended forecasts (7/14/21-day) from the API."""
     if not url:
@@ -1465,7 +1562,7 @@ def _cached_fetch_ml_forecasts(url: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Live surf + wind conditions (Open-Meteo)
 #
-# Two batched HTTP requests cover all 56 beaches, cached for 30 minutes — the
+# Two batched HTTP requests cover all 55 beaches, cached for 30 minutes — the
 # underlying wave model only publishes a new run every few hours, so a shorter
 # TTL would just re-fetch identical numbers on every beach click.
 #
@@ -1496,7 +1593,7 @@ def _cached_surf_conditions(names: tuple[str, ...]) -> dict:
 # what made the page show its filters and then sit there with no map.
 _SURF_SERIES: dict = {}
 
-# Per-render memo, so clicking a beach doesn't re-rate all 56 every rerun.
+# Per-render memo, so clicking a beach doesn't re-rate all 55 every rerun.
 _SURF_RATING_CACHE: dict[str, dict | None] = {}
 
 
@@ -1525,6 +1622,74 @@ def _surf_relation_label(relation: str) -> str:
         "onshore": L["surf_onshore"],
     }.get(relation, L["surf_wind_unknown"])
 
+
+import math as _m_drift
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _fetch_wind_uv() -> tuple[float, float]:
+    """Fetch current 10 m wind (u_east, v_north) m/s from Open-Meteo (free, no key).
+
+    Cached for 1 hour.  Returns (0, 0) on any network or parse failure so the
+    caller always gets a valid — if zero-wind — drift vector.
+    """
+    try:
+        import requests, certifi
+        resp = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": 19.0, "longitude": -69.8,
+                "current": "wind_speed_10m,wind_direction_10m",
+                "wind_speed_unit": "ms",
+                "timezone": "UTC",
+            },
+            timeout=(1.5, 5),
+            verify=certifi.where(),
+        )
+        c = resp.json()["current"]
+        spd = float(c["wind_speed_10m"])
+        # Meteorological convention: FROM direction.  TO = FROM + 180°.
+        go = _m_drift.radians((float(c["wind_direction_10m"]) + 180) % 360)
+        return spd * _m_drift.sin(go), spd * _m_drift.cos(go)  # (u_east, v_north)
+    except Exception:
+        return 0.0, 0.0
+
+
+# All 55 beaches in one batched request, so opening a card never waits for its own.
+_ALL_SURF_NAMES = tuple(sorted(b["name"] for b in BEACHES))
+# How long a card waits for that request before showing without surf this time.
+_SURF_WAIT_S = 8.0
+
+
+@st.cache_resource(show_spinner=False)
+def _background_pool() -> ThreadPoolExecutor:
+    return ThreadPoolExecutor(max_workers=1, thread_name_prefix="surf")
+
+
+@st.cache_resource(ttl=1800, show_spinner=False)
+def _surf_series_future() -> Future:
+    """Start the surf request once, for every session, without holding up the page."""
+    return _background_pool().submit(_cached_surf_conditions, _ALL_SURF_NAMES)
+
+
+def _all_surf_series() -> dict:
+    try:
+        return _surf_series_future().result(timeout=_SURF_WAIT_S)
+    except FutureTimeoutError:
+        logger.warning("Surf data is still loading; showing the card without it.")
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# Live data: fetched together, so the slowest call sets the wait, not their sum.
+# ---------------------------------------------------------------------------
+_surf_series_future()
+run_parallel([
+    lambda: _cached_fetch_live_risk(API_BASE_URL),
+    lambda: _cached_fetch_ml_forecasts(API_BASE_URL),
+    lambda: _cached_fetch_detections(API_BASE_URL),
+    _fetch_wind_uv,
+])
 
 # ---------------------------------------------------------------------------
 # Live risk fetch
@@ -1747,8 +1912,6 @@ def _fmt_arrival(fc: dict | None) -> str:
 #     component toward the beach are counted as approaching.  A mass moving
 #     away cannot produce a valid arrival estimate.
 # ---------------------------------------------------------------------------
-import math as _m_drift
-
 _DRIFT_METERS_PER_DEG = 111_320.0
 # Windage fraction (same constant as pipeline/config.py WIND_DRIFT_FACTOR).
 _WIND_DRIFT_FACTOR = float(os.environ.get("WIND_DRIFT_FACTOR", "0.02"))
@@ -1782,35 +1945,6 @@ def _regional_current(lat: float, lon: float) -> tuple[float, float]:
     if lon < -70.5 and lat < 19.0:                               # Southwest
         return -0.08,  0.01
     return -0.13,  0.03                                          # South / central default
-
-
-@st.cache_data(ttl=3600)
-def _fetch_wind_uv() -> tuple[float, float]:
-    """Fetch current 10 m wind (u_east, v_north) m/s from Open-Meteo (free, no key).
-
-    Cached for 1 hour.  Returns (0, 0) on any network or parse failure so the
-    caller always gets a valid — if zero-wind — drift vector.
-    """
-    try:
-        import requests, certifi
-        resp = requests.get(
-            "https://api.open-meteo.com/v1/forecast",
-            params={
-                "latitude": 19.0, "longitude": -69.8,
-                "current": "wind_speed_10m,wind_direction_10m",
-                "wind_speed_unit": "ms",
-                "timezone": "UTC",
-            },
-            timeout=(1.5, 5),
-            verify=certifi.where(),
-        )
-        c = resp.json()["current"]
-        spd = float(c["wind_speed_10m"])
-        # Meteorological convention: FROM direction.  TO = FROM + 180°.
-        go = _m_drift.radians((float(c["wind_direction_10m"]) + 180) % 360)
-        return spd * _m_drift.sin(go), spd * _m_drift.cos(go)  # (u_east, v_north)
-    except Exception:
-        return 0.0, 0.0
 
 
 def _effective_uv(lat: float, lon: float, wind_u: float, wind_v: float) -> tuple[float, float]:
@@ -2049,7 +2183,7 @@ with st.sidebar:
         # prediction AND filters beaches by best visiting season.
         #   • within 3 days  → physics drift forecast (high confidence)
         #   • further out    → seasonal climatology estimate (labelled clearly)
-        # Leaving blank shows the live 'now' view for all 56 beaches.
+        # Leaving blank shows the live 'now' view for all 55 beaches.
         import datetime as _dt
         _today = _dt.date.today()
         sel_date = st.date_input(
@@ -2168,8 +2302,7 @@ with st.sidebar:
 if surf_mode or sel_surf:
     # Marker colours and the quality filter both need every beach, and both
     # are consumed before the map is drawn, so this one has to happen here.
-    _SURF_SERIES = _cached_surf_conditions(
-        tuple(sorted(b["name"] for b in BEACHES)))
+    _SURF_SERIES = _all_surf_series()
 
 
 # Per-render cache: beach name → _beach_risk_dated result WITHOUT ETA.
@@ -2462,7 +2595,8 @@ _ml_drift_mode = (_date_mode == "ml")  # drives mass styling + legend
 # The pill is 10px from the top and ~44px tall, so 60px clears it with a gap.
 _MAP_TOP_LANE = 60
 
-m = folium.Map(location=[19.0, -69.8], zoom_start=7, tiles="OpenStreetMap")
+m = folium.Map(location=[19.0, -69.8], zoom_start=7, tiles="OpenStreetMap", prefer_canvas=True)
+SmoothMapMoves().add_to(m)
 # Make the inner Leaflet map fill the whole component iframe.
 #
 # ROOT CAUSE of the blank strip under the map: streamlit-folium does NOT render
@@ -2811,6 +2945,7 @@ if show_masses:
         _show_drift = _drift_h > 0
 
         _mass_group = folium.FeatureGroup(name="Sargazo", show=True)
+        _mass_rows: list[tuple[float, float, float, float]] = []
         for _d in _masses:
             try:
                 _a = float(_d.get("area_km2", 0.0))
@@ -2920,17 +3055,19 @@ if show_masses:
                     ).add_to(_mass_group)
 
             # Current detected position — fainter in ML mode to signal mass has moved
-            folium.CircleMarker(
-                location=[_lat0, _lon0],
-                radius=_r,
-                color="#5d4037",
-                fill=True,
-                fill_color="#795548",
-                fill_opacity=0.20 if _ml_drift_mode else 0.55,
-                weight=1,
-                tooltip=f"🟤 {L['popup_sargassum']} · {_a:.2f} km²",
-            ).add_to(_mass_group)
+            _mass_rows.append((_lat0, _lon0, _r, _a))
 
+        CompactCircles(
+            _mass_rows,
+            style={
+                "color": "#5d4037",
+                "fill": True,
+                "fillColor": "#795548",
+                "fillOpacity": 0.20 if _ml_drift_mode else 0.55,
+                "weight": 1,
+            },
+            label=f"🟤 {L['popup_sargassum']} · ",
+        ).add_to(_mass_group)
         _mass_group.add_to(m)
     # If no masses came back we silently skip — sidebar caption explains why below.
 
@@ -3010,7 +3147,19 @@ if _ml_drift_mode:
 # national default. st_folium re-centres only when these values change, so the
 # user's manual panning survives every rerun in between.
 _view = st.session_state.get("_view")
-map_result = st_folium(
+_map_click_targets = {b["name"]: (float(b["latitude"]), float(b["longitude"])) for b in filtered}
+
+
+def _on_map_click() -> None:
+    """Runs before the rerun a click causes, so that one rerun already shows the new
+    beach. Handling the click after the map had drawn needed a second full rerun.
+    """
+    picked = beach_from_map_click(st.session_state.get("beach_map"), _map_click_targets)
+    if picked:
+        st.session_state["selected_beach"] = picked
+
+
+st_folium(
     m,
     width="100%",
     height=900,
@@ -3018,62 +3167,9 @@ map_result = st_folium(
     zoom=_view["zoom"] if _view else None,
     returned_objects=["last_object_clicked_tooltip", "last_object_clicked", "last_clicked"],
     key="beach_map",
+    on_change=_on_map_click,
 )
 
-
-# Sync map click → session state (robust: tooltip -> object -> coords fallback)
-def _select_beach_from_map_result(res: dict | None) -> None:
-    if not res:
-        return
-
-    # 1) Prefer tooltip text when available (our standard: '🏖️ Name — Province')
-    tip = res.get("last_object_clicked_tooltip")
-    if tip:
-        try:
-            clicked = tip.replace("🏖️ ", "").split(" — ")[0].strip()
-        except Exception:
-            clicked = tip.strip()
-        if clicked in filtered_names and clicked != st.session_state.get("selected_beach"):
-            st.session_state["selected_beach"] = clicked
-            st.rerun()
-            return
-
-    # 2) Try last_object_clicked (may contain properties/name)
-    obj = res.get("last_object_clicked")
-    if obj and isinstance(obj, dict):
-        # Attempt common property names
-        for key in ("tooltip", "name", "title", "popup"):
-            val = obj.get(key)
-            if isinstance(val, str):
-                cand = val.replace("🏖️ ", "").split(" — ")[0].strip()
-                if cand in filtered_names and cand != st.session_state.get("selected_beach"):
-                    st.session_state["selected_beach"] = cand
-                    st.rerun()
-                    return
-
-    # 3) Fallback: use last_clicked coordinates and pick the nearest filtered beach
-    last = res.get("last_clicked")
-    if last and isinstance(last, dict):
-        try:
-            lat = float(last.get("lat") or last.get("latitude"))
-            lon = float(last.get("lng") or last.get("lon") or last.get("longitude"))
-        except Exception:
-            return
-        # Find nearest beach among the currently filtered set (within ~0.5 km)
-        best = None
-        best_km = float("inf")
-        for b in (b for b in filtered):
-            d = haversine_km(lat, lon, float(b["latitude"]), float(b["longitude"]))
-            if d < best_km:
-                best_km = d
-                best = b
-        if best and best_km <= 0.6:  # ~600 m tolerance to avoid misclicks
-            if best["name"] != st.session_state.get("selected_beach"):
-                st.session_state["selected_beach"] = best["name"]
-                st.rerun()
-
-
-_select_beach_from_map_result(map_result)
 
 # Sync selected beach back to the URL so the current view is shareable via link.
 if st.session_state.get("selected_beach"):
@@ -3342,9 +3438,7 @@ if _panel_beach:
     # Load this beach's series if the pre-map fetch did not already cover it.
     # We are past st_folium here, so the map is on screen while this runs.
     if _pb["name"] not in _SURF_SERIES:
-        with st.spinner(""):
-            _SURF_SERIES = {**_SURF_SERIES,
-                            **_cached_surf_conditions((_pb["name"],))}
+        _SURF_SERIES = {**_SURF_SERIES, **_all_surf_series()}
         _SURF_RATING_CACHE.pop(_pb["name"], None)
     _surf_p = _surf_now(_pb)
     if _surf_p is not None:
@@ -3486,7 +3580,6 @@ if _panel_beach:
         )
 
     _acts = tr_terms(_pb["activities"])
-    _wild = tr_terms(_pb["wildlife"])
     _facs = tr_terms(_pb["facilities"])
     _park = ("✅ " + L["yes"]) if _pb["parking"] else ("⚠️ " + L["no_limited"])
     _desc_raw = tr_text(_pb, "description")
@@ -3525,22 +3618,29 @@ if _panel_beach:
         _recs_html = ""
 
     # Secondary info — nice-to-know but not what decides "should I go right
-    # now": water conditions, activities, wildlife, facilities, ecosystem,
-    # plus the "other beaches" recommendations. Tucked behind a native
+    # now": water conditions, activities, facilities,
+    # plus the "other beaches" recommendations. Wildlife and ecosystem live in
+    # the Conoce panel's Vida lens instead. Tucked behind a native
     # <details> disclosure (no JS, no extra widget) instead of always-open,
     # so the card leads with risk + practical basics instead of a 15-field
     # wall of text.
     _more_html = (
         _brow("🌊", L["water"], tr_text(_pb, "water_conditions"))
         + _brow("🏄", L["activities"], _acts)
-        + _brow("🐠", L["wildlife"], _wild)
         + _brow("🏗️", L["facilities"], _facs)
-        + _brow("🌿", L["ecosystem"], tr_text(_pb, "ecosystem"))
         + _recs_html
     )
 
+    _card_motion_beach, _card_motion = next_card_motion(
+        st.session_state.get("_card_motion_beach"),
+        st.session_state.get("_card_motion"),
+        _pb["name"],
+    )
+    st.session_state["_card_motion_beach"] = _card_motion_beach
+    st.session_state["_card_motion"] = _card_motion
+
     _bubble = (
-        "<div class='beach-detail'>"
+        f"<div class='beach-detail {_card_motion}'>"
         # Beach name + location
         f"<div style='font-size:17px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:3px'>"
         f"{_pb['name']}{_turtle}</div>"
@@ -3573,6 +3673,8 @@ if _panel_beach:
         "border:1px solid rgba(0,255,180,.3);border-radius:25px;"
         "padding:9px;font-size:12px;font-weight:800;text-decoration:none'>"
         f"📍 {L['open_maps']} ↗</a>"
+        + conoce_panel(_pb["name"], lang, L, tr_text(_pb, "ecosystem"),
+                       tr_terms(_pb["wildlife"]) if _pb["wildlife"] else "")
         + (
             f"<details style='margin-top:10px'>"
             f"<summary style='color:#80cbc4;font-size:11px;font-weight:700;"

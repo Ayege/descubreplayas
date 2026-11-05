@@ -8,9 +8,20 @@ compilation and is licensed separately.
 
 | File | Contents |
 | --- | --- |
-| `dashboard/beaches_data.py` | Catalogue of 56 Dominican Republic beaches — coordinates, province, region, access type and description, entrance fee, parking, beach type, activities, wildlife, ecosystem, facilities, water conditions, best time to visit |
-| `dashboard/beaches_i18n.py` | Spanish translations of that catalogue — 183 vocabulary terms plus per-beach prose for all 56 beaches |
+| `dashboard/beaches_data.py` | Catalogue of 55 Dominican Republic beaches — coordinates, province, region, access type and description, entrance fee, parking, beach type, activities, wildlife, ecosystem, facilities, water conditions, best time to visit |
+| `dashboard/beaches_i18n.py` | Spanish translations of that catalogue — 183 vocabulary terms plus per-beach prose for all 55 beaches |
+| `dashboard/beach_profiles.py` | Hand-written "Conoce esta playa" content: teasers, species notes, geology and history for each beach, with sources |
 | `sql/schema.sql` (seed rows) | The zone and beach seed data derived from the above |
+
+`dashboard/data/species_auto.json` is **not** covered by this licence. It holds
+third-party records from [iNaturalist](https://www.inaturalist.org), which keep
+their own licences, and each photo in it is shown with its own attribution and
+licence. The marine tag on each species comes from [OBIS](https://obis.org). See
+[its data card](docs/data-cards/species_auto.md).
+
+Images under `dashboard/static/` keep the licence of their originals, listed per
+image in `dashboard/data/beach_photos.json` and `dashboard/data/species_auto.json`.
+We resize and re-encode them; images derived from CC BY-SA originals stay CC BY-SA.
 
 Everything else in the repository — the pipeline, the API, the dashboard
 code, the drift and ML models — is Apache 2.0.

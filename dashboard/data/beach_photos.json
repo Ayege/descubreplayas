@@ -1,0 +1,667 @@
+{
+ "Bahía de las Águilas": {
+  "alt": {
+   "en": "Curved white sand beach beside a deep blue sea",
+   "es": "Playa curva de arena blanca junto a un mar azul intenso"
+  },
+  "author": "Scmjht",
+  "bytes": 39480,
+  "file": "beaches/467715b8b5f8c2f7efb51594bbaa0d2fee0cd7642a99a1462f050858d912c303.webp",
+  "height": 360,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "467715b8b5f8c2f7efb51594bbaa0d2fee0cd7642a99a1462f050858d912c303",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Bahia_de_las_Aguilas.jpg",
+  "taken_year": null,
+  "width": 480
+ },
+ "Bayahibe Beach": {
+  "alt": {
+   "en": "Colourful boats on the sand beside calm water and palm trees",
+   "es": "Botes coloridos en la arena frente a un agua tranquila y palmeras"
+  },
+  "author": "Oleg Yunakov",
+  "bytes": 45366,
+  "file": "beaches/a5ae2fcf51253483f017e33543a9d6a99b848666f57fb72b699f20093f72f757.webp",
+  "height": 360,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "a5ae2fcf51253483f017e33543a9d6a99b848666f57fb72b699f20093f72f757",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Bayah%C3%ADbe_beach_-_06.jpg",
+  "taken_year": 2022,
+  "width": 480
+ },
+ "Boca Chica Beach": {
+  "alt": {
+   "en": "Shallow turquoise water with a thatched-roof restaurant over the sea",
+   "es": "Agua turquesa poco profunda con un restaurante de techo de palma sobre el mar"
+  },
+  "author": "Strongroots",
+  "bytes": 38700,
+  "file": "beaches/3cf40c2f146611b410fb49730b3e661f5360f6c6006b35429daa80cebe7c299b.webp",
+  "height": 360,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "3cf40c2f146611b410fb49730b3e661f5360f6c6006b35429daa80cebe7c299b",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Boca_chica.jpg",
+  "taken_year": 2018,
+  "width": 480
+ },
+ "Cabarete Beach": {
+  "alt": {
+   "en": "Long shore of dark sand with gentle waves and sun on the sea",
+   "es": "Larga orilla de arena oscura con oleaje suave y el sol sobre el mar"
+  },
+  "author": "Maris Teteris",
+  "bytes": 24838,
+  "file": "beaches/d1c232222fc149f2d82caf61dd604484b82067db4db4c899d26524aa029571eb.webp",
+  "height": 320,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "d1c232222fc149f2d82caf61dd604484b82067db4db4c899d26524aa029571eb",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Cabarete_beach_-_panoramio.jpg",
+  "taken_year": 2006,
+  "width": 480
+ },
+ "Canto de la Playa (Saona)": {
+  "alt": {
+   "en": "Long white sand beach with turquoise water and palm trees beyond",
+   "es": "Larga playa de arena blanca con agua turquesa y palmeras al fondo"
+  },
+  "author": "superman98fr",
+  "bytes": 18058,
+  "file": "beaches/ecf5efe4da4259cc0ea7fae703ad1e6b4f041a4ca57e02621fea3c6d57e33043.webp",
+  "height": 360,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "ecf5efe4da4259cc0ea7fae703ad1e6b4f041a4ca57e02621fea3c6d57e33043",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Plage_de_Soana_-_panoramio.jpg",
+  "taken_year": 2009,
+  "width": 480
+ },
+ "Cayo Levantado": {
+  "alt": {
+   "en": "Green island with a white beach surrounded by sparkling blue water",
+   "es": "Isla verde con playa blanca rodeada de agua azul brillante"
+  },
+  "author": "Максим Улитин",
+  "bytes": 44008,
+  "file": "beaches/84e1ed307450d006ac24b1d60176782fa25a879fd79599221c108829b1307f50.webp",
+  "height": 320,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "84e1ed307450d006ac24b1d60176782fa25a879fd79599221c108829b1307f50",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Dominican_Republic_-_panoramio_(1).jpg",
+  "taken_year": 2013,
+  "width": 480
+ },
+ "Dominicus Beach": {
+  "alt": {
+   "en": "Row of palms and thatched umbrellas with a striped lighthouse by the sea",
+   "es": "Hilera de palmeras y sombrillas de palma con un faro a rayas junto al mar"
+  },
+  "author": "Christian Córdova from Santiago, Chile",
+  "bytes": 44944,
+  "file": "beaches/1ddfdf639d374e54ca7b0b518010a2958aa8d1634214b2cbaee358ab9aa94ba7.webp",
+  "height": 360,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/2.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "1ddfdf639d374e54ca7b0b518010a2958aa8d1634214b2cbaee358ab9aa94ba7",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Playa_y_Bar.jpg",
+  "taken_year": 2006,
+  "width": 480
+ },
+ "Isla Catalina Beach": {
+  "alt": {
+   "en": "Waves breaking over rocks on a sandy shore with palm trees",
+   "es": "Olas rompiendo sobre rocas en una orilla de arena con palmeras"
+  },
+  "author": "lazyweaver",
+  "bytes": 38418,
+  "file": "beaches/2c2137f12a95f6b1535ed4517e6a0614619b991b2c09682a2cd458df84575dfb.webp",
+  "height": 319,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "2c2137f12a95f6b1535ed4517e6a0614619b991b2c09682a2cd458df84575dfb",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Solitude_in_Catalina_island_beach_-_panoramio.jpg",
+  "taken_year": 2014,
+  "width": 480
+ },
+ "Kite Beach": {
+  "alt": {
+   "en": "Sandy beach with seaweed along the shore and palm trees on the right",
+   "es": "Playa de arena con algas en la orilla y palmeras a la derecha"
+  },
+  "author": "Андрей Бобровский",
+  "bytes": 20684,
+  "file": "beaches/3f4c7030c4402474d4429730aa16d2376b7c1bb3bb821be8c5f42c6ecc25941a.webp",
+  "height": 319,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "3f4c7030c4402474d4429730aa16d2376b7c1bb3bb821be8c5f42c6ecc25941a",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:%D0%94%D0%BE%D0%BC%D0%B8%D0%BD%D0%B8%D0%BA%D0%B0%D0%BD%D1%81%D0%BA%D0%B0%D1%8F_%D0%A0%D0%B5%D1%81%D0%BF%D1%83%D0%B1%D0%BB%D0%B8%D0%BA%D0%B0_-_panoramio_(73).jpg",
+  "taken_year": 2011,
+  "width": 480
+ },
+ "La Ensenada": {
+  "alt": {
+   "en": "Pale sand beach with green shrubs facing turquoise water and a wooded hill",
+   "es": "Playa de arena clara con arbustos verdes frente a agua turquesa y una colina boscosa"
+  },
+  "author": "MIGUEL montojo M. MO…",
+  "bytes": 29640,
+  "file": "beaches/f3a85e9870d13f6169ad7261c3e8fac8b2776dc7459a90632637c0968d4c80bf.webp",
+  "height": 270,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "f3a85e9870d13f6169ad7261c3e8fac8b2776dc7459a90632637c0968d4c80bf",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Monte_cristi_-_panoramio.jpg",
+  "taken_year": 2010,
+  "width": 480
+ },
+ "Playa Alicia": {
+  "alt": {
+   "en": "Wide beach with blue umbrellas facing a deep blue sea and distant mountains",
+   "es": "Playa amplia con sombrillas azules frente a un mar azul intenso y montañas lejanas"
+  },
+  "author": "Phyrexian",
+  "bytes": 34146,
+  "file": "beaches/22f63c01dc440e4f509eaba2d071fd4324cddef6e86d87401afe77a55e2202a3.webp",
+  "height": 320,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "22f63c01dc440e4f509eaba2d071fd4324cddef6e86d87401afe77a55e2202a3",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Sos%C3%BAa_-_Playa_Alicia_0413.JPG",
+  "taken_year": 2019,
+  "width": 480
+ },
+ "Playa Bibijagua": {
+  "alt": {
+   "en": "Blue loungers on white sand under palm trees, with the sea behind",
+   "es": "Tumbonas azules en la arena blanca bajo palmeras, con el mar detrás"
+  },
+  "author": "carlos adan",
+  "bytes": 45416,
+  "file": "beaches/6f8ed6dc3150a220c897c7bfa36486eda1ac9cefc11deb24a1f81dedc2a2001b.webp",
+  "height": 358,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "6f8ed6dc3150a220c897c7bfa36486eda1ac9cefc11deb24a1f81dedc2a2001b",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Playa_Bibijagua,_Punta_Cana_23000,_Dominican_Republic_-_panoramio_(3).jpg",
+  "taken_year": 2012,
+  "width": 480
+ },
+ "Playa Blanca": {
+  "alt": {
+   "en": "Calm shore under dawn clouds with palm trees in the distance",
+   "es": "Orilla tranquila con nubes al amanecer y palmeras a lo lejos"
+  },
+  "author": "Manuel Cañón P.",
+  "bytes": 22296,
+  "file": "beaches/e1f2fca4f24c3e028999d94641eb5a8e81af5ed62d9eb27c7ca25e4a99e1ac60.webp",
+  "height": 270,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "e1f2fca4f24c3e028999d94641eb5a8e81af5ed62d9eb27c7ca25e4a99e1ac60",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Reci%C3%A9n_ha_amanecido_en_Punta_Cana_-_panoramio.jpg",
+  "taken_year": 2010,
+  "width": 480
+ },
+ "Playa Boca de Yuma": {
+  "alt": {
+   "en": "Sandy beach with trees in the foreground facing a blue sea and white clouds",
+   "es": "Playa de arena con árboles en primer plano frente a un mar azul y nubes blancas"
+  },
+  "author": "Lebob",
+  "bytes": 38154,
+  "file": "beaches/2132dbcc1d86084a5cfe1d57d1c99fe32c815f2989aa81639d1e294b5dac7873.webp",
+  "height": 360,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "2132dbcc1d86084a5cfe1d57d1c99fe32c815f2989aa81639d1e294b5dac7873",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Boca_de_Yuma_-_Beach.JPG",
+  "taken_year": 2008,
+  "width": 480
+ },
+ "Playa Bonita": {
+  "alt": {
+   "en": "Clear water over golden sand with palms and rocks along the shore",
+   "es": "Agua clara sobre arena dorada con palmeras y rocas a lo largo de la orilla"
+  },
+  "author": "travelmag.com",
+  "bytes": 35272,
+  "file": "beaches/020bab6f8a52a8a7f0d0b65ae0f940230a8d3e8d707fa4c395df543d374b3282.webp",
+  "height": 270,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/2.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "020bab6f8a52a8a7f0d0b65ae0f940230a8d3e8d707fa4c395df543d374b3282",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Playa_Bonita_Beach,_Las_Terrenas,_Samana_Peninsula,_Dominican_Republic_(52757385491).jpg",
+  "taken_year": 2022,
+  "width": 480
+ },
+ "Playa Bávaro": {
+  "alt": {
+   "en": "White sand beach with palm trees and colourful sailing catamarans",
+   "es": "Playa de arena blanca con palmeras y catamaranes de vela de colores"
+  },
+  "author": "ms3",
+  "bytes": 25716,
+  "file": "beaches/45ee12a27165d74ab9f9b1bd7b4e20849e1faf1b0047e0c1fa1312ebf49a12dc.webp",
+  "height": 360,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "45ee12a27165d74ab9f9b1bd7b4e20849e1faf1b0047e0c1fa1312ebf49a12dc",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Occidental_Grand_Flamenko_-_panoramio.jpg",
+  "taken_year": 2009,
+  "width": 480
+ },
+ "Playa Cabeza de Toro": {
+  "alt": {
+   "en": "Fishing boats on the white sand under a grey sky",
+   "es": "Botes de pesca en la arena blanca bajo un cielo gris"
+  },
+  "author": "Ivan Curra",
+  "bytes": 18970,
+  "file": "beaches/ecba1343351893923400ac75c2e10dc8628deddc819934d2cee9aade254b10a8.webp",
+  "height": 360,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "ecba1343351893923400ac75c2e10dc8628deddc819934d2cee9aade254b10a8",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:CABEZA_DE_TORO-PUNTA_CANA._-_panoramio.jpg",
+  "taken_year": 2017,
+  "width": 480
+ },
+ "Playa Caletón": {
+  "alt": {
+   "en": "Golden sand beach with gentle waves and a green headland on the left",
+   "es": "Playa de arena dorada con olas suaves y un cabo verde a la izquierda"
+  },
+  "author": "Sacale Provecho",
+  "bytes": 25496,
+  "file": "beaches/c3e9330520af29fb265a84610c2e9c31eb96f2e14dfd5c90ce8457352fa14513.webp",
+  "height": 360,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "c3e9330520af29fb265a84610c2e9c31eb96f2e14dfd5c90ce8457352fa14513",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Playa_Rio_San_Juan_-_Caleton.jpg",
+  "taken_year": 2010,
+  "width": 480
+ },
+ "Playa Cosón": {
+  "alt": {
+   "en": "Long golden sand beach with gentle waves and palm trees in the distance",
+   "es": "Playa larga de arena dorada con olas suaves y palmeras a lo lejos"
+  },
+  "author": "-wuppertaler",
+  "bytes": 26186,
+  "file": "beaches/db5911064e259741f2e1436547cd019e3ac4452c283c1bea720fff3c80a364c9.webp",
+  "height": 360,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "db5911064e259741f2e1436547cd019e3ac4452c283c1bea720fff3c80a364c9",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:DOM_Las_Terrenas,_Playa_Cos%C3%B3n_0014.jpg",
+  "taken_year": 2024,
+  "width": 480
+ },
+ "Playa Dorada": {
+  "alt": {
+   "en": "Wide sandy beach with mountains behind under a cloudy sky",
+   "es": "Playa amplia de arena con montañas al fondo bajo un cielo nublado"
+  },
+  "author": "Андрей Бобровский",
+  "bytes": 31702,
+  "file": "beaches/feb89b63e1532f09856c12b8f069a482dd0d85d692baa5dd060e26a71f947b94.webp",
+  "height": 319,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "feb89b63e1532f09856c12b8f069a482dd0d85d692baa5dd060e26a71f947b94",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:%D0%94%D0%BE%D0%BC%D0%B8%D0%BD%D0%B8%D0%BA%D0%B0%D0%BD%D1%81%D0%BA%D0%B0%D1%8F_%D0%A0%D0%B5%D1%81%D0%BF%D1%83%D0%B1%D0%BB%D0%B8%D0%BA%D0%B0_-_panoramio_(6).jpg",
+  "taken_year": 2011,
+  "width": 480
+ },
+ "Playa El Cortecito": {
+  "alt": {
+   "en": "Sandy beach at dusk with palm trees and a distant pier",
+   "es": "Playa de arena al atardecer con palmeras y un muelle a lo lejos"
+  },
+  "author": "Federico Mata",
+  "bytes": 28178,
+  "file": "beaches/5454646ea94a725d37fbd12068fefa617685e85d3f7c270a2727d84ff835ea13.webp",
+  "height": 356,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "5454646ea94a725d37fbd12068fefa617685e85d3f7c270a2727d84ff835ea13",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Bavaro_beach_-_panoramio.jpg",
+  "taken_year": 2011,
+  "width": 480
+ },
+ "Playa Encuentro": {
+  "alt": {
+   "en": "Long sandy beach under a grey sky, with green vegetation on the left",
+   "es": "Playa larga de arena bajo cielo gris, con vegetación verde a la izquierda"
+  },
+  "author": "Rock Cohen",
+  "bytes": 23570,
+  "file": "beaches/9cde6c89a4544152748054375692ea0c2d5c6c4bb2caf356b795ec9e753e127a.webp",
+  "height": 364,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "9cde6c89a4544152748054375692ea0c2d5c6c4bb2caf356b795ec9e753e127a",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Playa_Encuentro.jpg",
+  "taken_year": 2008,
+  "width": 480
+ },
+ "Playa Frontón": {
+  "alt": {
+   "en": "Waves in the foreground and a flat dark headland across the sea",
+   "es": "Olas en primer plano y un cabo plano y oscuro al otro lado del mar"
+  },
+  "author": "Dennishidalgo",
+  "bytes": 19344,
+  "file": "beaches/570a45e91ad2562bf373cf0bbff65c7571440a5231e7b7850b7223e9cb70021f.webp",
+  "height": 360,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "570a45e91ad2562bf373cf0bbff65c7571440a5231e7b7850b7223e9cb70021f",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Cabo_Saman%C3%A1.jpg",
+  "taken_year": 2010,
+  "width": 480
+ },
+ "Playa Grande": {
+  "alt": {
+   "en": "Golden sand beach ending at a rocky headland covered with palm trees",
+   "es": "Playa de arena dorada que termina en un cabo rocoso cubierto de palmeras"
+  },
+  "author": "Андрей Бобровский",
+  "bytes": 38902,
+  "file": "beaches/169fdfbd1a728ddd5b23fe4aa35fe9208a77eba831d1ddf2e7bec2f78f44f4e2.webp",
+  "height": 319,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "169fdfbd1a728ddd5b23fe4aa35fe9208a77eba831d1ddf2e7bec2f78f44f4e2",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:%D0%94%D0%BE%D0%BC%D0%B8%D0%BD%D0%B8%D0%BA%D0%B0%D0%BD%D1%81%D0%BA%D0%B0%D1%8F_%D0%A0%D0%B5%D1%81%D0%BF%D1%83%D0%B1%D0%BB%D0%B8%D0%BA%D0%B0_-_panoramio_(3).jpg",
+  "taken_year": 2011,
+  "width": 480
+ },
+ "Playa Juan Dolio": {
+  "alt": {
+   "en": "Beach with turquoise water and low buildings and palm trees along the coast",
+   "es": "Playa de agua turquesa con edificios bajos y palmeras a lo largo de la costa"
+  },
+  "author": "Fanarchiv",
+  "bytes": 18560,
+  "file": "beaches/b820f806c6a43e001694c96e19ac880f8b4287180a68dd1dc34828da3c72c392.webp",
+  "height": 320,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "b820f806c6a43e001694c96e19ac880f8b4287180a68dd1dc34828da3c72c392",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Juan_Dolio_Beach_2.jpg",
+  "taken_year": 2012,
+  "width": 480
+ },
+ "Playa Juan de Bolaños": {
+  "alt": {
+   "en": "Seaside road with benches and wind-bent palm trees",
+   "es": "Carretera junto al mar con bancos y palmeras dobladas por el viento"
+  },
+  "author": "Joel Diplan",
+  "bytes": 45540,
+  "file": "beaches/52056f88c14071cc33909fef8ef2275cc4bce9289e20005057703f213b65ff08.webp",
+  "height": 360,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "52056f88c14071cc33909fef8ef2275cc4bce9289e20005057703f213b65ff08",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Costa_Verde,_Dominican_Republic_-_panoramio.jpg",
+  "taken_year": 2014,
+  "width": 480
+ },
+ "Playa Las Ballenas": {
+  "alt": {
+   "en": "Sandy beach with leaning palms in front of low wooden buildings",
+   "es": "Playa de arena con palmeras inclinadas frente a edificios bajos de madera"
+  },
+  "author": "DanSy",
+  "bytes": 45188,
+  "file": "beaches/da22d122fd3a4e45abcc4e28516768b899a783bad4b7e3c594c3b4c0c2e0b4cb.webp",
+  "height": 360,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "da22d122fd3a4e45abcc4e28516768b899a783bad4b7e3c594c3b4c0c2e0b4cb",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Las_Terrenas_Nuevo_Pueblo_de_los_Pescadores.JPG",
+  "taken_year": 2013,
+  "width": 480
+ },
+ "Playa Las Galeras": {
+  "alt": {
+   "en": "Aerial view of a palm-lined shore, reef and a sailboat in the bay",
+   "es": "Vista aérea de una orilla con palmeras, arrecife y un velero en la bahía"
+  },
+  "author": "Thomas Berwing",
+  "bytes": 40674,
+  "file": "beaches/e7e0665712933170e25f568a06fa85153edf9623277d00684f187bbab2870f64.webp",
+  "height": 320,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "e7e0665712933170e25f568a06fa85153edf9623277d00684f187bbab2870f64",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:20220108-DJI_0143.jpg",
+  "taken_year": 2022,
+  "width": 480
+ },
+ "Playa Macao": {
+  "alt": {
+   "en": "Gentle waves on golden sand in front of turquoise water",
+   "es": "Olas suaves sobre arena dorada frente a agua turquesa"
+  },
+  "author": "Carolinarondon",
+  "bytes": 18056,
+  "file": "beaches/d5bc1e2c1bde0a0cd9e23a7665290c550edb1068765898342a1d92c7e71b025e.webp",
+  "height": 289,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "d5bc1e2c1bde0a0cd9e23a7665290c550edb1068765898342a1d92c7e71b025e",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Playa_Macao.jpg",
+  "taken_year": 2016,
+  "width": 480
+ },
+ "Playa Madama": {
+  "alt": {
+   "en": "Small pale sand cove between dark rocks, with turquoise water and a green cliff",
+   "es": "Pequeña cala de arena clara entre rocas oscuras, con agua turquesa y un acantilado verde"
+  },
+  "author": "Man77",
+  "bytes": 45776,
+  "file": "beaches/5ab79852b5b5b74addfbcaa7e0126db1fda5eb11ba1979291d33542634792dc0.webp",
+  "height": 360,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "5ab79852b5b5b74addfbcaa7e0126db1fda5eb11ba1979291d33542634792dc0",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Playa_Madama.jpg",
+  "taken_year": 2026,
+  "width": 480
+ },
+ "Playa Mano Juan (Saona)": {
+  "alt": {
+   "en": "White sand beach beside turquoise water with palm trees on the left",
+   "es": "Playa de arena blanca junto a agua turquesa con palmeras a la izquierda"
+  },
+  "author": "Lazar Perteši",
+  "bytes": 40002,
+  "file": "beaches/3337d84afc894226a386d6471b8a97458342d59b8b6c20f7fa1d0d33247325b4.webp",
+  "height": 640,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "3337d84afc894226a386d6471b8a97458342d59b8b6c20f7fa1d0d33247325b4",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Isla_Saona_(July_2026).jpg",
+  "taken_year": 2026,
+  "width": 480
+ },
+ "Playa Punta Popy": {
+  "alt": {
+   "en": "Panoramic view of a wide pale sand beach under a blue sky",
+   "es": "Vista panorámica de una playa amplia de arena clara bajo cielo azul"
+  },
+  "author": "Šarūnas Burdulis from USA",
+  "bytes": 7926,
+  "file": "beaches/0ca20771b49daa65f173e35f835fe32cb602572b041f8e74cb80596e86098d05.webp",
+  "height": 97,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "0ca20771b49daa65f173e35f835fe32cb602572b041f8e74cb80596e86098d05",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Las_Terrenas_Beach,_Dominican_Republic.jpg",
+  "taken_year": 2014,
+  "width": 480
+ },
+ "Playa Rincón": {
+  "alt": {
+   "en": "Turquoise water and pale sand with a wooded islet and mountains behind",
+   "es": "Agua turquesa y arena clara con un islote arbolado y montañas al fondo"
+  },
+  "author": "Danu Widjajanto",
+  "bytes": 27188,
+  "file": "beaches/7f8fe42b1e3b59267315ca7b2a8b5a99e9f89af8de4b1fb90d39071def68b8a0.webp",
+  "height": 320,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "7f8fe42b1e3b59267315ca7b2a8b5a99e9f89af8de4b1fb90d39071def68b8a0",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Playa_Rinc%C3%B3n_December_2020_2.jpg",
+  "taken_year": 2020,
+  "width": 480
+ },
+ "Playa Sosúa": {
+  "alt": {
+   "en": "Glass-bottom boat in a blue bay beside the sand",
+   "es": "Bote de fondo de cristal en una bahía azul junto a la arena"
+  },
+  "author": "Scotia",
+  "bytes": 30452,
+  "file": "beaches/d242625f0ca60642187086e7206867316ad221d4fffb943420e9d60ce6f3c3dc.webp",
+  "height": 321,
+  "license": "cc-by",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "d242625f0ca60642187086e7206867316ad221d4fffb943420e9d60ce6f3c3dc",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Water_activities_at_Sosua_Beach_-_panoramio.jpg",
+  "taken_year": 2008,
+  "width": 480
+ },
+ "Punta Rucia": {
+  "alt": {
+   "en": "Tables under thatched umbrellas facing a beach with turquoise water",
+   "es": "Mesas bajo sombrillas de palma frente a una playa de agua turquesa"
+  },
+  "author": "MIGUEL montojo M. MO…",
+  "bytes": 40116,
+  "file": "beaches/7648093c031b76b3d249afaa92d21efe34bfd433ba45bd2b171462af30427744.webp",
+  "height": 270,
+  "license": "cc-by-sa",
+  "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "method": "curated",
+  "reviewed_at": "2026-11-05",
+  "sha256": "7648093c031b76b3d249afaa92d21efe34bfd433ba45bd2b171462af30427744",
+  "source": "wikimedia_commons",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Unnamed_Road,_Punta_Rucia_57000,_Dominican_Republic_-_panoramio.jpg",
+  "taken_year": 2010,
+  "width": 480
+ }
+}

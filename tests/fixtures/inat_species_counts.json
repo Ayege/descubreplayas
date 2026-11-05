@@ -1,0 +1,124 @@
+{
+ "total_results": 373,
+ "results": [
+  {
+   "count": 50,
+   "taxon": {
+    "id": 18180,
+    "name": "Melanerpes striatus",
+    "preferred_common_name": "Carpintero de La Española",
+    "english_common_name": "Hispaniolan Woodpecker",
+    "iconic_taxon_name": "Aves",
+    "default_photo": {
+     "id": 175108600,
+     "license_code": "cc-by-nc",
+     "attribution": "(c) Pedro Genaro Rodriguez, some rights reserved (CC BY-NC), uploaded by Pedro Genaro Rodriguez",
+     "attribution_name": "Pedro Genaro Rodriguez",
+     "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/175108600/square.jpg"
+    }
+   }
+  },
+  {
+   "count": 41,
+   "taxon": {
+    "id": 4631,
+    "name": "Fregata magnificens",
+    "preferred_common_name": "Fragata Tijereta",
+    "english_common_name": "Magnificent Frigatebird",
+    "iconic_taxon_name": "Aves",
+    "default_photo": {
+     "id": 176818863,
+     "license_code": "cc-by-nc",
+     "attribution": "(c) Kenneth Lorenzen, some rights reserved (CC BY-NC), uploaded by Kenneth Lorenzen",
+     "attribution_name": "Kenneth Lorenzen",
+     "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/176818863/square.jpg"
+    }
+   }
+  },
+  {
+   "count": 40,
+   "taxon": {
+    "id": 4328,
+    "name": "Pelecanus occidentalis",
+    "preferred_common_name": "Pelícano café",
+    "english_common_name": "Brown Pelican",
+    "iconic_taxon_name": "Aves",
+    "default_photo": {
+     "id": 74013719,
+     "license_code": "cc-by-nc",
+     "attribution": "(c) BJ Stacey, some rights reserved (CC BY-NC), uploaded by BJ Stacey",
+     "attribution_name": "BJ Stacey",
+     "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/74013719/square.jpg"
+    }
+   }
+  },
+  {
+   "count": 26,
+   "taxon": {
+    "id": 48865,
+    "name": "Cocos nucifera",
+    "preferred_common_name": "Cocotero",
+    "english_common_name": "coconut palm",
+    "iconic_taxon_name": "Plantae",
+    "default_photo": {
+     "id": 2373013,
+     "license_code": "cc-by-nd",
+     "attribution": "(c) Kimberlie Sasan, some rights reserved (CC BY-ND), uploaded by Kimberlie Sasan",
+     "attribution_name": "Kimberlie Sasan",
+     "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2373013/square.JPG"
+    }
+   }
+  },
+  {
+   "count": 24,
+   "taxon": {
+    "id": 133675,
+    "name": "Coenobita clypeatus",
+    "preferred_common_name": "Cangrejo ermitaño caribeño",
+    "english_common_name": "Caribbean Land Hermit Crab",
+    "iconic_taxon_name": "Animalia",
+    "default_photo": {
+     "id": 103971475,
+     "license_code": null,
+     "attribution": "(c) ivanparr, all rights reserved, uploaded by ivanparr",
+     "attribution_name": "ivanparr",
+     "square_url": "https://static.inaturalist.org/photos/103971475/square.jpg"
+    }
+   }
+  },
+  {
+   "count": 7,
+   "taxon": {
+    "id": 367575,
+    "name": "Psittacara chloropterus",
+    "preferred_common_name": "Perico de La Española",
+    "english_common_name": "Hispaniolan Parakeet",
+    "iconic_taxon_name": "Aves",
+    "default_photo": {
+     "id": 217474051,
+     "license_code": "cc-by-nc",
+     "attribution": "(c) Pedro Genaro Rodriguez, some rights reserved (CC BY-NC), uploaded by Pedro Genaro Rodriguez",
+     "attribution_name": "Pedro Genaro Rodriguez",
+     "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/217474051/square.jpg"
+    }
+   }
+  },
+  {
+   "count": 3,
+   "taxon": {
+    "id": 60335,
+    "name": "Rhizophora mangle",
+    "preferred_common_name": "Mangle colorado",
+    "english_common_name": "red mangrove",
+    "iconic_taxon_name": "Plantae",
+    "default_photo": {
+     "id": 125165299,
+     "license_code": "cc-by",
+     "attribution": "(c) James St. John, some rights reserved (CC BY)",
+     "attribution_name": "James St. John",
+     "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/125165299/square.jpg"
+    }
+   }
+  }
+ ]
+}

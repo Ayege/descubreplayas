@@ -329,7 +329,8 @@ class SargassumForecaster:
             return False
         try:
             with open(MODEL_PATH, "rb") as f:
-                obj = pickle.load(f)
+                # This process wrote the file; it is never downloaded or shipped.
+                obj = pickle.load(f)  # nosec B301
             self._clf = obj["clf"]
             self._trained_at = obj.get("trained_at")
             logger.info("Loaded model trained at %s.", self._trained_at)

@@ -1,0 +1,701 @@
+# Copyright 2026 Ayesha Yege
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Fill dashboard/data/species_auto.json from iNaturalist and OBIS.
+
+Run by hand, never from the 6-hour pipeline:
+
+    python scripts/fetch_species.py --dry-run --beach "Playa Bávaro"
+    python scripts/fetch_species.py
+
+Endpoints, fields and limits are documented in docs/data-cards/species_auto.md.
+Every response is treated as untrusted. Photos are reference photos of the
+species, not photos taken at the beach.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import logging
+import os
+import re
+import sys
+import tempfile
+import time
+from collections import Counter
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from dataclasses import dataclass, field
+from pathlib import Path
+from types import MappingProxyType
+from typing import NamedTuple
+from urllib.parse import urlsplit
+
+import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from dashboard.beach_profiles import PROFILES  # noqa: E402  (sys.path set above)
+from scripts._images import (  # noqa: E402
+    MODE_THUMB,
+    SUBDIR_SPECIES,
+    ImageError,
+    download,
+    process,
+    remove_orphans,
+    save,
+    small_url_for,
+)
+from scripts._http import (  # noqa: E402
+    INATURALIST_DELAY_S,  # noqa: F401  (part of this script's interface)
+    MAX_ATTEMPTS,  # noqa: F401
+    MAX_RESPONSE_BYTES,  # noqa: F401
+    USER_AGENT,  # noqa: F401
+    Api,
+    FetchError,
+    get_json,
+    make_client,
+)
+from dashboard.beaches_data import BEACHES  # noqa: E402
+from dashboard.conoce_data import (  # noqa: E402
+    AUTO_SCHEMA_VERSION,
+    AUTO_SPECIES_PATH,
+    DEFAULT_RADIUS_KM,
+    MAX_ATTRIBUTION_CHARS,
+    MAX_AUTO_SPECIES_BYTES,
+    MAX_ICONIC_GROUP_CHARS,
+    MAX_NAME_CHARS,
+    MAX_STATIC_BYTES,
+    METHOD_INATURALIST,
+    PHOTO_LICENSES,
+    STATIC_DIR,
+    AutoSpecies,
+    AutoTaxon,
+    FORBIDDEN_TEXT_RE,
+    BeachTaxon,
+    OptionalNames,
+    Photo,
+    as_list,
+    effective_marine,
+    remote_photo_problems,
+    rank_taxa,
+    read_auto_species,
+)
+
+logger = logging.getLogger(__name__)
+
+INAT_SPECIES_COUNTS_URL = "https://api.inaturalist.org/v1/observations/species_counts"
+INAT_TAXA_URL = "https://api.inaturalist.org/v1/taxa"
+INAT_PHOTO_PAGE_URL = "https://www.inaturalist.org/photos"
+OBIS_CHECKLIST_URL = "https://api.obis.org/v3/checklist"
+
+# Beaches left out of the run. Each is reported as skipped, never silently missing.
+SKIP_BEACHES: Mapping[str, str] = MappingProxyType({})
+
+SPECIES_PER_PAGE = 200  # The API's maximum is 500.
+TAXA_BATCH_SIZE = 30  # The API returns at most 30 taxa per request.
+OBIS_BATCH_SIZE = 10  # At or below the 10 results OBIS was seen returning per page.
+MAX_CANDIDATES_PER_BEACH = 12
+# Only the species a beach can show get a thumbnail: 3 featured, 5 behind "ver más".
+THUMBNAILS_PER_BEACH = 8
+# Our own allowlist for downloads. The licence always comes from the API's field,
+# never from the host: this bucket also holds photos we can't use.
+DOWNLOAD_HOSTS = frozenset({"inaturalist-open-data.s3.amazonaws.com"})
+DEFAULT_MAX_AGE_DAYS = 25
+
+OBIS_DELAY_S = 0.3  # OBIS publishes no limit, so this is only a courtesy pause.
+
+SENSITIVE_GEOPRIVACY = frozenset({"obscured", "private"})
+# The Dominican Republic and the larger place containing it, from the API's
+# ancestor_place_ids. A status on either one applies to the DR.
+DOMINICAN_REPUBLIC_PLACE_IDS = frozenset({6931, 97394})
+# Only these parts of a /taxa response are used; each response is over 1 MB.
+TAXON_PHOTO_FIELDS = ("id", "license_code", "square_url", "attribution", "attribution_name")
+EXCLUDED_BY_STATUS = "status"
+EXCLUDED_LOOKUP_FAILED = "lookup_failed"
+ORIGIN_DEFAULT_PHOTO = "default_photo"
+ORIGIN_TAXON_PHOTOS = "taxon_photos"
+MARINE_SOURCE_OBIS = "obis"
+OBIS_NO_MATCH_MARKER = b"NAME_NOT_FOUND"
+
+_TAG_RE = re.compile(r"<[^>]*>")
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+class MarineTag(NamedTuple):
+    """OBIS's answer for one name. A failed lookup is stored as None instead."""
+
+    marine: bool
+
+
+@dataclass
+class Caches:
+    """Successful lookups, so a species shared by beaches is fetched once. A failed
+    lookup is not stored, so the next beach tries it again.
+    """
+
+    details: dict[int, dict] = field(default_factory=dict)
+    marine: dict[str, MarineTag] = field(default_factory=dict)
+    thumbnails: dict[str, dict] = field(default_factory=dict)
+
+
+@dataclass
+class BeachResult:
+    """One beach's output and the numbers for the summary table."""
+
+    references: list[BeachTaxon]
+    taxa: dict[int, AutoTaxon]
+    total: int
+    returned: int
+    excluded_by_status: int
+    excluded_lookup_failed: int
+    eligible: int
+    photos_default: int
+    photos_taxon: int
+    marine: int
+    top: list[str]
+    photos_off_bucket: int = 0
+    thumbnails_failed: int = 0
+
+
+def fetch_species_counts(api: Api, beach: Mapping, radius_km: int) -> dict:
+    """The species seen near a beach. threatened is not sent on purpose: privacy
+    is decided by the source's own geoprivacy flags, not by threat status.
+    """
+    return get_json(api, INAT_SPECIES_COUNTS_URL, {
+        "lat": beach["latitude"],
+        "lng": beach["longitude"],
+        "radius": radius_km,
+        "quality_grade": "research",
+        "rank": "species",
+        "photos": "true",
+        "captive": "false",
+        "geoprivacy": "open",
+        "taxon_geoprivacy": "open",
+        "per_page": SPECIES_PER_PAGE,
+        "locale": "es",
+    })
+
+
+def _batches(items: list, size: int) -> Iterator[list]:
+    for start in range(0, len(items), size):
+        yield items[start:start + size]
+
+
+def _slim_photo_entry(entry: object) -> object:
+    photo = entry.get("photo") if isinstance(entry, Mapping) else None
+    if not isinstance(photo, Mapping):
+        return entry
+    return {"photo": {key: photo[key] for key in TAXON_PHOTO_FIELDS if key in photo}}
+
+
+def _slim_detail(detail: Mapping) -> dict:
+    """Keep only what the privacy check and photo choice read, in their raw shape."""
+    slim = {key: detail[key] for key in ("conservation_statuses", "taxon_photos") if key in detail}
+    if isinstance(slim.get("taxon_photos"), list):
+        slim["taxon_photos"] = [_slim_photo_entry(entry) for entry in slim["taxon_photos"]]
+    return slim
+
+
+def fetch_taxa_details(api: Api, taxon_ids: Iterable[int], cache: dict[int, dict]) -> None:
+    """Add /taxa details to the cache. A failed batch adds nothing."""
+    wanted = {taxon_id for taxon_id in taxon_ids if taxon_id not in cache}
+    for batch in _batches(sorted(wanted), TAXA_BATCH_SIZE):
+        try:
+            payload = get_json(api, f"{INAT_TAXA_URL}/{','.join(map(str, batch))}")
+        except (FetchError, httpx.HTTPError) as exc:
+            logger.warning("fetch_species: taxa batch failed: %s", exc)
+            continue
+        for detail in as_list(payload.get("results")):
+            if isinstance(detail, dict) and detail.get("id") in wanted:
+                cache[detail["id"]] = _slim_detail(detail)
+
+
+def _obis_no_match(status: int, body: bytes) -> bool:
+    """OBIS answers HTTP 500 NAME_NOT_FOUND when no name in a batch matches."""
+    return status == 500 and OBIS_NO_MATCH_MARKER in body
+
+
+def _is_marine_record(record: Mapping) -> bool:
+    return record.get("is_marine") is True or record.get("is_brackish") is True
+
+
+def fetch_marine_tags(api: Api, names: Iterable[str], cache: dict[str, MarineTag]) -> None:
+    """Tag names through OBIS. Absent from OBIS means not marine. A failed batch adds
+    nothing, which means unknown. No coordinates are sent.
+    """
+    missing = sorted({name for name in names if name not in cache})
+    for batch in _batches(missing, OBIS_BATCH_SIZE):
+        try:
+            params = {"scientificname": ",".join(batch)}
+            payload = get_json(api, OBIS_CHECKLIST_URL, params, _obis_no_match, OBIS_DELAY_S)
+        except (FetchError, httpx.HTTPError) as exc:
+            logger.warning("fetch_species: OBIS batch failed: %s", exc)
+            continue
+        results = as_list(payload.get("results"))
+        if isinstance(payload.get("total"), int) and payload["total"] > len(results):
+            logger.warning("fetch_species: OBIS returned %s of %s results", len(results), payload["total"])
+        found = {
+            key: _is_marine_record(record)
+            for record in results if isinstance(record, dict)
+            for key in (record.get("scientificName"), record.get("acceptedNameUsage")) if key
+        }
+        cache.update({name: MarineTag(found.get(name, False)) for name in batch})
+
+
+def clean_text(value: object, limit: int) -> str | None:
+    """Plain text with no tags or control characters, capped; None if nothing is left."""
+    if not isinstance(value, str):
+        return None
+    text = FORBIDDEN_TEXT_RE.sub(" ", _TAG_RE.sub(" ", value))
+    text = _WHITESPACE_RE.sub(" ", text).strip()[:limit].strip()
+    return text or None
+
+
+def _clean_name(value: object) -> str | None:
+    """A common name with its first letter capitalised, as the API's vary."""
+    name = clean_text(value, MAX_NAME_CHARS)
+    return name[0].upper() + name[1:] if name else None
+
+
+def parse_photo(raw: object, origin: str) -> Photo | None:
+    """A photo that passes every check, using only that photo object's own data."""
+    if not isinstance(raw, Mapping):
+        return None
+    photo_id = raw.get("id")
+    if not isinstance(photo_id, int) or isinstance(photo_id, bool):
+        return None
+    photo = {
+        "url": raw.get("square_url"),
+        "license_code": raw.get("license_code"),
+        "attribution": clean_text(raw.get("attribution_name") or raw.get("attribution"), MAX_ATTRIBUTION_CHARS),
+        "source_url": f"{INAT_PHOTO_PAGE_URL}/{photo_id}",
+        "origin": origin,
+    }
+    return None if remote_photo_problems(photo) else photo
+
+
+def _taxon_photo_objects(detail: object) -> Iterator[object]:
+    """taxon_photos is undocumented, so anything unexpected simply yields nothing."""
+    entries = detail.get("taxon_photos") if isinstance(detail, Mapping) else None
+    for entry in as_list(entries):
+        if isinstance(entry, Mapping):
+            yield entry.get("photo")
+
+
+def choose_photo(taxon: Mapping, detail: object) -> Photo | None:
+    """The default photo if it passes, else the first taxon photo that does."""
+    photo = parse_photo(taxon.get("default_photo"), ORIGIN_DEFAULT_PHOTO)
+    if photo:
+        return photo
+    for raw in _taxon_photo_objects(detail):
+        photo = parse_photo(raw, ORIGIN_TAXON_PHOTOS)
+        if photo:
+            return photo
+    return None
+
+
+def _place_covers_dr(place_id: object) -> bool:
+    if not isinstance(place_id, int) or isinstance(place_id, bool):
+        return True
+    return place_id in DOMINICAN_REPUBLIC_PLACE_IDS
+
+
+def _is_off_bucket(raw: object) -> bool:
+    """An allowed licence on a host we don't download from: counted, never fetched."""
+    if not isinstance(raw, Mapping):
+        return False
+    licence, url = raw.get("license_code"), raw.get("square_url")
+    if not isinstance(licence, str) or licence not in PHOTO_LICENSES or not isinstance(url, str):
+        return False
+    return urlsplit(url).hostname not in DOWNLOAD_HOSTS
+
+
+def _count_off_bucket(taxon: Mapping, detail: object) -> int:
+    photos = [taxon.get("default_photo"), *_taxon_photo_objects(detail)]
+    return sum(_is_off_bucket(raw) for raw in photos)
+
+
+def _status_obscures_here(status: Mapping) -> bool:
+    """True for an obscuring status that applies globally or to the DR, or whose
+    place can't be read: an obscuring status that might cover the DR must count.
+    """
+    if status.get("geoprivacy") not in SENSITIVE_GEOPRIVACY:
+        return False
+    place = status.get("place")
+    if place is None:
+        place_id = status.get("place_id")
+        return place_id is None or _place_covers_dr(place_id)
+    return not isinstance(place, Mapping) or _place_covers_dr(place.get("id"))
+
+
+def privacy_exclusion(taxon: Mapping, detail: object) -> str | None:
+    """Why iNaturalist's own flags exclude this species, or None if they don't.
+
+    If the flags cannot be read, fail closed: unlike a missing photo, a missing
+    privacy answer could reveal a sensitive species. That is counted separately,
+    so a flaky run cannot quietly empty a beach.
+    """
+    statuses = detail.get("conservation_statuses") if isinstance(detail, Mapping) else None
+    if not isinstance(statuses, list) or not all(isinstance(status, Mapping) for status in statuses):
+        return EXCLUDED_LOOKUP_FAILED
+    summary = taxon.get("conservation_status")
+    if isinstance(summary, Mapping):
+        statuses = [*statuses, summary]
+    return EXCLUDED_BY_STATUS if any(_status_obscures_here(status) for status in statuses) else None
+
+
+def _parse_row(row: object) -> dict | None:
+    """A species_counts row as a candidate, or None if it has the wrong shape."""
+    if not isinstance(row, Mapping) or not isinstance(row.get("taxon"), Mapping):
+        return None
+    taxon, count = row["taxon"], row.get("count")
+    taxon_id = taxon.get("id")
+    name = clean_text(taxon.get("name"), MAX_NAME_CHARS)
+    if not isinstance(taxon_id, int) or isinstance(taxon_id, bool) or name is None:
+        return None
+    if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+        return None
+    names: OptionalNames = {
+        "es": _clean_name(taxon.get("preferred_common_name")),
+        "en": _clean_name(taxon.get("english_common_name")),
+    }
+    return {
+        "taxon_id": taxon_id,
+        "scientific_name": name,
+        "common_name": names,
+        "iconic_group": clean_text(taxon.get("iconic_taxon_name"), MAX_ICONIC_GROUP_CHARS),
+        "observation_count": count,
+        "marine": False,
+        "photo": None,
+        "raw_taxon": taxon,
+    }
+
+
+def _apply_tags(candidates: Iterable[dict], cache: Mapping[str, MarineTag]) -> None:
+    for candidate in candidates:
+        tag = cache.get(candidate["scientific_name"])
+        candidate["marine_tag"] = tag
+        candidate["marine"] = effective_marine(candidate["taxon_id"], bool(tag and tag.marine))
+
+
+def _taxon_record(candidate: Mapping, today: str) -> AutoTaxon:
+    tag: MarineTag | None = candidate["marine_tag"]
+    return {
+        "taxon_id": candidate["taxon_id"],
+        "scientific_name": candidate["scientific_name"],
+        "common_name": candidate["common_name"],
+        "iconic_group": candidate["iconic_group"],
+        "marine": bool(tag and tag.marine),
+        "marine_source": MARINE_SOURCE_OBIS if tag else None,
+        "marine_tagged_at": today if tag else None,
+        "photo": candidate["photo"],
+        "method": METHOD_INATURALIST,
+        "fetched_at": today,
+    }
+
+
+def _attach_thumbnail(api: Api, candidate: dict, caches: Caches, static_dir: Path) -> bool:
+    """Download and self-host the species' photo. On failure the species stays, with
+    no photo. Returns False only when a photo existed and could not be stored.
+    """
+    photo = candidate["photo"]
+    if not photo:
+        return True
+    url = photo["url"]
+    copy = caches.thumbnails.get(url)
+    if copy is None:
+        try:
+            image = process(download(api, small_url_for(url), DOWNLOAD_HOSTS), MODE_THUMB)
+            file, digest = save(image.data, SUBDIR_SPECIES, static_dir)
+        except (FetchError, ImageError, OSError, httpx.HTTPError) as exc:
+            logger.warning("fetch_species: no thumbnail for %s: %s", candidate["scientific_name"], exc)
+            candidate["photo"] = None
+            return False
+        copy = {"file": file, "width": image.width, "height": image.height, "sha256": digest}
+        caches.thumbnails[url] = copy
+    candidate["photo"] = {**photo, **copy}
+    return True
+
+
+def _store_thumbnails(api: Api, ranked: list[dict], caches: Caches, static_dir: Path) -> int:
+    """Thumbnails for the species a beach can show; the rest keep no photo."""
+    failed = 0
+    for position, candidate in enumerate(ranked):
+        if position >= THUMBNAILS_PER_BEACH:
+            candidate["photo"] = None
+        elif not _attach_thumbnail(api, candidate, caches, static_dir):
+            failed += 1
+    return failed
+
+
+def _eligible_candidates(rows: list[dict], caches: Caches) -> tuple[list[dict], Counter]:
+    """Drop species excluded by privacy, then attach the best allowed photo."""
+    eligible: list[dict] = []
+    excluded: Counter = Counter()
+    for candidate in rows:
+        detail = caches.details.get(candidate["taxon_id"])
+        reason = privacy_exclusion(candidate["raw_taxon"], detail)
+        if reason:
+            excluded[reason] += 1
+            continue
+        candidate["photo"] = choose_photo(candidate["raw_taxon"], detail)
+        excluded["off_bucket"] += _count_off_bucket(candidate["raw_taxon"], detail)
+        eligible.append(candidate)
+    return eligible, excluded
+
+
+def run_beach(
+    api: Api,
+    beach: Mapping,
+    profile: Mapping,
+    caches: Caches,
+    today: str,
+    static_dir: Path | None = None,
+) -> BeachResult:
+    """Fetch, validate and rank one beach. Raises FetchError if it cannot be done.
+
+    Only species with a photo need a marine tag to rank, so the others are looked
+    up after ranking, and only if they made the candidate list. Without static_dir,
+    as in a dry run, no image is downloaded.
+    """
+    payload = fetch_species_counts(api, beach, profile.get("radius_km", DEFAULT_RADIUS_KM))
+    results = payload.get("results")
+    if not isinstance(results, list):
+        raise FetchError("species_counts has no results list")
+    rows = [row for row in map(_parse_row, results) if row]
+    fetch_taxa_details(api, [row["taxon_id"] for row in rows], caches.details)
+    eligible, excluded = _eligible_candidates(rows, caches)
+    if excluded[EXCLUDED_LOOKUP_FAILED]:
+        logger.warning("fetch_species: %s: %s species excluded because the lookup failed",
+                       beach["name"], excluded[EXCLUDED_LOOKUP_FAILED])
+    if rows and not eligible and excluded[EXCLUDED_LOOKUP_FAILED]:
+        raise FetchError("every species lookup failed, so existing data is kept")
+    fetch_marine_tags(api, [c["scientific_name"] for c in eligible if c["photo"]], caches.marine)
+    _apply_tags(eligible, caches.marine)
+    vida = profile["vida"]
+    ranked = rank_taxa(eligible, vida["pinned_taxa"], vida["hidden_taxa"])[:MAX_CANDIDATES_PER_BEACH]
+    fetch_marine_tags(api, [c["scientific_name"] for c in ranked], caches.marine)
+    _apply_tags(ranked, caches.marine)
+    photos_default = sum(1 for c in eligible if c["photo"] and c["photo"]["origin"] == ORIGIN_DEFAULT_PHOTO)
+    photos_taxon = sum(1 for c in eligible if c["photo"] and c["photo"]["origin"] == ORIGIN_TAXON_PHOTOS)
+    failed = _store_thumbnails(api, ranked, caches, static_dir) if static_dir else 0
+    return BeachResult(
+        references=[{"taxon_id": c["taxon_id"], "observation_count": c["observation_count"]} for c in ranked],
+        taxa={c["taxon_id"]: _taxon_record(c, today) for c in ranked},
+        total=payload.get("total_results", len(results)),
+        returned=len(results),
+        excluded_by_status=excluded[EXCLUDED_BY_STATUS],
+        excluded_lookup_failed=excluded[EXCLUDED_LOOKUP_FAILED],
+        eligible=len(eligible),
+        photos_default=photos_default,
+        photos_taxon=photos_taxon,
+        marine=sum(1 for c in eligible if c["marine"]),
+        top=[c["common_name"]["es"] or c["scientific_name"] for c in ranked[:3]],
+        photos_off_bucket=excluded["off_bucket"],
+        thumbnails_failed=failed,
+    )
+
+
+def is_fresh(existing: AutoSpecies, beach_name: str, today: dt.date, max_age_days: int) -> bool:
+    """True when every species of the beach was fetched within max_age_days."""
+    references = existing["beaches"].get(beach_name)
+    if not references:
+        return False
+    for reference in references:
+        taxon = existing["taxa"].get(str(reference.get("taxon_id")))
+        if not taxon:
+            return False
+        try:
+            age = today - dt.date.fromisoformat(taxon["fetched_at"])
+        except (KeyError, TypeError, ValueError):
+            return False
+        if age.days > max_age_days:
+            return False
+    return True
+
+
+def _keep_known_photo(known: Mapping | None, record: AutoTaxon) -> AutoTaxon:
+    """A species is stored once, but only its top 8 beaches download its photo. A beach
+    ranking it lower must not erase the photo another beach already stored.
+    """
+    if record["photo"] is None and known and known.get("photo"):
+        return {**record, "photo": known["photo"]}
+    return record
+
+
+def merge_results(existing: AutoSpecies, results: Mapping[str, BeachResult]) -> dict:
+    """The new file contents. Untouched beaches stay; unused species are dropped."""
+    beaches = {**existing["beaches"], **{name: r.references for name, r in results.items()}}
+    taxa = dict(existing["taxa"])
+    for result in results.values():
+        for taxon_id, record in result.taxa.items():
+            taxa[str(taxon_id)] = _keep_known_photo(taxa.get(str(taxon_id)), record)
+    used = {str(ref["taxon_id"]) for refs in beaches.values() for ref in refs}
+    return {
+        "schema_version": AUTO_SCHEMA_VERSION,
+        "taxa": {key: record for key, record in taxa.items() if key in used},
+        "beaches": beaches,
+    }
+
+
+def referenced_files(payload: Mapping) -> set[str]:
+    """Every image file the species data points to."""
+    return {
+        taxon["photo"]["file"]
+        for taxon in payload["taxa"].values()
+        if isinstance(taxon, Mapping) and isinstance(taxon.get("photo"), Mapping) and "file" in taxon["photo"]
+    }
+
+
+def serialise(payload: Mapping) -> str:
+    """Sorted keys and stable order, so git diffs stay readable."""
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=1) + "\n"
+
+
+def write_atomic(path: Path, text: str) -> None:
+    """Write through a temp file in the same directory, so a crash or failure
+    never leaves a half-written file.
+    """
+    handle = tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, suffix=".tmp", delete=False)
+    try:
+        with handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(handle.name, path)
+    except OSError:
+        Path(handle.name).unlink(missing_ok=True)
+        raise
+
+
+def collect(
+    api: Api,
+    beaches: Iterable[Mapping],
+    profiles: Mapping[str, Mapping],
+    existing: AutoSpecies,
+    today: dt.date,
+    max_age_days: int,
+    static_dir: Path | None = None,
+    failed: list[str] | None = None,
+) -> dict[str, BeachResult]:
+    """Run each beach. One failed beach logs a warning and does not stop the run."""
+    caches = Caches()
+    results: dict[str, BeachResult] = {}
+    for beach in beaches:
+        name = beach["name"]
+        if is_fresh(existing, name, today, max_age_days):
+            logger.info("fetch_species: skipping %s, fetched within %s days", name, max_age_days)
+            continue
+        try:
+            results[name] = run_beach(api, beach, profiles[name], caches, today.isoformat(), static_dir)
+        except (FetchError, httpx.HTTPError, KeyError) as exc:
+            logger.warning("fetch_species: skipping %s: %s", name, exc)
+            if failed is not None:
+                failed.append(name)
+    return results
+
+
+def format_summary(
+    results: Mapping[str, BeachResult],
+    skipped: Iterable[str] = (),
+    failed: Iterable[str] = (),
+) -> str:
+    """The run table. x_st and x_lk count species excluded by a privacy status and
+    because the lookup failed. iNaturalist's own filter removes others before they
+    ever reach this script, so those are not counted here. off counts photos with an
+    allowed licence on a host we don't download from; x_tb counts failed thumbnails.
+    """
+    header = (
+        f"{'beach':30} {'total':>5} {'got':>4} {'x_st':>4} {'x_lk':>4} {'elig':>4} "
+        f"{'p_def':>5} {'p_tax':>5} {'none':>4} {'off':>4} {'x_tb':>4} {'marine':>6} {'kept':>4}  top 3"
+    )
+    lines = [header]
+    for name, r in results.items():
+        no_photo = r.eligible - r.photos_default - r.photos_taxon
+        lines.append(
+            f"{name[:30]:30} {r.total:>5} {r.returned:>4} {r.excluded_by_status:>4} "
+            f"{r.excluded_lookup_failed:>4} {r.eligible:>4} "
+            f"{r.photos_default:>5} {r.photos_taxon:>5} {no_photo:>4} {r.photos_off_bucket:>4} "
+            f"{r.thumbnails_failed:>4} {r.marine:>6} {len(r.references):>4}  "
+            + ", ".join(r.top)
+        )
+    lines += [f"SKIPPED {name}: {SKIP_BEACHES[name]}" for name in skipped]
+    lines += [f"FAILED {name}: kept its existing data, run it again" for name in failed]
+    return "\n".join(lines)
+
+
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--beach", action="append", help="refresh only this beach (repeatable)")
+    parser.add_argument("--dry-run", action="store_true", help="print the summary, write nothing")
+    parser.add_argument("--max-age", type=int, default=DEFAULT_MAX_AGE_DAYS, help="skip beaches fetched within N days")
+    parser.add_argument("--output", type=Path, default=AUTO_SPECIES_PATH, help="file to write")
+    parser.add_argument("--static-dir", type=Path, default=STATIC_DIR, help="folder for image files")
+    return parser.parse_args(argv)
+
+
+def _select_beaches(names: list[str] | None) -> list[Mapping]:
+    if not names:
+        return list(BEACHES)
+    by_name = {b["name"]: b for b in BEACHES}
+    unknown = [name for name in names if name not in by_name]
+    if unknown:
+        raise SystemExit(f"Unknown beach: {', '.join(unknown)}")
+    return [by_name[name] for name in names]
+
+
+def split_skipped(beaches: Iterable[Mapping]) -> tuple[list[Mapping], list[str]]:
+    """Separate the beaches to run from those in SKIP_BEACHES."""
+    selected = list(beaches)
+    run = [beach for beach in selected if beach["name"] not in SKIP_BEACHES]
+    return run, [beach["name"] for beach in selected if beach["name"] in SKIP_BEACHES]
+
+
+def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = None,
+         sleep: Callable[[float], None] = time.sleep) -> int:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+    args = _parse_args(argv)
+    beaches, skipped = split_skipped(_select_beaches(args.beach))
+    existing = read_auto_species(args.output)
+    static_dir = None if args.dry_run else args.static_dir
+    failed: list[str] = []
+    with make_client(transport) as client:
+        results = collect(Api(client, sleep), beaches, PROFILES, existing, dt.date.today(), args.max_age, static_dir, failed)
+    print(format_summary(results, skipped, failed))
+    exit_code = 1 if failed else 0
+    if args.dry_run:
+        for path in remove_orphans(args.static_dir, referenced_files(existing), dry_run=True):
+            print(f"WOULD DELETE {path}")
+        return exit_code
+    merged = merge_results(existing, results)
+    text = serialise(merged)
+    size = len(text.encode("utf-8"))
+    if size > MAX_AUTO_SPECIES_BYTES:
+        logger.error("fetch_species: %s bytes is over the %s budget; nothing written", size, MAX_AUTO_SPECIES_BYTES)
+        return 1
+    referenced = referenced_files(merged)
+    image_bytes = sum((args.static_dir / file).stat().st_size for file in referenced)
+    if image_bytes > MAX_STATIC_BYTES:
+        logger.error("fetch_species: images are %s bytes, over the %s budget; nothing written", image_bytes, MAX_STATIC_BYTES)
+        return 1
+    write_atomic(args.output, text)
+    for path in remove_orphans(args.static_dir, referenced, dry_run=False):
+        logger.info("fetch_species: deleted unreferenced %s", path)
+    logger.info("fetch_species: wrote %s (%s bytes, %s beaches)", args.output, size, len(results))
+    return exit_code
+
+
+if __name__ == "__main__":
+    sys.exit(main())

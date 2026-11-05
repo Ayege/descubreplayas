@@ -7,11 +7,8 @@ WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends gcc \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install \
-        fastapi "uvicorn[standard]" pydantic \
-        supabase python-dotenv httpx certifi \
-        python-telegram-bot
+COPY requirements/api.lock .
+RUN pip install --no-cache-dir --require-hashes --prefix=/install -r api.lock
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
 FROM python:3.11-slim

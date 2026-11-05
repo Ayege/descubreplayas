@@ -1,0 +1,2 @@
+# False positive: a road description in the beach catalogue, not a key.
+1a152a13acccaca0521f01834da34eb5890e5e13:dashboard/beaches_data.py:generic-api-key:588
