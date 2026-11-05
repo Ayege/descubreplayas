@@ -1384,6 +1384,18 @@ iframe[title="streamlit_folium.st_folium"] {
 }
 /* pointer-events vanish as soon as the fade starts */
 #sarg-loader { pointer-events: auto; }
+/* Hide as soon as the map component exists instead of always waiting 8 s; the
+   timer above stays as the fallback for a browser without :has(). The early hide
+   has its own keyframe name: retiming the running 8 s animation would jump it
+   straight to its end, so the loader would vanish with no fade. */
+.stApp:has(iframe[title="streamlit_folium.st_folium"]) #sarg-loader {
+    animation: sarg-loader-ready .35s ease .4s forwards;
+}
+@keyframes sarg-loader-ready {
+    0%   { opacity: 1; pointer-events: auto;  }
+    99%  { opacity: 0; pointer-events: none;  }
+    100% { opacity: 0; visibility: hidden; pointer-events: none; }
+}
 @keyframes sarg-loader-hide {
     0%   { opacity: 1; pointer-events: auto;  }
     99%  { opacity: 0; pointer-events: none;  }

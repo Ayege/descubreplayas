@@ -399,7 +399,8 @@ The `dashboard/beaches.py` app provides an interactive tropical map with:
   - Southwest (Barahona / Pedernales): −0.08 m/s
   - South/central default: −0.13 m/s
 - **Live wind** from Open-Meteo (free, no key required), cached 1 hour via `@st.cache_data`.
-- **Custom loading spinner** (pure CSS, no JavaScript) replaces the Streamlit branding splash screen.
+- **Custom loading screen** (pure CSS, no JavaScript) replaces the Streamlit splash screen. It fades out as soon as the map appears, usually within 1–2 seconds, with an 8-second fallback for browsers that don't support `:has()`.
+- **Shareable beach links** — each beach has its own address (`/beach/<name>` or `?beach=…`), and the page sets its canonical link and `og:url` to it, so search engines and link previews treat each beach as its own page.
 - **Smooth motion** — the card slides in when you open or change a beach, sections open and close gradually, and the map flies to a beach you pick. Your own panning and zooming are untouched, and all of it respects the reduced-motion setting.
 - **Pins on the shore** — every pin is within 50 m of the OpenStreetMap coastline.
 
@@ -514,7 +515,7 @@ done
 
 > **Don't run `test_store`, `test_detect` or `test_ocean` casually.** They use live services, and `test_store` writes to the Supabase project in your `.env`. CI never runs them.
 
-Every pull request also runs Ruff, Bandit, pip-audit and gitleaks. Accepted dependency advisories are listed in `requirements/audit-ignore.txt`.
+`test_workflows` also runs the real Docker entrypoint against a stand-in page and checks the scripts it injects (it uses `bash` and `perl`, and `node` too if installed). Every pull request also runs Ruff, Bandit, pip-audit and gitleaks. Accepted dependency advisories are listed in `requirements/audit-ignore.txt`.
 
 ---
 
@@ -530,6 +531,7 @@ Every pull request also runs Ruff, Bandit, pip-audit and gitleaks. Accepted depe
 - **No sargassum on the map usually means the API is not running.** The explorer reads masses from `GET /detections`; with `API_BASE_URL` pointing at a dead host the call returns `[]` and the map draws beaches only. Start `uvicorn api.main:app` alongside the dashboard.
 - **Streamlit strips `<script>` from `st.markdown`.** Anything that must execute in the page has to go through `st.components.v1.html`, which renders a real same-origin iframe and can reach `window.parent.document` — that is how `_inject_head()` installs `<html lang>` and the meta tags. Inert `<script type="application/ld+json">` is the exception: it survives, which is why the JSON-LD block still works.
 - **SEO tags have two sources.** `docker-entrypoint-dashboard.sh` patches Streamlit's `index.html` at container start, so crawlers get them in the first HTTP response; `_inject_head()` then keeps `lang`, `og:locale` and the description in step with the language toggle for the visitor.
+- **JavaScript in `docker-entrypoint-dashboard.sh` must use double quotes only.** The injected markup sits inside one single-quoted shell string, so a `'` ends the string and is silently dropped, which once broke the canonical-link script on the live site. `tests/test_workflows.py` runs the real entrypoint and checks the scripts it injects.
 - **CSS that targets the folium map must match `iframe[title="streamlit_folium.st_folium"]`**, not `[data-testid="stCustomComponentV1"]` — the latter is on *every* custom component, including the zero-height SEO helper, which would then be stretched to `100vh`.
 - streamlit-folium renders the map into its own `#map_div` (not folium's `.folium-map`) and sets an inline pixel height on it from the `height=` argument, so the map is sized by an `!important` rule injected into the iframe's `<head>`.
 - **`marine-api.open-meteo.com` publishes an unreachable AAAA record** on some networks. `curl` falls back to IPv4 via Happy Eyeballs in under a second; Python's `requests`/`urllib3` does not, and will sit on the dead IPv6 address for the *entire* timeout before retrying IPv4 — a 30 s stall per cold request. `dashboard/surf.py` uses a short, separate connect timeout (`(1.5, 15)`) specifically to make that fallback near-instant; don't widen it back to a single flat `timeout=` without re-testing on a network where this bites.
