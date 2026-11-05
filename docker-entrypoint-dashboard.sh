@@ -38,7 +38,7 @@ fi
 perl -i -pe 'BEGIN{undef $/;} s|(<head>\s*)|$1
 '"$GA_SNIPPET"'
     <meta http-equiv="content-language" content="es-DO">
-    <meta name="description" content="Guía de 56 playas de República Dominicana con alertas de sargazo en tiempo real, riesgo por playa, pronóstico de llegada, actividades y acceso.">
+    <meta name="description" content="Guía de 55 playas de República Dominicana con alertas de sargazo en tiempo real, riesgo por playa, pronóstico de llegada, actividades y acceso.">
     <meta name="keywords" content="playas República Dominicana, sargazo RD, alerta sargazo, Dominican Republic beaches, sargassum alert, Punta Cana, Samaná, Puerto Plata, Barahona">
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
     <meta name="author" content="Ayesha Yege">
@@ -66,13 +66,13 @@ perl -i -pe 'BEGIN{undef $/;} s|(<head>\s*)|$1
     </script>
     <meta property="og:type" content="website">
     <meta property="og:url" content="'"$CANONICAL_URL"'">
-    <meta property="og:title" content="Descubre Playas RD 🌴 — 56 Playas + Alertas de Sargazo">
+    <meta property="og:title" content="Descubre Playas RD 🌴 — 55 Playas + Alertas de Sargazo">
     <meta property="og:description" content="Guía de playas de República Dominicana con alertas de sargazo en tiempo real.">
     <meta property="og:locale" content="es_DO">
     <meta property="og:site_name" content="Descubre Playas RD">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Descubre Playas RD">
-    <meta name="twitter:description" content="56 playas RD con alertas de sargazo en tiempo real">
+    <meta name="twitter:description" content="55 playas RD con alertas de sargazo en tiempo real">
     |smg' "$INDEX_HTML"
 
 # Also update the <title> tag

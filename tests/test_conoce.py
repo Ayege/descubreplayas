@@ -23,6 +23,7 @@ from __future__ import annotations
 import ast
 import builtins
 import logging
+import re
 import socket
 import statistics
 import sys
@@ -33,10 +34,10 @@ from unittest import mock
 from dashboard import conoce_data as cd
 from dashboard.beaches_data import BEACHES
 from dashboard.conoce import (
-    DEFAULT_GROUP_EMOJI, ICONIC_GROUP_EMOJI, LABEL_KEYS, LENS_GROUP, conoce_panel, render_conoce_html,
+    DEFAULT_GROUP_EMOJI, ICONIC_GROUP_EMOJI, LABEL_KEYS, LENS_GROUP, STATIC_PREFIX, conoce_panel, render_conoce_html,
 )
 from tests.conoce_fixtures import (
-    BEACH, LABELS, UNIT, XSS, auto, full_inputs, historia, loc, note, profile, sourced, taxon, teaser, unit, vida,
+    BEACH, LABELS, UNIT, XSS, auto, beach_photo, full_inputs, historia, loc, note, profile, sourced, taxon, teaser, unit, vida,
 )
 
 _REPO = Path(__file__).resolve().parent.parent
@@ -169,7 +170,7 @@ def _poisoned_knowledge() -> dict:
     species["photo"]["attribution"] = XSS
     species["photo"]["source_url"] = 'https://example.org/"onmouseover="alert(1)'
     bad_image = taxon(2)
-    bad_image["photo"]["url"] = 'https://evil.test/x.jpg"onerror="alert(1)'
+    bad_image["photo"]["file"] = 'https://evil.test/x.jpg"onerror="alert(1)'
     source = {"label": XSS, "url": "javascript:alert(1)"}
     merged = [
         {**s, "photo": s["photo"], "blurb": loc(XSS, XSS), "sargassum_note": loc(XSS, XSS), "sources": [source]}
@@ -187,6 +188,11 @@ def _poisoned_knowledge() -> dict:
         "roca": roca,
         "sargazo_por_que": loc(XSS, XSS),
         "historia": [sourced(title=loc(XSS, XSS), body=loc(XSS + "\n\nx", XSS), year=1900)],
+        "photo": beach_photo() | {
+            "author": XSS,
+            "alt": loc(XSS + "\n\nx", XSS),
+            "license_url": "https://creativecommons.org/licenses/by-sa/3.0/?a=\"onclick=\"alert(1)",
+        },
     }
 
 
@@ -219,15 +225,131 @@ def test_links_images_and_accordion() -> None:
     _check(html.count("<a ") == html.count('target="_blank"'), "link without target")
     _check(html.count("Persona de prueba") == cd.MAX_FEATURED_SPECIES, "photo without attribution")
     _check(f"Ver más ({cd.MAX_MORE_SPECIES})" in html, "see-more count")
-    _check(html.startswith('<details class="conoce"><summary>'), "the panel must start closed")
+    _check(html.startswith('<details class="conoce" open="open"><summary>'), "the panel starts expanded")
     _check(html.count(f'name="{LENS_GROUP}"') == 3, "the three lenses must share one accordion group")
-    _check(html.count('open="open"') == 1, "only the first lens starts open")
+    _check(html.count('open="open"') == 2, "the panel and the first lens start open, the other lenses closed")
     more = html.split('class="conoce-more"')[1].split('name="conoce-lens"')[0]
     _check("<img" not in more and "conoce-emoji" not in more, "see-more rows must be text only")
 
 
+def _photo_knowledge(*args: object, **fields: object) -> dict:
+    return _knowledge(profile(), data=auto(taxon(1))) | {"photo": beach_photo(*args) | fields}
+
+
+def _opening_tag(html: str, tag: str) -> str:
+    return html.split(f"<{tag}", 1)[1].split(">", 1)[0]
+
+
+def test_figure_is_inside_the_panel_before_the_lenses() -> None:
+    html = _render(_photo_knowledge())
+    _check(html.count("<figure") == 1, "one figure")
+    outer_summary_end = html.index("</summary>")
+    _check("<figure" not in html[:outer_summary_end] and "<img" not in html[:outer_summary_end], "not in the summary")
+    _check(html.startswith('<details class="conoce" open="open"><summary>'), "the panel starts expanded")
+    _check(html.index("<details class=\"conoce\"") < html.index("<figure") < html.index('class="conoce-lens"'), "first inside")
+    no_photo = _render(_knowledge(profile(), data=auto(taxon(1))))
+    _check("<figure" not in no_photo, "no photo, no figure")
+
+
+def test_panel_open_state_follows_the_constant() -> None:
+    knowledge = _photo_knowledge()
+    with mock.patch("dashboard.conoce.PANEL_STARTS_OPEN", False):
+        closed = _render(knowledge)
+    _check(closed.startswith('<details class="conoce"><summary>') and closed.count('open="open"') == 1, "closed: only the first lens is open")
+    _check(_render(knowledge).startswith('<details class="conoce" open="open">'), "expanded by default")
+
+
+def test_figure_markup_and_caption() -> None:
+    html = _render(_photo_knowledge())
+    image = _opening_tag(html, "img")
+    expected_src = f'src="{STATIC_PREFIX}/beaches/{"b" * 64}.webp"'
+    for attribute in (expected_src, 'width="480"', 'height="320"', 'loading="lazy"', 'decoding="async"',
+                      'alt="Palmeras y arena blanca"'):
+        _check(attribute in image, f"figure image missing {attribute}")
+    caption = html.split("<figcaption", 1)[1].split("</figcaption>", 1)[0]
+    _check('class="conoce-fine"' in caption, "the same style as source lines")
+    for part in ("Foto de referencia · 2024 · ", "Autora de prueba", 'title="Foto de"', 'title="Licencia"', ">CC BY-SA</a>", ">Fuente</a>"):
+        _check(part in caption, f"caption missing {part}")
+    _check("/licenses/by-sa/3.0/" in caption, "links the photo's own licence version, not the latest deed")
+    _check("commons.wikimedia.org/wiki/File:Prueba.jpg" in caption, "links the source")
+    english = render_conoce_html(_photo_knowledge(), "en", LABELS | {"reference_photo": "Reference photo"})
+    _check("Reference photo" in english and 'alt="Palm trees and white sand"' in english, "English caption and alt")
+
+
+def test_caption_without_a_year() -> None:
+    html = _render(_photo_knowledge(None))
+    _check("Foto de referencia · <span" in html, "no year, and no empty separator")
+
+
+def test_photo_alone_shows_the_panel() -> None:
+    bare = _knowledge(profile()) | {"photo": beach_photo(), "species": [], "roca": None, "historia": []}
+    html = _render(bare)
+    _check("<figure" in html and "conoce-lens" not in html, "a photo alone is content")
+    _check(_render(bare | {"photo": None}) == "", "and without it nothing shows")
+    with mock.patch.object(cd, "knowledge_for", return_value=bare):
+        _check(cd.has_content(BEACH)["photo"] is True, "has_content counts the photo")
+        _check(not any(v for k, v in cd.has_content(BEACH).items() if k != "photo"), "the lenses stay empty")
+    with mock.patch.object(cd, "knowledge_for", return_value=None):
+        _check(not any(cd.has_content(BEACH).values()), "no knowledge, no content")
+
+
+def test_every_src_is_local_and_hashed() -> None:
+    html = _render(_photo_knowledge())
+    sources = re.findall(r'<img[^>]* src="([^"]*)"', html)
+    _check(len(sources) == 2 and all(not src.startswith("http") for src in sources), f"sources: {sources}")
+    _check(all(re.fullmatch(rf"{STATIC_PREFIX}/(beaches|species)/[0-9a-f]{{64}}\.webp", src) for src in sources), f"{sources}")
+    _check(STATIC_PREFIX == "/app/static", "Streamlit's path, absolute so it works on /beach/<name> URLs")
+    _check("inaturalist-open-data" not in html, "the remote photo URL isn't rendered")
+
+
+def test_real_panels_load_no_remote_image() -> None:
+    for beach in BEACHES:
+        knowledge = cd.knowledge_for(beach["name"])
+        for lang in cd.LANGUAGES:
+            html = render_conoce_html(knowledge, lang, LABELS)
+            for src in re.findall(r'<img[^>]* src="([^"]*)"', html):
+                local = re.fullmatch(rf"{STATIC_PREFIX}/(species|beaches)/[0-9a-f]{{64}}\.webp", src)
+                _check(local is not None, f"{beach['name']}: {src}")
+                _check((cd.STATIC_DIR / src.removeprefix(f"{STATIC_PREFIX}/")).is_file(), f"missing file: {src}")
+
+
+def test_bad_photo_files_are_never_rendered() -> None:
+    bad_files = [
+        "https://evil.test/x.webp",
+        "beaches/../../secret.webp",
+        "beaches/" + "b" * 63 + ".webp",
+        "species/" + "b" * 64 + ".webp",
+        'beaches/x"onerror="alert(1).webp',
+        None,
+    ]
+    for file in bad_files:
+        html = _render(_photo_knowledge(file=file))
+        _check("<figure" not in html and "evil.test" not in html and "secret" not in html, f"rendered {file}")
+    species_file = taxon(1)
+    species_file["photo"]["file"] = "beaches/" + "a" * 64 + ".webp"
+    html = _render(_knowledge(profile(), data=auto(taxon(1))) | {"species": [
+        dict(_knowledge(profile(), data=auto(taxon(1)))["species"][0], photo=species_file["photo"])
+    ]})
+    _check("<img" not in html and "conoce-emoji" in html, "a species can't point at another folder")
+
+
+def test_alt_is_escaped_and_never_empty() -> None:
+    html = _render(_photo_knowledge(alt=loc('Sol "y" <b>mar</b>', "x")))
+    _check('alt="Sol &quot;y&quot; &lt;b&gt;mar&lt;/b&gt;"' in html, "alt is encoded")
+    for empty in ("", "   "):
+        _check("<figure" not in _render(_photo_knowledge(alt=loc(empty, empty))), "no alt, no photo")
+
+
+def test_unsafe_credit_links_hide_the_photo() -> None:
+    for field in ("license_url", "source_url"):
+        html = _render(_photo_knowledge(**{field: "javascript:alert(1)"}))
+        _check("<figure" not in html and "javascript:" not in html, f"unsafe {field}")
+    _check("<figure" not in _render(_photo_knowledge(license="cc-by-nc")), "a licence we don't allow")
+
+
 def test_budgets() -> None:
-    knowledge = _full_knowledge()
+    knowledge = _full_knowledge() | {"photo": beach_photo() | {"author": "a" * cd.MAX_ATTRIBUTION_CHARS,
+                                                              "alt": loc("a" * cd.MAX_ALT_CHARS, "a" * cd.MAX_ALT_CHARS)}}
     sizes = {lang: len(_render(knowledge, lang).encode("utf-8")) for lang in cd.LANGUAGES}
     for lang, size in sizes.items():
         _check(size <= _MAX_PANEL_BYTES, f"{lang}: full panel is {size} bytes")

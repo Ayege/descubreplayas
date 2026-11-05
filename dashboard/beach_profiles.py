@@ -364,12 +364,6 @@ PROFILES: dict[str, BeachProfile] = {
         "vida": {"pinned_taxa": [], "hidden_taxa": [], "notes": {}},
         "historia": [],
     },
-    "Playa Sosúa Bay (Charamicos)": {
-        "coastal_unit": "costa_ambar",
-        "teaser": None,
-        "vida": {"pinned_taxa": [], "hidden_taxa": [], "notes": {}},
-        "historia": [],
-    },
     "Playa Diamante": {
         "coastal_unit": "rio_san_juan",
         "teaser": None,

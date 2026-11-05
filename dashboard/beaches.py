@@ -76,7 +76,13 @@ from dashboard.surf_data import (
 )
 from dashboard.beaches_i18n import BEACH_TEXT_ES, TERMS_ES
 from dashboard.conoce import conoce_panel
-from dashboard.map_perf import CompactCircles, beach_from_map_click, run_parallel
+from dashboard.map_perf import (
+    CompactCircles,
+    SmoothMapMoves,
+    beach_from_map_click,
+    next_card_motion,
+    run_parallel,
+)
 
 load_dotenv()
 
@@ -126,11 +132,11 @@ import json as _json_mod
 
 _APP_URL = os.environ.get("APP_CANONICAL_URL", "https://descubreplayas.com.do")
 _DESC_ES = (
-    "Guía de 56 playas de República Dominicana con alertas de sargazo en tiempo "
+    "Guía de 55 playas de República Dominicana con alertas de sargazo en tiempo "
     "real, riesgo por playa, pronóstico de llegada, actividades y acceso."
 )
 _DESC_EN = (
-    "Guide to 56 Dominican Republic beaches with live sargassum risk forecast, "
+    "Guide to 55 Dominican Republic beaches with live sargassum risk forecast, "
     "activities, access info and early-warning sargassum alerts."
 )
 _KEYWORDS = (
@@ -150,7 +156,7 @@ def _strip_accents(text: str) -> str:
 def _fold(text: str) -> str:
     """Case- and accent-insensitive form, for matching.
 
-    People type "Bavaro", "Rincon", "Aguilas" — 13 of the 56 beach names carry
+    People type "Bavaro", "Rincon", "Aguilas" — 12 of the 55 beach names carry
     an accent, and an exact match would hide them.
     """
     return _strip_accents(text).lower()
@@ -210,7 +216,7 @@ _json_ld = {
                 "containedInPlace": {"@type": "Country", "name": "Dominican Republic"},
             },
             "featureList": [
-                "Alertas de sargazo en tiempo real — 56 playas RD",
+                "Alertas de sargazo en tiempo real — 55 playas RD",
                 "Pronóstico de llegada por playa (72 h física + ML extendido)",
                 "Filtros por región, provincia, actividad y riesgo",
                 "Masas de sargazo detectadas vía satélite Sentinel-2",
@@ -270,7 +276,7 @@ DONATE_URL = os.environ.get("DONATE_URL", "https://buymeacoffee.com/yegeayeshaj"
 APACHE_URL = "https://www.apache.org/licenses/LICENSE-2.0"
 CC_BY_URL = "https://creativecommons.org/licenses/by/4.0/"
 
-_OG_TITLE = "Descubre Playas RD 🌴 — 56 Playas + Alertas de Sargazo"
+_OG_TITLE = "Descubre Playas RD 🌴 — 55 Playas + Alertas de Sargazo"
 _TW_TITLE = "Descubre Playas RD — Alertas Sargazo Tiempo Real"
 # BCP-47 for <html lang> and the Open Graph locale, per UI language.
 _HTML_LANG = {"es": "es-DO", "en": "en"}
@@ -379,7 +385,7 @@ st.markdown(
 _T = {
     "es": {
         "title": "🌴 Descubre Playas RD 🇩🇴",
-        "subtitle": "56 playas dominicanas: acceso, actividades, fauna, y sargazo y surf en vivo.",
+        "subtitle": "55 playas dominicanas: acceso, actividades, fauna, y sargazo y surf en vivo.",
         "filters_header": "🔎 Filtrar playas",
         "region": "Región",
         "province": "Provincia",
@@ -505,10 +511,13 @@ _T = {
         "sand": "Arena",
         "sargassum_why": "¿Por qué llega el sargazo aquí?",
         "sargassum_note": "🌿 Sargazo",
+        "reference_photo": "Foto de referencia",
+        "photo_by": "Foto de",
+        "licence": "Licencia",
     },
     "en": {
         "title": "🌴 Discover DR Beaches",
-        "subtitle": "56 Dominican beaches: access, activities, wildlife, live sargassum and surf.",
+        "subtitle": "55 Dominican beaches: access, activities, wildlife, live sargassum and surf.",
         "filters_header": "🔎 Filter beaches",
         "region": "Region",
         "province": "Province",
@@ -634,6 +643,9 @@ _T = {
         "sand": "Sand",
         "sargassum_why": "Why does sargassum arrive here?",
         "sargassum_note": "🌿 Sargassum",
+        "reference_photo": "Reference photo",
+        "photo_by": "Photo by",
+        "licence": "Licence",
     },
 }
 
@@ -1048,6 +1060,62 @@ iframe[title="streamlit_folium.st_folium"] {
     border-radius: 22px; padding: 18px 16px 16px;
     box-shadow: 0 12px 50px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.1);
     font-family: 'Nunito', sans-serif; z-index: 99999; color: #e0f7fa;
+    transition: opacity .2s ease;
+}
+
+/* ── Motion ──
+   CSS only. The two identical keyframes exist so the card can replay its entrance:
+   changing the animation name restarts it, so the class flips when the beach changes
+   and stays put on unrelated reruns (see next_card_motion). */
+@keyframes beach-card-a {
+    from { opacity: 0; transform: var(--card-enter, translateX(10px)); }
+    to   { opacity: 1; transform: none; }
+}
+@keyframes beach-card-b {
+    from { opacity: 0; transform: var(--card-enter, translateX(10px)); }
+    to   { opacity: 1; transform: none; }
+}
+.beach-detail.card-motion-a { animation: beach-card-a .22s ease-out; }
+.beach-detail.card-motion-b { animation: beach-card-b .22s ease-out; }
+
+/* Streamlit fades everything on the page during each rerun, which reads as a
+   flicker. Keep the page solid; only the card dims, and only if the rerun is slow. */
+[data-stale="true"] {
+    opacity: 1 !important;
+    transition: none !important;
+}
+[data-stale="true"] .beach-detail {
+    opacity: .85;
+    transition: opacity .2s ease .25s;
+}
+
+/* Open and close sections smoothly. A browser without ::details-content or
+   interpolate-size ignores this and opens them instantly, as before. */
+.beach-detail { interpolate-size: allow-keywords; }
+.beach-detail details::details-content {
+    height: 0;
+    overflow: clip;
+    opacity: 0;
+    transition: height .24s ease, opacity .2s ease, content-visibility .24s allow-discrete;
+}
+.beach-detail details[open]::details-content {
+    height: auto;
+    opacity: 1;
+}
+.beach-detail a { transition: filter .15s ease, opacity .15s ease; }
+.beach-detail a:hover { filter: brightness(1.15); }
+.beach-detail summary { transition: color .15s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+    .beach-detail,
+    .beach-detail a,
+    .beach-detail summary,
+    [data-stale="true"] .beach-detail,
+    .beach-detail details::details-content,
+    html body [data-testid="stSidebar"] {
+        animation: none !important;
+        transition: none !important;
+    }
 }
 
 /* ── SEO helper iframe (see _inject_head) ──
@@ -1187,6 +1255,7 @@ iframe[title="streamlit_folium.st_folium"] {
         border-radius: 18px 18px 0 0 !important;
         padding: 22px 16px 20px !important;
         box-shadow: 0 -6px 32px rgba(0,0,0,.6) !important;
+        --card-enter: translateY(16px);  /* a bottom sheet rises instead of sliding */
     }
     /* Drag-handle pill — positioned above the scrollable content so it never
        scrolls away. position:absolute works because .beach-detail is position:fixed
@@ -1358,7 +1427,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# Static beach dataset — cached so the 56-beach list (with Google Maps URLs)
+# Static beach dataset — cached so the 55-beach list (with Google Maps URLs)
 # is built once per session instead of on every rerun / beach click.
 # ---------------------------------------------------------------------------
 @st.cache_data
@@ -1493,7 +1562,7 @@ def _cached_fetch_ml_forecasts(url: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Live surf + wind conditions (Open-Meteo)
 #
-# Two batched HTTP requests cover all 56 beaches, cached for 30 minutes — the
+# Two batched HTTP requests cover all 55 beaches, cached for 30 minutes — the
 # underlying wave model only publishes a new run every few hours, so a shorter
 # TTL would just re-fetch identical numbers on every beach click.
 #
@@ -1524,7 +1593,7 @@ def _cached_surf_conditions(names: tuple[str, ...]) -> dict:
 # what made the page show its filters and then sit there with no map.
 _SURF_SERIES: dict = {}
 
-# Per-render memo, so clicking a beach doesn't re-rate all 56 every rerun.
+# Per-render memo, so clicking a beach doesn't re-rate all 55 every rerun.
 _SURF_RATING_CACHE: dict[str, dict | None] = {}
 
 
@@ -1586,7 +1655,7 @@ def _fetch_wind_uv() -> tuple[float, float]:
         return 0.0, 0.0
 
 
-# All 56 beaches in one batched request, so opening a card never waits for its own.
+# All 55 beaches in one batched request, so opening a card never waits for its own.
 _ALL_SURF_NAMES = tuple(sorted(b["name"] for b in BEACHES))
 # How long a card waits for that request before showing without surf this time.
 _SURF_WAIT_S = 8.0
@@ -2114,7 +2183,7 @@ with st.sidebar:
         # prediction AND filters beaches by best visiting season.
         #   • within 3 days  → physics drift forecast (high confidence)
         #   • further out    → seasonal climatology estimate (labelled clearly)
-        # Leaving blank shows the live 'now' view for all 56 beaches.
+        # Leaving blank shows the live 'now' view for all 55 beaches.
         import datetime as _dt
         _today = _dt.date.today()
         sel_date = st.date_input(
@@ -2527,6 +2596,7 @@ _ml_drift_mode = (_date_mode == "ml")  # drives mass styling + legend
 _MAP_TOP_LANE = 60
 
 m = folium.Map(location=[19.0, -69.8], zoom_start=7, tiles="OpenStreetMap", prefer_canvas=True)
+SmoothMapMoves().add_to(m)
 # Make the inner Leaflet map fill the whole component iframe.
 #
 # ROOT CAUSE of the blank strip under the map: streamlit-folium does NOT render
@@ -3561,8 +3631,16 @@ if _panel_beach:
         + _recs_html
     )
 
+    _card_motion_beach, _card_motion = next_card_motion(
+        st.session_state.get("_card_motion_beach"),
+        st.session_state.get("_card_motion"),
+        _pb["name"],
+    )
+    st.session_state["_card_motion_beach"] = _card_motion_beach
+    st.session_state["_card_motion"] = _card_motion
+
     _bubble = (
-        "<div class='beach-detail'>"
+        f"<div class='beach-detail {_card_motion}'>"
         # Beach name + location
         f"<div style='font-size:17px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:3px'>"
         f"{_pb['name']}{_turtle}</div>"

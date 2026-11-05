@@ -101,12 +101,7 @@ INAT_PHOTO_PAGE_URL = "https://www.inaturalist.org/photos"
 OBIS_CHECKLIST_URL = "https://api.obis.org/v3/checklist"
 
 # Beaches left out of the run. Each is reported as skipped, never silently missing.
-SKIP_BEACHES = MappingProxyType({
-    # Its province and description place it near Amber Cove, but its coordinates
-    # in beaches_data.py point near Río San Juan, about 70 km east, so its species
-    # would come from the wrong coast. Remove once the coordinates are confirmed.
-    "Playa Maimón": "coordinates point to the wrong coast",
-})
+SKIP_BEACHES: Mapping[str, str] = MappingProxyType({})
 
 SPECIES_PER_PAGE = 200  # The API's maximum is 500.
 TAXA_BATCH_SIZE = 30  # The API returns at most 30 taxa per request.

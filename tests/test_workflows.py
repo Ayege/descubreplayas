@@ -33,7 +33,7 @@ _OFFLINE_SUITES = {
     "beaches", "conoce", "dispatch", "drift", "images", "map_perf", "profiles", "risk_overlay", "surf", "workflows",
 }
 # These import scripts/_images.py, so they need Pillow 13 and the ingest lockfile.
-_INGEST_SUITES = {"fetch_species", "image_pipeline", "beach_photos"}
+_INGEST_SUITES = {"fetch_species", "image_pipeline", "beach_photos", "review_photos"}
 _LIVE_SUITES = {"detect", "ocean", "store"}
 _LOCKS = ("api", "ci-tools", "dashboard", "ingest", "pipeline")
 _MAIN_LOCKS = ("api", "dashboard", "pipeline")

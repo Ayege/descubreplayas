@@ -35,18 +35,20 @@ from typing import NamedTuple
 import streamlit as st
 
 from dashboard.conoce_data import (
+    BEACH_IMAGE_FILE_RE,
     DEFAULT_LANGUAGE,
     LANGUAGES,
     MAX_FEATURED_SPECIES,
     PHOTO_LICENSES,
+    SPECIES_IMAGE_FILE_RE,
     BeachKnowledge,
+    BeachPhoto,
     HistoriaItem,
     Localized,
     Photo,
     Roca,
     Sourced,
     Species,
-    is_allowed_image_url,
     is_safe_url,
     knowledge_for,
 )
@@ -68,8 +70,13 @@ LABEL_KEYS = (
     "sand",
     "sargassum_why",
     "sargassum_note",
+    "reference_photo",
+    "photo_by",
+    "licence",
 )
 
+# Absolute, because a relative src breaks on pretty URLs such as /beach/<name>.
+STATIC_PREFIX = "/app/static"
 THUMBNAIL_PX = 48
 # Shown for a species with no allowed photo. It is decorative: the species name
 # beside it carries the meaning, so it is hidden from screen readers.
@@ -90,6 +97,9 @@ DEFAULT_GROUP_EMOJI = "🐾"
 LINK_REL = "noopener noreferrer"
 SEPARATOR = " · "
 LENS_GROUP = "conoce-lens"
+# The panel itself starts expanded. Set to False to go back to a closed panel, which
+# loads no images until it is opened.
+PANEL_STARTS_OPEN = True
 _WHITESPACE_RE = re.compile(r"\s+")
 
 # The card's own palette. Muted text uses the secondary colour because the
@@ -126,6 +136,8 @@ _CSS = (
     ".conoce-name{font-weight:700}"
     f".conoce-sci{{color:{_COLOR_SECONDARY};font-size:11px;font-style:italic}}"
     f".conoce-fine{{margin-top:2px;color:{_COLOR_SECONDARY};font-size:9.5px;line-height:1.35}}"
+    ".conoce-photo{margin:8px 0 0}"
+    ".conoce-photo img{display:block;max-width:100%;height:auto;border-radius:8px}"
     ".conoce-more>summary{text-transform:none;letter-spacing:0;padding:2px 0 6px}"
     "@media (pointer:coarse){.conoce>summary,.conoce-lens>summary{padding:13px 0}}"
 )
@@ -221,8 +233,16 @@ def _species_text(species: Species, lang: str, labels: Mapping[str, str]) -> lis
     return parts
 
 
+def _static_src(file: object, pattern: re.Pattern[str]) -> str | None:
+    """The image's URL, only ever our prefix plus a file name of hash characters."""
+    if isinstance(file, str) and pattern.fullmatch(file):
+        return f"{STATIC_PREFIX}/{file}"
+    _log_dropped_url("image", str(file))
+    return None
+
+
 def _thumbnail(species: Species) -> _Html:
-    """The photo if it passes, or nothing.
+    """The self-hosted photo if it passes, or nothing.
 
     The alt text is empty because the species name sits right beside it: a
     screen reader would otherwise say it twice, and a failed image would show
@@ -231,11 +251,11 @@ def _thumbnail(species: Species) -> _Html:
     photo = species["photo"]
     if not photo or photo["license_code"] not in PHOTO_LICENSES:
         return _Html("")
-    if not is_allowed_image_url(photo["url"]):
-        _log_dropped_url("image", str(photo["url"]))
+    src = _static_src(photo["file"], SPECIES_IMAGE_FILE_RE)
+    if src is None:
         return _Html("")
     return _void("img", {
-        "src": photo["url"],
+        "src": src,
         "alt": "",
         "width": THUMBNAIL_PX,
         "height": THUMBNAIL_PX,
@@ -271,6 +291,47 @@ def _featured_row(species: Species, lang: str, labels: Mapping[str, str]) -> _Ht
         text.append(_photo_credit(species["photo"], labels))
     picture = thumbnail or _group_emoji(species)
     return _el("div", {"class": "conoce-item conoce-row"}, picture, _el("div", None, *text))
+
+
+def _photo_caption(photo: BeachPhoto, labels: Mapping[str, str]) -> _Html:
+    """Label, year if the source gives one, author, licence and source.
+
+    The link uses the photo's own licence_url, because Commons files have several
+    licence versions and PHOTO_LICENSES only holds the latest deed.
+    """
+    parts: list[str] = [labels["reference_photo"]]
+    if photo["taken_year"] is not None:
+        parts += [SEPARATOR, str(photo["taken_year"])]
+    parts += [SEPARATOR, _el("span", {"title": labels["photo_by"]}, photo["author"])]
+    parts += [SEPARATOR, _link(photo["license_url"], PHOTO_LICENSES[photo["license"]][0], labels["licence"])]
+    parts += [SEPARATOR, _link(photo["source_url"], labels["source"])]
+    return _el("figcaption", {"class": "conoce-fine"}, *parts)
+
+
+def _beach_photo(photo: BeachPhoto | None, lang: str, labels: Mapping[str, str]) -> _Html:
+    """The reference photo, or nothing if any part of its credit can't be shown."""
+    if not photo:
+        return _Html("")
+    src = _static_src(photo["file"], BEACH_IMAGE_FILE_RE)
+    alt = photo["alt"][lang].strip()
+    usable = (
+        src is not None
+        and alt
+        and photo["license"] in PHOTO_LICENSES
+        and _checked("licence", photo["license_url"])
+        and _checked("photo source", photo["source_url"])
+    )
+    if not usable:
+        return _Html("")
+    image = _void("img", {
+        "src": src,
+        "alt": alt,
+        "width": photo["width"],
+        "height": photo["height"],
+        "loading": "lazy",
+        "decoding": "async",
+    })
+    return _el("figure", {"class": "conoce-photo"}, image, _photo_caption(photo, labels))
 
 
 def _catalog_line(label: str, value: str) -> _Html:
@@ -365,7 +426,7 @@ def render_conoce_html(
     ecosystem: str = "",
     wildlife: str = "",
 ) -> str:
-    """Build the panel for one beach; "" when it has no lens to show.
+    """Build the panel for one beach; "" when it has neither a photo nor a lens.
 
     ecosystem and wildlife are the catalogue's text, already translated.
     Pure: no network or disk access, and it does not need a Streamlit runtime.
@@ -377,10 +438,12 @@ def render_conoce_html(
         (labels["lens_roca"], _roca_body(knowledge, lang, labels)),
         (labels["lens_historia"], _historia_body(knowledge["historia"] if knowledge else [], lang, labels)),
     ))
-    if not lenses:
+    photo = _beach_photo(knowledge["photo"] if knowledge else None, lang, labels)
+    if not lenses and not photo:
         return ""
     summary = _summary(teaser["text"] if teaser else None, lang, labels)
-    return str(_el("details", {"class": "conoce"}, summary, *lenses))
+    attrs = {"class": "conoce", "open": "open"} if PANEL_STARTS_OPEN else {"class": "conoce"}
+    return str(_el("details", attrs, summary, photo, *lenses))
 
 
 @st.cache_data(show_spinner=False)

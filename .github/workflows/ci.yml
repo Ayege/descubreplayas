@@ -56,7 +56,7 @@ jobs:
 
       - name: Run ingest test suites
         run: |
-          for suite in fetch_species image_pipeline beach_photos; do
+          for suite in fetch_species image_pipeline beach_photos review_photos; do
             echo "::group::test_$suite"
             python -m "tests.test_$suite"
             echo "::endgroup::"
@@ -88,7 +88,7 @@ jobs:
         run: >-
           .tools/bin/ruff check --select E9,F,B,S --ignore S101
           dashboard/conoce.py dashboard/conoce_data.py dashboard/map_perf.py scripts/_http.py scripts/_images.py scripts/fetch_species.py
-          scripts/_commons.py scripts/beach_photo_candidates.py scripts/import_beach_photo.py
+          scripts/_commons.py scripts/_beach_match.py scripts/beach_photo_candidates.py scripts/import_beach_photo.py scripts/review_photos.py
 
       - name: Static security analysis
         run: .tools/bin/bandit -q -ll -r api dashboard pipeline scripts

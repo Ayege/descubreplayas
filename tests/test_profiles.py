@@ -413,9 +413,9 @@ def test_public_api_and_cache() -> None:
         _check(cd.get_profile(BEACH)["coastal_unit"] == UNIT, "get_profile")
         _check(cd.coastal_unit_for(BEACH)["name"]["es"] == "Unidad", "coastal_unit_for")
         _check(len(cd.featured_species(BEACH, limit=1)) == 1 and len(cd.featured_species(BEACH)) == 2, "featured_species")
-        _check(cd.has_content(BEACH) == {"vida": True, "roca": True, "historia": True}, "has_content")
+        _check(cd.has_content(BEACH) == {"photo": False, "vida": True, "roca": True, "historia": True}, "has_content")
         _check(cd.get_profile("x") is None and cd.featured_species("x") == [] and cd.coastal_unit_for("x") is None, "unknown")
-        _check(cd.has_content("x") == {"vida": False, "roca": False, "historia": False}, "unknown has_content")
+        _check(cd.has_content("x") == {"photo": False, "vida": False, "roca": False, "historia": False}, "unknown has_content")
     cd.load_index.cache_clear()
     with mock.patch.object(cd, "read_auto_species", wraps=cd.read_auto_species) as reader:
         for _ in range(1000):

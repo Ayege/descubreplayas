@@ -8,8 +8,8 @@ compilation and is licensed separately.
 
 | File | Contents |
 | --- | --- |
-| `dashboard/beaches_data.py` | Catalogue of 56 Dominican Republic beaches — coordinates, province, region, access type and description, entrance fee, parking, beach type, activities, wildlife, ecosystem, facilities, water conditions, best time to visit |
-| `dashboard/beaches_i18n.py` | Spanish translations of that catalogue — 183 vocabulary terms plus per-beach prose for all 56 beaches |
+| `dashboard/beaches_data.py` | Catalogue of 55 Dominican Republic beaches — coordinates, province, region, access type and description, entrance fee, parking, beach type, activities, wildlife, ecosystem, facilities, water conditions, best time to visit |
+| `dashboard/beaches_i18n.py` | Spanish translations of that catalogue — 183 vocabulary terms plus per-beach prose for all 55 beaches |
 | `dashboard/beach_profiles.py` | Hand-written "Conoce esta playa" content: teasers, species notes, geology and history for each beach, with sources |
 | `sql/schema.sql` (seed rows) | The zone and beach seed data derived from the above |
 

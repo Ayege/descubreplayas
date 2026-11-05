@@ -21,7 +21,7 @@ The beach catalogue and its Spanish translations are NOT covered by the
 Apache License. They are licensed under Creative Commons Attribution 4.0
 International (CC BY 4.0) and require attribution when reused:
 
-    dashboard/beaches_data.py    56 Dominican Republic beaches
+    dashboard/beaches_data.py    55 Dominican Republic beaches
     dashboard/beaches_i18n.py    Spanish translations of that catalogue
     dashboard/beach_profiles.py  "Conoce esta playa" content per beach
 

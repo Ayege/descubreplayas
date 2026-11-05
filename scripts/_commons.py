@@ -60,12 +60,20 @@ STANDARD_THUMB_WIDTHS = frozenset({20, 40, 60, 120, 250, 330, 500, 960, 1280, 19
 DOWNLOAD_WIDTH = 500
 
 SEARCH_RADIUS_M = 2000
+# The geosearch limits in the API's own help: 10 to 10,000 m.
+MIN_SEARCH_RADIUS_M = 10
+MAX_SEARCH_RADIUS_M = 10_000
 SEARCH_LIMIT = 50
 MIN_ORIGINAL_WIDTH = 800
 ALLOWED_MIME_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
 REQUEST_DELAY_S = 1.0
 MAXLAG_S = 5
 MAXLAG_ATTEMPTS = 3
+# Extra requests for one beach when its categories don't fit in one response.
+MAX_CATEGORY_CONTINUATIONS = 3
+MAX_CATEGORIES_PER_FILE = 100
+MAX_CONTINUE_VALUE_CHARS = 300
+CATEGORY_PREFIX = "Category:"
 MAXLAG_ERROR = "maxlag"
 FILE_NAMESPACE = 6
 MAX_TITLE_CHARS = 255
@@ -73,7 +81,7 @@ MAX_TITLE_CHARS = 255
 RETRY_STATUSES_NO_429 = RETRY_STATUSES - {HTTP_TOO_MANY_REQUESTS}
 
 _METADATA_FIELDS = "LicenseShortName|LicenseUrl|Artist|DateTimeOriginal"
-_BASE_PARAMS = {
+_BASE_PARAMS: dict[str, object] = {
     "action": "query",
     "format": "json",
     "formatversion": 2,
@@ -83,6 +91,10 @@ _BASE_PARAMS = {
     "iiurlwidth": DOWNLOAD_WIDTH,
     "iiextmetadatafilter": _METADATA_FIELDS,
 }
+
+# The search also asks for each file's visible categories. cllimit=max is the API's
+# limit for the whole batch, so a response without batchcomplete is partial.
+_SEARCH_PARAMS = {**_BASE_PARAMS, "prop": "imageinfo|categories", "clshow": "!hidden", "cllimit": "max"}
 
 _CC_VERSIONS = r"1\.0|2\.0|2\.5|3\.0|4\.0"
 _LICENSE_NAME_RE = re.compile(rf"CC0(?: 1\.0)?|CC (BY|BY-SA) ({_CC_VERSIONS})")
@@ -135,6 +147,7 @@ class Candidate(NamedTuple):
     license: License
     author: str
     year: int | None
+    categories: tuple[str, ...] = ()
 
 
 class ManualCheck(NamedTuple):
@@ -277,6 +290,19 @@ def _dimension(value: object) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else 0
 
 
+def parse_categories(value: object) -> tuple[str, ...]:
+    """Category names without the "Category:" prefix, as plain text."""
+    if not isinstance(value, list):
+        return ()
+    names: list[str] = []
+    for entry in value[:MAX_CATEGORIES_PER_FILE]:
+        title = entry.get("title") if isinstance(entry, Mapping) else None
+        name = clean_text(title.removeprefix(CATEGORY_PREFIX) if isinstance(title, str) else None, MAX_TITLE_CHARS)
+        if name:
+            names.append(name)
+    return tuple(names)
+
+
 def parse_page(page: object, today: dt.date) -> Candidate | ManualCheck | Refusal:
     """Apply every automatic check to one page of an API response."""
     info = page.get("imageinfo") if isinstance(page, Mapping) else None
@@ -309,7 +335,8 @@ def parse_page(page: object, today: dt.date) -> Candidate | ManualCheck | Refusa
     except ThumbnailRefused as exc:
         return Refusal(exc.reason)
     year = parse_year(_metadata_value(metadata, "DateTimeOriginal"), today)
-    return Candidate(title, source_url, thumbnail, width, height, decision.license, author, year)
+    categories = parse_categories(page.get("categories"))
+    return Candidate(title, source_url, thumbnail, width, height, decision.license, author, year, categories)
 
 
 def _query(api: Api, params: Mapping[str, object]) -> dict:
@@ -337,17 +364,78 @@ def _distance_rank(page: object) -> int:
     return index if isinstance(index, int) else SEARCH_LIMIT + 1
 
 
-def fetch_nearby(api: Api, lat: float, lon: float) -> list:
-    """File pages near a point, closest first. An empty result is a normal answer."""
-    params = {
-        **_BASE_PARAMS,
+class NearbyResult(NamedTuple):
+    """The pages near a point, closest first, and whether their categories are whole."""
+
+    pages: list
+    categories_complete: bool
+
+
+def _continuation(payload: Mapping) -> dict[str, str] | None:
+    """The values to send back to keep the same batch, or None if there is no usable
+    clcontinue. Anything that would move to the next generator batch is ignored.
+    """
+    token = payload.get("continue")
+    if not isinstance(token, Mapping):
+        return None
+    cleaned: dict[str, str] = {}
+    for key in ("continue", "clcontinue"):
+        value = token.get(key)
+        if isinstance(value, str) and len(value) <= MAX_CONTINUE_VALUE_CHARS and value.isprintable():
+            cleaned[key] = value
+    return cleaned if "clcontinue" in cleaned else None
+
+
+def _merge_page(merged: dict, page: object) -> None:
+    """Fold a page from a continued response into what we have, by page id. A
+    continued response repeats a page with only some of its categories.
+    """
+    if not isinstance(page, Mapping):
+        return
+    key = page.get("pageid", page.get("title"))
+    if key is None:
+        return
+    have = merged.setdefault(key, {})
+    for field, value in page.items():
+        if field != "categories":
+            have.setdefault(field, value)
+            continue
+        known = have.setdefault("categories", [])
+        seen = {entry.get("title") for entry in known}
+        for entry in value if isinstance(value, list) else []:
+            if isinstance(entry, Mapping) and entry.get("title") not in seen:
+                known.append(entry)
+                seen.add(entry.get("title"))
+
+
+def fetch_nearby(api: Api, lat: float, lon: float, radius_m: int = SEARCH_RADIUS_M) -> NearbyResult:
+    """File pages near a point with their categories, closest first. An empty result
+    is a normal answer. If the categories don't fit in one response, up to
+    MAX_CATEGORY_CONTINUATIONS more requests fill them in; if the batch is still not
+    complete after that, categories_complete is False.
+    """
+    if not MIN_SEARCH_RADIUS_M <= radius_m <= MAX_SEARCH_RADIUS_M:
+        raise ValueError(f"radius must be {MIN_SEARCH_RADIUS_M} to {MAX_SEARCH_RADIUS_M} m")
+    params: dict[str, object] = {
+        **_SEARCH_PARAMS,
         "generator": "geosearch",
         "ggscoord": f"{lat}|{lon}",
-        "ggsradius": SEARCH_RADIUS_M,
+        "ggsradius": radius_m,
         "ggslimit": SEARCH_LIMIT,
         "ggsnamespace": FILE_NAMESPACE,
     }
-    return sorted(_pages(_query(api, params)), key=_distance_rank)
+    merged: dict = {}
+    for _attempt in range(MAX_CATEGORY_CONTINUATIONS + 1):
+        payload = _query(api, params)
+        for page in _pages(payload):
+            _merge_page(merged, page)
+        if payload.get("batchcomplete") is True:
+            return NearbyResult(sorted(merged.values(), key=_distance_rank), True)
+        follow = _continuation(payload)
+        if follow is None:
+            break
+        params = {**params, **follow}
+    return NearbyResult(sorted(merged.values(), key=_distance_rank), False)
 
 
 def normalise_title(title: str) -> str | None:

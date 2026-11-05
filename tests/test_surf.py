@@ -143,7 +143,7 @@ def test_lookup_helpers() -> None:
 
 
 def test_every_beach_gets_a_rating() -> None:
-    """Passing a beach dict rates all 56 beaches, not just the 13 named spots."""
+    """Passing a beach dict rates all 55 beaches, not just the 13 named spots."""
     by_name = {b["name"]: b for b in BEACHES}
     precisions = {"spot": 0, "region": 0}
     for beach in BEACHES:

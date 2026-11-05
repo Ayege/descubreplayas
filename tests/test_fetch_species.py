@@ -357,6 +357,7 @@ def test_failed_beach_is_reported_not_silently_missing() -> None:
     _check(_BEACH["name"] in data["beaches"] and bad["name"] not in data["beaches"], "the other beach is still written")
 
 
+@mock.patch.object(fs, "SKIP_BEACHES", {"Playa Maimón": "a test reason"})
 def test_skip_beaches() -> None:
     maimon = _beach("Playa Maimón")
     _check("Playa Maimón" in fs.SKIP_BEACHES and fs.SKIP_BEACHES["Playa Maimón"], "the skip has a reason")

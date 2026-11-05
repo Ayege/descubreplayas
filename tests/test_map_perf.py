@@ -28,6 +28,7 @@ from pathlib import Path
 
 import folium
 
+from dashboard import map_perf
 from dashboard.map_perf import CompactCircles, beach_from_map_click, run_parallel
 
 _BEACHES_PY = Path(__file__).resolve().parent.parent / "dashboard" / "beaches.py"
@@ -137,6 +138,41 @@ def test_beaches_script_uses_the_fast_paths() -> None:
     _check("prefer_canvas=True" in source, "the map should draw on a canvas")
     _check('_cached_surf_conditions((_pb["name"],))' not in source, "a card must not wait for its own surf request")
     _check("st.rerun" not in source.split("_on_map_click", 1)[1].split("st_folium(", 1)[0], "the callback needs no rerun")
+
+
+def test_smooth_moves_leave_the_visitors_own_zoom_alone() -> None:
+    fmap = folium.Map(location=[19.0, -69.8], zoom_start=7)
+    map_perf.SmoothMapMoves().add_to(fmap)
+    html = fmap.get_root().render()
+    _check("arguments.length!==2" in html, "only st_folium's two-argument call may fly")
+    _check("prefers-reduced-motion" in html, "reduced motion must jump")
+    _check(f"distanceTo(c)<{map_perf.FLY_MIN_DISTANCE_M}" in html, "flyTo fails if the centre doesn't move")
+    _check(f"b<{map_perf.FLY_AFTER_LOAD_MS}" in html, "the opening view must not fly")
+    _check(f"duration:{map_perf.FLY_DURATION_S}" in html, "the flight has a fixed length")
+    _check(html.index(fmap.get_name() + " = L.map") < html.index("m.setView=function"), "the map must exist first")
+    source = Path(map_perf.__file__).with_name("beaches.py").read_text(encoding="utf-8")
+    _check("SmoothMapMoves().add_to(m)" in source, "the dashboard's map uses it")
+
+
+def test_card_motion_replays_only_when_the_beach_changes() -> None:
+    a, b = map_perf.CARD_MOTION_A, map_perf.CARD_MOTION_B
+    _check(map_perf.next_card_motion(None, None, "X") == ("X", a), "the first card animates")
+    _check(map_perf.next_card_motion("X", a, "X") == ("X", a), "a rerun on the same beach doesn't")
+    _check(map_perf.next_card_motion("X", b, "X") == ("X", b), "whichever class it holds")
+    _check(map_perf.next_card_motion("X", a, "Y") == ("Y", b), "a new beach flips the class")
+    _check(map_perf.next_card_motion("Y", b, "Z") == ("Z", a), "and flips back")
+    _check(map_perf.next_card_motion("X", "junk", "X")[1] == a, "an unknown class falls back")
+
+
+def test_motion_css_respects_reduced_motion() -> None:
+    source = (Path(map_perf.__file__).with_name("beaches.py")).read_text(encoding="utf-8")
+    start = source.index("@media (prefers-reduced-motion: reduce)")
+    block = source[start:source.index("/* ── SEO helper iframe", start)]
+    for rule in (".beach-detail", "details::details-content", "animation: none", "transition: none"):
+        _check(rule in block, f"reduced motion must cover {rule}")
+    for name in (map_perf.CARD_MOTION_A, map_perf.CARD_MOTION_B):
+        _check(f".beach-detail.{name}" in source, f"{name} needs its CSS rule")
+    _check('[data-stale="true"]' in source, "the rerun flicker rule must stay")
 
 
 def main() -> int:

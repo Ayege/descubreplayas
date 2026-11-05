@@ -3,7 +3,7 @@
 > **POC** · Dominican Republic EEZ · Free-tier · ~$0/month
 
 Detects floating sargassum from satellite imagery, models its drift with ocean currents and wind, computes an arrival ETA for 11 DR coastal zones, and sends Telegram alerts to fishermen and hotels.
-Also ships a tourist **beach explorer** — 56 DR beaches with live sargassum risk, per-beach arrival time estimates, activities, wildlife, parking, and Google Maps links.
+Also ships a tourist **beach explorer** — 55 DR beaches with live sargassum risk, per-beach arrival time estimates, activities, wildlife, parking, and Google Maps links.
 An ML extended forecast layer adds 7 / 14 / 21-day outlooks that bridge the gap between the 72-hour physics drift model and monthly seasonal climatology.
 
 <p align="center">
@@ -45,7 +45,7 @@ python -m scripts.seed_beaches
 streamlit run dashboard/beaches.py
 ```
 
-Open http://localhost:8501 — you'll see the interactive tropical map with 56 DR beaches.
+Open http://localhost:8501 — you'll see the interactive tropical map with 55 DR beaches.
 
 > **To see detected sargassum on the map, the API has to be running too.** The
 > explorer reads masses from `GET /detections`, so with `API_BASE_URL` pointing
@@ -143,8 +143,8 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `pipeline/config.py`        | EEZ bbox, zones, thresholds, ML settings — all from env vars            |
 | `api/`                      | FastAPI: health, zones, forecasts, extended forecasts, beaches, Telegram |
 | `dashboard/beaches.py`      | Streamlit beach explorer (tropical UI, bilingual ES/EN)                  |
-| `dashboard/beaches_data.py` | 56-beach offline dataset (canonical, English — filters and API key on it) |
-| `dashboard/beaches_i18n.py` | Spanish display layer: 183 vocabulary terms + prose for all 56 beaches   |
+| `dashboard/beaches_data.py` | 55-beach offline dataset (canonical, English — filters and API key on it) |
+| `dashboard/beaches_i18n.py` | Spanish display layer: 183 vocabulary terms + prose for all 55 beaches   |
 | `dashboard/climatology.py`  | Caribbean monthly risk index (seasonal fallback)                         |
 | `dashboard/risk_overlay.py` | Live risk fetch + nearest-zone mapping                                   |
 | `dashboard/surf.py`         | Live surf/kite scoring from Open-Meteo wave + wind (no stored data)      |
@@ -182,7 +182,7 @@ Interactive docs at `/docs` when the API is running.
 | `forecasts`    | 72-h physics zone risk + ETA per pipeline run (with optional`horizons` JSON) |
 | `ml_forecasts` | ML extended forecasts per (zone, lead_days); unique on (run_at, zone, lead)    |
 | `subscribers`  | Telegram subscribers per zone                                                  |
-| `beaches`      | 56 DR beaches with metadata + PostGIS point geometry                           |
+| `beaches`      | 55 DR beaches with metadata + PostGIS point geometry                           |
 
 Risk levels: `none` · `low` · `medium` · `high`
 
@@ -359,9 +359,9 @@ Results are stored in the `ml_forecasts` table and served at `GET /forecast/exte
 
 The `dashboard/beaches.py` app provides an interactive tropical map with:
 
-- **56 DR beaches** catalogued with province, region, activities, wildlife, facilities, and Google Maps links.
+- **55 DR beaches** catalogued with province, region, activities, wildlife, facilities, and Google Maps links.
 - **"Go to beach" picker** — type-ahead search over the current results; picking one flies the map to it and opens its panel, so you never have to hunt for a pin.
-- **Accent-insensitive search** — "Bavaro" finds *Playa Bávaro*, "Aguilas" finds *Bahía de las Águilas*. 13 of the 56 names carry an accent, and Streamlit's own fuzzy filter does not fold diacritics, so each affected option also shows its plain spelling.
+- **Accent-insensitive search** — "Bavaro" finds *Playa Bávaro*, "Aguilas" finds *Bahía de las Águilas*. 12 of the 55 names carry an accent, and Streamlit's own fuzzy filter does not fold diacritics, so each affected option also shows its plain spelling.
 - **Auto-framing** — narrowing a filter (region, province, activity, risk) re-frames the map on what is left, computed in Web Mercator from the result set's bounds.
 - **Opens clean** — national map, no beach card. The panel appears only when you pick a beach, click a pin, or open a `?beach=…` link (which centres the map on it).
 - **Fully bilingual (ES/EN)** — not just the interface: every beach description, access note, ecosystem, activity, species and facility is translated. 183 vocabulary terms plus per-beach prose live in `dashboard/beaches_i18n.py`; `beaches_data.py` stays English because the filters, the API and the Supabase seeder all key on it.
@@ -410,7 +410,7 @@ demand from [Open-Meteo's free Marine and Forecast APIs](https://open-meteo.com/
 - **Kite/windsurf spots score differently**: wind *strength* is the resource
   rather than the spoiler, side-shore wind is ideal, and a straight-offshore
   wind is flagged unsafe (it blows a rider out to sea if they lose power).
-- **All 56 beaches are rated**, not just named spots. 13 curated surf/kite
+- **All 55 beaches are rated**, not just named spots. 13 curated surf/kite
   destinations use an individually calibrated shore orientation; every other
   beach falls back to its coastal region's orientation plus a
   sheltered/exposed read of its own `water_conditions` text, and the panel
@@ -486,7 +486,7 @@ Understanding these constraints is essential before relying on the system for pl
 
 | Limitation           | Detail                                                                                                              |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 11 zones, 56 beaches | Each beach is matched to its nearest zone by Haversine distance; no beach has its own independent forecast          |
+| 11 zones, 55 beaches | Each beach is matched to its nearest zone by Haversine distance; no beach has its own independent forecast          |
 | Max zone radius      | The largest gap before La Romana was added was 62 km (Bayahibe / Dominicus). La Romana zone now covers it at ~21 km |
 | Zone geometry        | All zones are simple square bounding boxes; real bay shapes and headlands are not modelled                          |
 
@@ -496,7 +496,7 @@ Understanding these constraints is essential before relying on the system for pl
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Untuned heuristic      | The size/direction/period/wind weighting is physically-grounded but has not been validated against reported surf | Treat the score as "is it worth the drive", not a substitute for looking at the water |
 | Shore-normal estimate  | Each curated spot's shore-facing angle is read off the coastline, accurate to roughly ±15°                       | Direction scoring can be off for spots close to that margin                          |
-| Region-level fallback  | 43 of 56 beaches have no curated spot and inherit their coastal region's orientation, not their own              | Marked "approximate" in the panel; a single cove can still face away from the regional norm |
+| Region-level fallback  | 42 of 55 beaches have no curated spot and inherit their coastal region's orientation, not their own              | Marked "approximate" in the panel; a single cove can still face away from the regional norm |
 | Offshore grid sampling | Open-Meteo's wave grid snaps to the nearest ocean cell, 9–20 km from some beaches                                | Correct for open-water swell, but not a literal beach-front reading; the panel shows the distance |
 
 ---
@@ -573,7 +573,7 @@ This project is licensed in two parts.
 | What | Licence | File |
 | --- | --- | --- |
 | **Code** — pipeline, API, dashboard, models | [Apache License 2.0](LICENSE) | `LICENSE` + [`NOTICE`](NOTICE) |
-| **Beach dataset** — the 56-beach catalogue and its Spanish translations | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | [`LICENSE-DATA.md`](LICENSE-DATA.md) |
+| **Beach dataset** — the 55-beach catalogue and its Spanish translations | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | [`LICENSE-DATA.md`](LICENSE-DATA.md) |
 
 © 2026 Ayesha Yege.
 

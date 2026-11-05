@@ -1036,11 +1036,12 @@ def coastal_unit_for(beach_name: str) -> CoastalUnit | None:
 
 
 def has_content(beach_name: str) -> dict[str, bool]:
-    """Which lenses have authored or API content, ignoring the catalogue lines."""
+    """Which parts have authored or API content, ignoring the catalogue lines."""
     knowledge = knowledge_for(beach_name)
     if not knowledge:
-        return {"vida": False, "roca": False, "historia": False}
+        return {"photo": False, "vida": False, "roca": False, "historia": False}
     return {
+        "photo": knowledge["photo"] is not None,
         "vida": bool(knowledge["species"]),
         "roca": knowledge["roca"] is not None,
         "historia": bool(knowledge["historia"]),

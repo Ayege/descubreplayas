@@ -122,3 +122,51 @@ class CompactCircles(MacroElement):
         self.rows_json = _json_for_script([[lat, lon, round(radius, 2), round(area, 4)] for lat, lon, radius, area in rows])
         self.style_json = _json_for_script(style)
         self.label_json = _json_for_script(label)
+
+
+FLY_DURATION_S = 1.0
+# The view the map opens with arrives right after it's built, and shouldn't fly.
+FLY_AFTER_LOAD_MS = 1500
+# flyTo divides by the distance moved, so it fails if the centre stays put.
+FLY_MIN_DISTANCE_M = 5
+
+
+class SmoothMapMoves(MacroElement):
+    """Fly to a new view instead of jumping, for moves the app asks for.
+
+    st_folium calls map.setView(center, zoom) on a live map. Leaflet's own calls (zoom
+    buttons, scroll wheel, panTo, fitBounds) always pass a third argument, so testing
+    for exactly two leaves the visitor's own panning and zooming untouched.
+    """
+
+    _template = Template(
+        "{% macro script(this, kwargs) %}"
+        "(function(){var m={{this._parent.get_name()}},o=m.setView,b=Date.now();"
+        "var r=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;"
+        "m.setView=function(c,z){"
+        "if(arguments.length!==2||r||Date.now()-b<{{this.after_load_ms}}"
+        "||m.getCenter().distanceTo(c)<{{this.min_distance_m}})return o.apply(m,arguments);"
+        "return m.flyTo(c,z,{duration:{{this.duration_s}}})}})();"
+        "{% endmacro %}"
+    )
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._name = "SmoothMapMoves"
+        self.duration_s = FLY_DURATION_S
+        self.after_load_ms = FLY_AFTER_LOAD_MS
+        self.min_distance_m = FLY_MIN_DISTANCE_M
+
+
+CARD_MOTION_A = "card-motion-a"
+CARD_MOTION_B = "card-motion-b"
+
+
+def next_card_motion(last_beach: str | None, last_class: str | None, beach: str) -> tuple[str, str]:
+    """The beach and animation class for this render. The class flips only when the
+    beach changes: a changed animation name replays the card's entrance, so an
+    unrelated rerun doesn't replay it.
+    """
+    if beach == last_beach and last_class in (CARD_MOTION_A, CARD_MOTION_B):
+        return beach, last_class
+    return beach, CARD_MOTION_B if last_class == CARD_MOTION_A else CARD_MOTION_A

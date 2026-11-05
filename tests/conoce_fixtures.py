@@ -34,6 +34,9 @@ LABELS = {
     "sand": "Arena",
     "sargassum_why": "Por qué llega",
     "sargassum_note": "Sargazo",
+    "reference_photo": "Foto de referencia",
+    "photo_by": "Foto de",
+    "licence": "Licencia",
 }
 
 
@@ -56,6 +59,25 @@ def photo() -> dict:
         "width": 96,
         "height": 96,
         "sha256": "a" * 64,
+    }
+
+
+def beach_photo(year: int | None = 2024) -> dict:
+    return {
+        "file": "beaches/" + "b" * 64 + ".webp",
+        "width": 480,
+        "height": 320,
+        "bytes": 30000,
+        "sha256": "b" * 64,
+        "author": "Autora de prueba",
+        "license": "cc-by-sa",
+        "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Prueba.jpg",
+        "source": "wikimedia_commons",
+        "taken_year": year,
+        "alt": loc("Palmeras y arena blanca", "Palm trees and white sand"),
+        "method": "curated",
+        "reviewed_at": "2026-11-05",
     }
 
 
