@@ -475,7 +475,7 @@ _T = {
         "report_title": "¿Estás en la playa? ¿Cuánto sargazo hay hoy?",
         "report_heading": "¿Estás en la playa?",
         "report_question": "¿Cuánto sargazo hay hoy en {beach}?",
-        "report_question_short": "¿Cuánto sargazo hay hoy?",
+        "report_question_short": "📣 ¿Estás aquí? ¿Cuánto sargazo hay hoy?",
         "report_none": "Nada",
         "report_low": "Poco",
         "report_medium": "Bastante",
@@ -629,7 +629,7 @@ _T = {
         "report_title": "At the beach? How much sargassum is there today?",
         "report_heading": "At the beach?",
         "report_question": "How much sargassum is at {beach} today?",
-        "report_question_short": "How much sargassum is there today?",
+        "report_question_short": "📣 Here now? How much sargassum is there today?",
         "report_none": "None",
         "report_low": "A little",
         "report_medium": "Quite a lot",
@@ -1283,27 +1283,41 @@ section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stMarkd
     section[data-testid="stMain"] div.st-key-beach_report_card { right: 288px; width: 248px !important; }
 }
 @media (max-width: 768px) {
+    /* Phones: a compact strip — one line of text, one row of chips. The send
+       button only appears once an option is chosen, so the strip stays
+       ~80 px tall until the visitor actually reports. */
     section[data-testid="stMain"] div.st-key-beach_report_card {
         top: auto !important; left: 8px !important; right: 8px !important;
-        bottom: calc(43vh + 8px) !important; width: auto !important;
-        gap: 10px !important; padding: 12px !important; border-radius: 16px;
+        bottom: calc(43vh + 6px) !important; width: auto !important;
+        gap: 8px !important; padding: 10px 10px 10px 12px !important; border-radius: 14px;
     }
-    /* The sheet below already names the beach: keep the strip short. */
+    .st-key-beach_report_card .report-card-title,
     .st-key-beach_report_card .report-card-sub { display: none; }
-    .st-key-beach_report_card [data-testid="stElementContainer"]:has(.report-card-note) { display: none !important; }
     .st-key-beach_report_card .report-card-sub-short {
-        display: block; color: #b2dfdb; font-family: 'Nunito', sans-serif; font-size: 12.5px;
+        display: block; color: #e0f7fa; font-family: 'Nunito', sans-serif;
+        font-size: 12.5px; font-weight: 800; line-height: 1.3;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .st-key-beach_report_card .report-card-title { font-size: 14px; }
+    .st-key-beach_report_card [data-testid="stElementContainer"]:has(.report-card-note) { display: none !important; }
     .st-key-beach_report_card [data-testid="stButtonGroup"] > div:last-child {
         grid-template-columns: repeat(4, 1fr); gap: 6px !important;
     }
-    .st-key-beach_report_card [data-testid="stButtonGroup"] button { min-height: 44px !important; padding: 6px 4px !important; }
-    .st-key-beach_report_card [data-testid="stButton"] button { min-height: 44px !important; }
+    .st-key-beach_report_card [data-testid="stButtonGroup"] button {
+        min-height: 36px !important; padding: 4px 2px !important; border-radius: 10px !important;
+    }
+    .st-key-beach_report_card [data-testid="stButtonGroup"] button p { font-size: 12px !important; }
+    .st-key-beach_report_card [data-testid="stElementContainer"]:has([data-testid="stButton"] button:disabled) {
+        display: none !important;
+    }
+    .st-key-beach_report_card [data-testid="stButton"] button {
+        min-height: 36px !important; border-radius: 10px !important;
+    }
+    .st-key-beach_report_card [data-testid="stButton"] button p { font-size: 13px !important; }
+    .st-key-beach_report_card .report-card-done { font-size: 12.5px; }
 }
 @media (max-width: 480px) {
-    section[data-testid="stMain"] div.st-key-beach_report_card { bottom: calc(42vh + 8px) !important; }
-    .st-key-beach_report_card [data-testid="stButtonGroup"] button p { font-size: 12px !important; }
+    section[data-testid="stMain"] div.st-key-beach_report_card { bottom: calc(42vh + 6px) !important; }
+    .st-key-beach_report_card [data-testid="stButtonGroup"] button p { font-size: 11.5px !important; }
 }
 
 /* ── Floating map legend (desktop: bottom-center) ── */
