@@ -346,6 +346,16 @@ Each beach on the map is matched to the **nearest monitoring zone** by Haversine
 The zone's risk level, ETA, and projected arrival timestamp are displayed in the beach detail panel, with the zone's **arrival probability** from the particle ensemble.
 Forecasts are refreshed every 6 hours when the pipeline runs.
 
+**One model on the page.** Everything the explorer shows for the next 72 h comes from the pipeline's particle drift:
+
+- beach colours, the card's risk, ETA and probability come from `beach_forecasts`; a visit date 1–3 days out sets the same horizon as the Now/+24/+48/+72 h selector;
+- masses are drawn where the drift estimates they are **now** (they may have been seen days earlier), with their particles' path to +24/+48/+72 h (`detections.track`); a mass too old to drift gets no invented path;
+- the "push toward / away from this shore" line uses the stored exposure from the same currents and wind (`beach_forecasts.exposure`);
+- the zone layer draws each zone's owned coastline (`zones.coast`), where its arrivals are counted;
+- past 72 h the map stops at the model's +72 h position, and beach colours switch to the extended per-zone forecast (or seasonal).
+
+The dashboard's own quick estimate (fixed regional currents) is used only when the API has no beach forecasts at all, and the card says so.
+
 **Beach exposure:** whether a beach faces the incoming sargassum matters as much as how close it is. Each beach's seaward direction (`shore_normal_deg` in `dashboard/surf_data.py`; region default for beaches without a curated spot) is compared with today's drift (regional current + wind). When the drift heads away from the beach's face, nearby sargassum counts one risk level lower (never below `low`), and the card says so; when it pushes straight on, the card says that too. The dashboard's quick drift uses 2 % windage (`DASHBOARD_WIND_DRIFT_FACTOR`) because its regional currents leave out Stokes drift.
 
 ### Step 5 — Telegram alerts (dispatch)

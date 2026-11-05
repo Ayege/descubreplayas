@@ -45,8 +45,11 @@ def ping() -> bool:
 
 
 def list_zones() -> list[dict[str, Any]]:
-    result = get_client().table("zones").select("id, name, center_lat, center_lon").order("id").execute()
-    return result.data or []
+    try:
+        rows = get_client().table("zones").select("id, name, center_lat, center_lon, coast").order("id").execute().data
+    except Exception:  # zones.coast missing before sql/schema.sql
+        rows = get_client().table("zones").select("id, name, center_lat, center_lon").order("id").execute().data
+    return rows or []
 
 
 _FC_COLS = "id, run_at, zone_id, zone_name, risk_level, eta_hours, eta_timestamp, horizons"
@@ -183,25 +186,17 @@ def insert_report(
 
 def list_beach_forecasts() -> list[dict[str, Any]]:
     """Latest pipeline forecast per beach (beach_forecasts_latest view)."""
-    result = (
-        get_client()
-        .table("beach_forecasts_latest")
-        .select("beach_name, zone_id, risk_level, eta_hours, arrival_probability, risk_probs, "
-                "horizons, run_at, model_version")
-        .order("beach_name")
-        .execute()
+    return _select(
+        "beach_forecasts_latest",
+        "beach_name, zone_id, risk_level, eta_hours, arrival_probability, risk_probs, "
+        "horizons, run_at, model_version", ", exposure",
+        lambda q: q.order("beach_name"),
     )
-    return result.data or []
 
 
 def list_detections(limit: int = 2000) -> list[dict[str, Any]]:
     """Return the latest pipeline run's detected sargassum masses (lat/lon + area)."""
-    result = (
-        get_client()
-        .table("detections_latest")
-        .select("id, run_at, lat, lon, area_km2, source")
-        .order("area_km2", desc=True)
-        .limit(limit)
-        .execute()
+    return _select(
+        "detections_latest", "id, run_at, lat, lon, area_km2, source", ", track",
+        lambda q: q.order("area_km2", desc=True).limit(limit),
     )
-    return result.data or []

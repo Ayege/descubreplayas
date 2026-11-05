@@ -103,7 +103,25 @@ def test_shore_exposure_and_adjustment() -> None:
     print("  exposure from shore orientation and drift: OK")
 
 
+def test_track_position() -> None:
+    from dashboard.risk_overlay import track_position
+    mass = {"lat": 18.7, "lon": -67.9, "track": [
+        {"h": 0, "lat": 18.6, "lon": -67.6, "ashore": 0.0},
+        {"h": 24, "lat": 18.5, "lon": -67.4, "ashore": 0.0},
+        {"h": 48, "lat": 18.4, "lon": -67.2, "ashore": 0.6},
+        {"h": 72, "lat": 18.4, "lon": -67.2, "ashore": 0.9}]}
+    assert track_position(mass, 0) == (18.6, -67.6, False)   # now, not the detected spot
+    lat, lon, ashore = track_position(mass, 12)
+    assert abs(lat - 18.55) < 1e-9 and abs(lon + 67.5) < 1e-9 and not ashore
+    assert track_position(mass, 48)[2] is True
+    assert track_position(mass, 500)[:2] == (18.4, -67.2)    # clamped to the track
+    assert track_position({"lat": 1, "lon": 2}, 24) is None
+    print("  pipeline track lookup: OK")
+
+
 def main() -> int:
+    print("test_track_position")
+    test_track_position()
     print("test_shore_exposure_and_adjustment")
     test_shore_exposure_and_adjustment()
     print("test_haversine_known_distance")

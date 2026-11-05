@@ -38,7 +38,8 @@ def _float_or_none(value) -> float | None:
 # yet, PostgREST rejects them; writes then retry without them instead of
 # losing the whole batch.
 _NEW_COLUMNS = {
-    "detections": ("observed_at", "covered_km2"),
+    "detections": ("observed_at", "covered_km2", "track"),
+    "beach_forecasts": ("exposure",),
     "forecasts": ("arrival_probability", "risk_probs", "model_version"),
     "ml_forecasts": ("probs", "model_version"),
 }
@@ -104,6 +105,7 @@ def upsert_detections(patches: list[dict]) -> list[dict]:
                 "source": p.get("source", config.DETECTION_SOURCE),
                 "observed_at": p.get("observed_at"),
                 "covered_km2": _float_or_none(p.get("covered_km2")),
+                "track": p.get("track"),
             }
         )
 
@@ -246,8 +248,9 @@ def insert_beach_forecasts(forecasts: list[dict], zone_map: dict[str, int]) -> i
         "risk_probs": f.get("risk_probs"),
         "horizons": f.get("horizons"),
         "model_version": f.get("model_version", config.DRIFT_MODEL_VERSION),
+        "exposure": f.get("exposure"),
     } for f in forecasts]
-    inserted = _client().table("beach_forecasts").insert(rows).execute().data or []
+    inserted = _write("beach_forecasts", rows)
     logger.info("insert_beach_forecasts: inserted %d row(s).", len(inserted))
     return len(inserted)
 

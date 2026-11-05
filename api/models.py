@@ -39,6 +39,9 @@ class ZoneResponse(BaseModel):
     name: str
     center_lat: float
     center_lon: float
+    # GeoJSON MultiLineString: the coastline this zone owns (where its
+    # arrivals are counted). None until the pipeline has stored it.
+    coast: Optional[dict] = None
 
 
 class ForecastResponse(BaseModel):
@@ -67,6 +70,8 @@ class BeachForecastResponse(BaseModel):
     horizons: Optional[list[dict]] = None
     run_at: str
     model_version: Optional[str] = None
+    # +1: the next 24 h of currents and wind push onto this beach; -1: away.
+    exposure: Optional[float] = None
 
 
 class DetectionResponse(BaseModel):
@@ -76,6 +81,9 @@ class DetectionResponse(BaseModel):
     lon: float
     area_km2: float
     source: Optional[str] = None
+    # Drift particles' median position now and at +24/+48/+72 h:
+    # [{"h", "lat", "lon", "ashore"}]. Absent for patches too old to drift.
+    track: Optional[list[dict]] = None
 
 
 class BeachResponse(BaseModel):

@@ -54,6 +54,7 @@ from dashboard.risk_overlay import (
     SHELTERED_BELOW,
     adjust_for_exposure,
     shore_exposure,
+    track_position,
     fetch_detections,
     fetch_live_risk,
     risk_for_beach,
@@ -427,7 +428,12 @@ _T = {
         "zone_legend": "Riesgo de sargazo (zonas)",
         "seasonal_badge": "Estimación estacional",
         "physics_badge": "Pronóstico (deriva)",
-        "method_physics": "Método: deriva física · Confianza alta",
+        "method_physics": "Método: estimación rápida con corrientes promedio (aún no hay pronóstico por playa)",
+        "method_particles": "Método: deriva de partículas con corrientes y viento reales (Copernicus, Open-Meteo) · actualizado cada 6 h",
+        "advice_none_model": "El modelo de deriva no prevé que llegue sargazo a esta playa en este horizonte.",
+        "horizon_from_date": "Horizonte fijado por la fecha elegida: +{h} h.",
+        "mass_track_pos": "Posición a +72 h (fin del modelo de deriva)",
+        "mass_track_route": "Ruta de deriva (72 h)",
         "method_seasonal": "Método: climatología estacional · Confianza: estimación",
         "seasonal_advisory": "Estimación basada en el ciclo anual típico del Caribe para este mes y costa. No es un pronóstico exacto.",
         "results": "{n} de {total} playas",
@@ -573,7 +579,12 @@ _T = {
         "zone_legend": "Sargassum risk (zones)",
         "seasonal_badge": "Seasonal estimate",
         "physics_badge": "Forecast (drift)",
-        "method_physics": "Method: physics drift · High confidence",
+        "method_physics": "Method: quick estimate with average currents (no per-beach forecast yet)",
+        "method_particles": "Method: particle drift with real currents and wind (Copernicus, Open-Meteo) · updated every 6 h",
+        "advice_none_model": "The drift model does not expect sargassum to reach this beach at this horizon.",
+        "horizon_from_date": "Horizon set by the chosen date: +{h} h.",
+        "mass_track_pos": "Position at +72 h (end of the drift model)",
+        "mass_track_route": "Drift path (72 h)",
         "method_seasonal": "Method: seasonal climatology · Confidence: estimate",
         "seasonal_advisory": "Estimate based on the Caribbean's typical annual cycle for this month and coast. Not an exact forecast.",
         "results": "{n} of {total} beaches",
@@ -1879,16 +1890,26 @@ def _ml_risk_for_zone(
     return best["risk_level"], float(best.get("confidence", 0.4)), best.get("method", "seasonal")
 
 
+_track_at = track_position  # pipeline drift track lookup (risk_overlay)
+
+
 def _masses_shifted_to(masses: list[dict], horizon: int) -> list[dict]:
     """Return `masses` with every position advected `horizon` hours ahead.
 
-    horizon=0 returns the masses unshifted (their current detected position).
+    Uses the pipeline's drift track when a mass has one (so horizon=0 is where
+    the mass is estimated to be NOW, not where it was seen); otherwise the
+    quick fixed-current estimate, with horizon=0 the detected position.
     """
-    if horizon <= 0:
-        return masses
     _wu, _wv = _WIND_UV
     shifted: list[dict] = []
     for _m in masses:
+        _tp = _track_at(_m, horizon)
+        if _tp is not None:
+            shifted.append({**_m, "lat": _tp[0], "lon": _tp[1]})
+            continue
+        if horizon <= 0:
+            shifted.append(_m)
+            continue
         try:
             _plat, _plon = _predict_position(
                 float(_m["lat"]), float(_m["lon"]), horizon, _wu, _wv
@@ -1922,6 +1943,10 @@ def _beach_exposure(beach: dict) -> float | None:
     """How squarely today's drift (regional current + wind) hits this beach's
     face: +1 onto it, -1 away from it (see risk_overlay.shore_exposure)."""
     name = beach["name"]
+    _bf = _BEACH_FC.get(name)
+    if _bf is not None and _bf.get("exposure") is not None:
+        # The pipeline's value: next 24 h of the real currents and wind.
+        return float(_bf["exposure"])
     if name not in _EXPOSURE_CACHE:
         try:
             normal = surf_profile(beach)["shore_normal_deg"]
@@ -2386,7 +2411,7 @@ with st.sidebar:
         if sel_date is not None:
             _days_ahead = (sel_date - _today).days
             if 0 <= _days_ahead <= 3:
-                st.caption("🔬 " + L["method_physics"])
+                st.caption("🔬 " + L["method_particles"])
             elif 4 <= _days_ahead <= 21:
                 _has_ml = bool(_ml_forecasts)
                 _ml_src = "ML" if _has_ml else ("Climatología" if lang == "es" else "Climatology")
@@ -2423,6 +2448,12 @@ with st.sidebar:
                 help=L["horizon_note"],
             )
             SEL_HORIZON: int | None = _HORIZON_OPTS[_h_label]
+            # A visit date 1-3 days out IS a horizon. Use it for beach colours,
+            # the card and the map alike, so the date and the horizon selector
+            # can never show two different forecasts.
+            if sel_date is not None and 1 <= (sel_date - _today).days <= 3:
+                SEL_HORIZON = (sel_date - _today).days * 24
+                st.caption(L["horizon_from_date"].format(h=SEL_HORIZON))
         else:
             SEL_HORIZON = None
         st.caption(L["season_note"])
@@ -3060,19 +3091,7 @@ if show_zones and zones:
                 )
             )
 
-        # Draw bounding box rectangle
-        folium.Rectangle(
-            bounds=[
-                [_clat - _ZONE_BOX_DEG, _clon - _ZONE_BOX_DEG],
-                [_clat + _ZONE_BOX_DEG, _clon + _ZONE_BOX_DEG],
-            ],
-            color=_z_color,
-            fill=True,
-            fill_color=_z_color,
-            fill_opacity=0.18,
-            weight=2,
-            dash_array="6 4",
-            popup=folium.Popup(
+        _z_popup = folium.Popup(
                 f"<div style='font-family:Nunito,sans-serif;min-width:180px;"
                 f"background:linear-gradient(135deg,#003540,#005f6e);border-radius:12px;"
                 f"padding:12px 14px;color:#e0f7fa'>"
@@ -3084,9 +3103,33 @@ if show_zones and zones:
                 + _z_extra
                 + f"</div>",
                 max_width=220,
-            ),
-            tooltip=f"🌊 {_z['name']} — {_z_label}",
-        ).add_to(m)
+            )
+        _z_tip = f"🌊 {_z['name']} — {_z_label}"
+        if _z.get("coast"):
+            # The coastline this zone owns: where the drift model counts
+            # its arrivals. Drawn instead of the old square box, which no
+            # longer decides anything.
+            folium.GeoJson(
+                _z["coast"],
+                style_function=lambda _f, _c=_z_color: {"color": _c, "weight": 6, "opacity": 0.85},
+                popup=_z_popup,
+                tooltip=_z_tip,
+            ).add_to(m)
+        else:
+            folium.Rectangle(
+                bounds=[
+                    [_clat - _ZONE_BOX_DEG, _clon - _ZONE_BOX_DEG],
+                    [_clat + _ZONE_BOX_DEG, _clon + _ZONE_BOX_DEG],
+                ],
+                color=_z_color,
+                fill=True,
+                fill_color=_z_color,
+                fill_opacity=0.18,
+                weight=2,
+                dash_array="6 4",
+                popup=_z_popup,
+                tooltip=_z_tip,
+            ).add_to(m)
 
         # Zone centre pin
         folium.CircleMarker(
@@ -3137,18 +3180,45 @@ if show_masses:
 
         _mass_group = folium.FeatureGroup(name="Sargazo", show=True)
         _mass_rows: list[tuple[float, float, float, float]] = []
+        # Once the pipeline publishes tracks, a mass without one was too old
+        # to drift: show where it was seen, but invent no path for it.
+        _has_tracks = any(_m.get("track") for _m in _masses)
         for _d in _masses:
             try:
                 _a = float(_d.get("area_km2", 0.0))
             except (TypeError, ValueError):
                 _a = 0.0
             _lat0, _lon0 = float(_d["lat"]), float(_d["lon"])
+            # With a pipeline track, the dot shows where the mass is estimated
+            # to be NOW (it may have been seen days ago), and the trail follows
+            # the real-current particles instead of a fixed westward current.
+            _tp0 = _track_at(_d, 0)
+            if _tp0 is not None:
+                _lat0, _lon0 = _tp0[0], _tp0[1]
             # Radius scales with area (sqrt so big masses don't dominate); clamp 3–18 px.
             _r = max(3.0, min(18.0, 3.0 + (_a ** 0.5) * 4.0))
 
-            if _show_drift:
+            if _show_drift and (_tp0 is not None or not _has_tracks):
                 _landed = False
-                if _ml_drift_mode:
+                if _ml_drift_mode and _tp0 is not None:
+                    # Beyond 72 h there is no drift forecast: show the model's
+                    # own path to +72 h and stop there. The beaches' colours
+                    # come from the extended per-zone forecast instead.
+                    _trail = [[_lat0, _lon0]]
+                    for _ch in (24, 48, 72):
+                        _tp = _track_at(_d, _ch)
+                        _trail.append([_tp[0], _tp[1]])
+                    folium.PolyLine(
+                        _trail, color="#7b1fa2", weight=1.5, opacity=0.45, dash_array="6 6",
+                        tooltip=f"🟣 {L['mass_track_route']} · {_a:.2f} km²",
+                    ).add_to(_mass_group)
+                    folium.CircleMarker(
+                        location=_trail[-1], radius=max(3.0, _r - 2), color="#7b1fa2",
+                        fill=True, fill_color="#ce93d8", fill_opacity=0.45, weight=1.0,
+                        tooltip=f"🟣 {L['mass_track_pos']} · {_a:.2f} km²",
+                    ).add_to(_mass_group)
+                    _landed = True  # no orange "estimated position" ghost beyond the model
+                elif _ml_drift_mode:
                     # ML / speculative mode — build a multi-segment trail with
                     # checkpoints every 7 days so the path is visible but not
                     # overcrowded. Trail color shifts from brown → purple to
@@ -3212,9 +3282,14 @@ if show_masses:
                     _checkpoints = sorted({24, 48, _drift_h} & {h for h in [24, 48, 72] if h <= _drift_h})
                     _trail = [[_lat0, _lon0]]
                     for _ch in _checkpoints:
-                        _pl, _pn = _predict_position(_lat0, _lon0, _ch)
+                        _tp = _track_at(_d, _ch)
+                        if _tp is not None:
+                            _pl, _pn, _ashore = _tp
+                        else:
+                            _pl, _pn = _predict_position(_lat0, _lon0, _ch)
+                            _ashore = _reaches_land(_pl, _pn)
                         _trail.append([_pl, _pn])
-                        if _reaches_land(_pl, _pn):
+                        if _ashore:
                             _landed = True
                             break
 
@@ -3284,7 +3359,7 @@ else:
 if _show_drift_legend:
     if _ml_drift_mode:
         _drift_days = _drift_h // 24
-        _drift_label = f"Pos. especulativa ML (+{_drift_days}d)" if lang == "es" else f"ML speculative pos. (+{_drift_days}d)"
+        _drift_label = L["mass_track_pos"]
         legend_html += (
             f"<div style='margin-top:6px;padding-top:5px;border-top:1px solid #cfd8dc'>"
             f"<div style='font-weight:800;font-size:11px;color:#5e35b1;margin-bottom:3px'>"
@@ -3295,7 +3370,7 @@ if _show_drift_legend:
             f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
             f"<div style='width:16px;height:10px;background:#e1bee7;border:1.5px dashed #7b1fa2;border-radius:50%'></div>"
             f"<span style='font-size:11px;color:#37474f'>{_drift_label}</span></div>"
-            f"<div style='font-size:9.5px;color:#78909c;margin-top:3px'>{'⚠️ Incertidumbre alta — solo indica dirección' if lang == 'es' else '⚠️ High uncertainty — indicates direction only'}</div>"
+            f"<div style='font-size:9.5px;color:#78909c;margin-top:3px'>{'El color de las playas usa el pronóstico extendido por zona' if lang == 'es' else 'Beach colours use the extended per-zone forecast'}</div>"
             f"</div>"
         )
     else:
@@ -3306,7 +3381,7 @@ if _show_drift_legend:
             f"{'Sargazo — deriva' if lang == 'es' else 'Sargassum — drift'}</div>"
             f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
             f"<div style='width:16px;height:10px;background:#795548;border-radius:50%'></div>"
-            f"<span style='font-size:11px;color:#37474f'>{'Posición actual' if lang == 'es' else 'Current position'}</span></div>"
+            f"<span style='font-size:11px;color:#37474f'>{'Posición estimada ahora' if lang == 'es' else 'Estimated position now'}</span></div>"
             f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
             f"<div style='width:16px;height:10px;background:#ffcc80;border:1.5px dashed #ff8f00;border-radius:50%'></div>"
             f"<span style='font-size:11px;color:#37474f'>{_drift_label} (+{_drift_h}h)</span></div>"
@@ -3488,6 +3563,9 @@ if _panel_beach:
         _emoji = RISK_EMOJI.get(_risk_level, "⚪")
         _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("", ""))
         _advice = _advice_en if lang == "en" else _advice_es
+        _has_bfc = _pb["name"] in _BEACH_FC
+        if _has_bfc and _risk_level == "none":
+            _advice = L["advice_none_model"]
 
         # ETA lines — per-beach drift estimate (primary) + zone run timestamp
         _eta_line = ""
@@ -3625,7 +3703,7 @@ if _panel_beach:
             + _physics_extra_html +
             f"<div style='color:#80cbc4;font-size:10px;border-top:1px solid "
             f"rgba(255,255,255,.1);padding-top:5px;margin-top:5px'>"
-            f"{L['method_physics']}</div>"
+            f"{L['method_particles'] if _has_bfc else L['method_physics']}</div>"
             f"</div>"
         )
     else:

@@ -258,6 +258,13 @@ do $$ begin
   end if;
 end $$;
 
+-- Where each patch's drift particles are now and at +24/+48/+72 h
+-- ([{"h", "lat", "lon", "ashore"}]), and how squarely the next 24 h of real
+-- currents and wind hit each beach (+1 onto it, -1 away). The map and the
+-- beach card draw these instead of guessing with fixed regional currents.
+alter table detections      add column if not exists track jsonb;
+alter table beach_forecasts add column if not exists exposure double precision;
+
 -- The stretch of coast each zone owns (arrivals are counted there). `geom`
 -- keeps the original display boxes, which no longer decide anything.
 alter table zones add column if not exists coast geometry(multilinestring, 4326);
@@ -437,7 +444,8 @@ select
     area_km2,
     source,
     observed_at,
-    covered_km2
+    covered_km2,
+    track
 from detections
 where run_at = (select max(run_at) from detections);
 
