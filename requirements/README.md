@@ -31,6 +31,7 @@ uv pip install --python .venv-ingest/bin/python --require-hashes -r requirements
 .venv-ingest/bin/python scripts/fetch_species.py --dry-run --beach "Playa Bávaro"
 .venv-ingest/bin/python -m tests.test_fetch_species
 .venv-ingest/bin/python -m tests.test_image_pipeline
+.venv-ingest/bin/python -m tests.test_beach_photos
 ```
 
 `scripts/_images.py` refuses to import under an older Pillow, so using the wrong

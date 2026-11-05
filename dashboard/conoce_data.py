@@ -329,14 +329,14 @@ class BeachKnowledge(TypedDict):
 Checker = Callable[[object], list[str]]
 
 
-def is_safe_url(url: object) -> bool:
+def is_safe_url(url: object, max_chars: int = MAX_URL_CHARS) -> bool:
     """True for an https URL with a host and no credentials or odd characters.
 
     Whitespace and control characters are refused before parsing because
     urlsplit silently strips some of them; backslashes because browsers treat
     them as slashes, which changes which host a URL really points to.
     """
-    if not isinstance(url, str) or not url or len(url) > MAX_URL_CHARS:
+    if not isinstance(url, str) or not url or len(url) > max_chars:
         return False
     if _URL_FORBIDDEN_CHARS.intersection(url) or not url.isprintable():
         return False

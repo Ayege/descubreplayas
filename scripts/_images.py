@@ -44,7 +44,7 @@ from dashboard.conoce_data import (
     THUMBNAIL_FILE_PX,
     is_safe_url,
 )
-from scripts._http import Api, get_bytes
+from scripts._http import RETRY_STATUSES, Api, get_bytes
 
 MIN_PILLOW_MAJOR = 13
 if int(PIL.__version__.split(".")[0]) < MIN_PILLOW_MAJOR:
@@ -54,6 +54,9 @@ if int(PIL.__version__.split(".")[0]) < MIN_PILLOW_MAJOR:
     )
 
 MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024
+# Longer than MAX_URL_CHARS, which is for URLs we store. Download URLs aren't stored,
+# and a Commons thumbnail URL contains the file name twice.
+MAX_DOWNLOAD_URL_CHARS = 1000
 MAX_IMAGE_PIXELS = 25_000_000
 DOWNLOAD_DELAY_S = 0.2
 
@@ -68,6 +71,8 @@ PHOTO_START_QUALITY = 85
 PHOTO_MIN_QUALITY = 50
 PHOTO_QUALITY_STEP = 5
 _WEBP_METHOD = 6
+# Temp files start private, but a stored image has to be readable by the web server.
+_STORED_FILE_MODE = 0o644
 
 # Only these formats can be decoded, which keeps the other decoders out of reach.
 _PILLOW_FORMATS = ("JPEG", "PNG", "WEBP")
@@ -107,19 +112,24 @@ def _kind_from_magic(data: bytes) -> str | None:
 
 
 def _check_host(url: str, hosts: Collection[str]) -> None:
-    if not is_safe_url(url):
+    if not is_safe_url(url, MAX_DOWNLOAD_URL_CHARS):
         raise ImageError("unsafe image URL")
     parts = urlsplit(url)
     if parts.hostname not in hosts or parts.port not in (None, 443):
         raise ImageError(f"host not on the download allowlist: {parts.hostname}")
 
 
-def download(api: Api, url: str, hosts: Collection[str]) -> bytes:
+def download(
+    api: Api,
+    url: str,
+    hosts: Collection[str],
+    retry_statuses: frozenset[int] = RETRY_STATUSES,
+) -> bytes:
     """Fetch an image from an allowlisted host. The HTTP client follows no redirects,
     so a redirect to another host is refused rather than followed.
     """
     _check_host(url, hosts)
-    data, content_type = get_bytes(api, url, DOWNLOAD_DELAY_S, MAX_DOWNLOAD_BYTES)
+    data, content_type = get_bytes(api, url, DOWNLOAD_DELAY_S, MAX_DOWNLOAD_BYTES, retry_statuses)
     declared = _ALLOWED_CONTENT_TYPES.get(content_type.split(";")[0].strip().lower())
     if declared is None:
         raise ImageError(f"Content-Type not allowed: {content_type[:40]}")
@@ -195,6 +205,7 @@ def save(data: bytes, subdir: str, static_dir: Path) -> tuple[str, str]:
         with tempfile.NamedTemporaryFile(dir=folder, suffix=".tmp", delete=False) as handle:
             handle.write(data)
         try:
+            os.chmod(handle.name, _STORED_FILE_MODE)
             os.replace(handle.name, path)
         except OSError:
             Path(handle.name).unlink(missing_ok=True)

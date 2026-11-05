@@ -15,6 +15,7 @@ sargapp-499614-79c16e0890e7.json
 .venv-ingest/
 info/prompts*.md
 info/sargapp.md
+info/photo_candidates.md
 CLAUDE.md
 .DS_Store
 

@@ -289,6 +289,12 @@ def test_cleanup_only_touches_species_hash_files() -> None:
         _check(img.remove_orphans(root / "none", set(), dry_run=False) == [], "a missing folder is fine")
 
 
+def test_saved_files_are_world_readable() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        relative, _digest = img.save(b"data", img.SUBDIR_BEACHES, Path(tmp))
+        _check((Path(tmp) / relative).stat().st_mode & 0o777 == 0o644, "the web server must be able to read it")
+
+
 def test_refuses_an_older_pillow() -> None:
     _check(int(img.PIL.__version__.split(".")[0]) >= img.MIN_PILLOW_MAJOR, "this suite must run on Pillow 13")
     source = (Path(img.__file__)).read_text(encoding="utf-8")

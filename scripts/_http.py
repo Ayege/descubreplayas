@@ -40,12 +40,17 @@ INATURALIST_DELAY_S = 1.1  # iNaturalist asks for about one request per second.
 MAX_ATTEMPTS = 3
 BACKOFF_BASE_S = 3.0
 MAX_RETRY_WAIT_S = 60.0
-RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+HTTP_TOO_MANY_REQUESTS = 429
+RETRY_STATUSES = frozenset({HTTP_TOO_MANY_REQUESTS, 500, 502, 503, 504})
 HTTP_OK = 200
 
 
 class FetchError(Exception):
     """A request failed for good, or its response could not be trusted."""
+
+
+class RateLimited(FetchError):
+    """HTTP 429 from a caller that asked not to retry it."""
 
 
 @dataclass(frozen=True)
@@ -75,7 +80,7 @@ def _read_capped(response: httpx.Response, max_bytes: int) -> bytes:
     return bytes(body)
 
 
-def _retry_wait(headers: Mapping[str, str], attempt: int) -> float:
+def retry_wait(headers: Mapping[str, str], attempt: int) -> float:
     """Honour Retry-After; otherwise back off exponentially, with jitter."""
     try:
         wait = float(headers.get("Retry-After", ""))
@@ -101,10 +106,11 @@ def _request(
     no_match: Callable[[int, bytes], bool] | None,
     delay: float,
     max_bytes: int,
-) -> tuple[bytes, str] | None:
-    """One GET, retrying only 429 and 5xx, at most MAX_ATTEMPTS times.
+    retry_statuses: frozenset[int] = RETRY_STATUSES,
+) -> tuple[bytes, Mapping[str, str]] | None:
+    """One GET, retrying only retry_statuses, at most MAX_ATTEMPTS times.
 
-    Returns the body and its Content-Type, or None when no_match recognises a failure
+    Returns the body and its headers, or None when no_match recognises a failure
     response that really means "nothing found", which is not retried.
     """
     for attempt in range(MAX_ATTEMPTS):
@@ -113,13 +119,14 @@ def _request(
             body = _read_capped(response, max_bytes)
             status, headers = response.status_code, response.headers
         if status == HTTP_OK:
-            return body, headers.get("Content-Type", "")
+            return body, headers
         if no_match and no_match(status, body):
             return None
-        if status not in RETRY_STATUSES:
-            raise FetchError(f"{url} returned HTTP {status}")
-        logger.warning("fetch_species: %s returned HTTP %s, attempt %s", url, status, attempt + 1)
-        api.sleep(_retry_wait(headers, attempt))
+        if status not in retry_statuses:
+            kind = RateLimited if status == HTTP_TOO_MANY_REQUESTS else FetchError
+            raise kind(f"{url} returned HTTP {status}")
+        logger.warning("http: %s returned HTTP %s, attempt %s", url, status, attempt + 1)
+        api.sleep(retry_wait(headers, attempt))
     raise FetchError(f"{url} kept failing after {MAX_ATTEMPTS} attempts")
 
 
@@ -135,8 +142,27 @@ def get_json(
     return {} if result is None else _parse_object(result[0])
 
 
-def get_bytes(api: Api, url: str, delay: float, max_bytes: int) -> tuple[bytes, str]:
-    """GET a binary body and its Content-Type, aborting above max_bytes."""
-    result = _request(api, url, None, None, delay, max_bytes)
+def get_json_with_headers(
+    api: Api,
+    url: str,
+    params: Mapping[str, Any],
+    delay: float,
+    retry_statuses: frozenset[int] = RETRY_STATUSES,
+) -> tuple[dict, Mapping[str, str]]:
+    """GET one JSON object and its headers, for APIs that signal through both."""
+    result = _request(api, url, params, None, delay, MAX_RESPONSE_BYTES, retry_statuses)
     assert result is not None  # no_match is None, so _request always returns a body
-    return result
+    return _parse_object(result[0]), result[1]
+
+
+def get_bytes(
+    api: Api,
+    url: str,
+    delay: float,
+    max_bytes: int,
+    retry_statuses: frozenset[int] = RETRY_STATUSES,
+) -> tuple[bytes, str]:
+    """GET a binary body and its Content-Type, aborting above max_bytes."""
+    result = _request(api, url, None, None, delay, max_bytes, retry_statuses)
+    assert result is not None  # no_match is None, so _request always returns a body
+    return result[0], result[1].get("Content-Type", "")
