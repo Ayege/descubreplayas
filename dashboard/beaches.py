@@ -473,12 +473,15 @@ _T = {
         "disclaimer_title": "⚠️ Aviso importante",
         "disclaimer_short": "Estimación, no es un aviso oficial.",
         "report_title": "¿Estás en la playa? ¿Cuánto sargazo hay hoy?",
+        "report_heading": "¿Estás en la playa?",
+        "report_question": "¿Cuánto sargazo hay hoy en {beach}?",
+        "report_question_short": "📣 ¿Estás aquí? ¿Cuánto sargazo hay hoy?",
         "report_none": "Nada",
         "report_low": "Poco",
         "report_medium": "Bastante",
         "report_high": "Mucho",
         "report_send": "Enviar reporte",
-        "report_help": "Tu reporte se compara con el pronóstico para mejorarlo. Solo guardamos la playa, la fecha y la cantidad: nada personal.",
+        "report_help": "Tu reporte ayuda a mejorar el pronóstico. Solo guardamos la playa, la fecha y la cantidad.",
         "report_thanks": "¡Gracias! Tu reporte de hoy ayuda a mejorar el pronóstico.",
         "report_error": "No se pudo enviar el reporte. Inténtalo de nuevo en un momento.",
         "disclaimer_body": "Esta herramienta ofrece <b>estimaciones automáticas</b> de sargazo a partir de imágenes satelitales y modelos de corrientes. <b>No es un aviso oficial</b> ni sustituye a las autoridades competentes.<br><br>• Las detecciones pueden tener <b>días de antigüedad</b> por la nubosidad y el ciclo de paso del satélite.<br>• Los pronósticos de llegada son aproximados y pierden fiabilidad más allá de 72 h.<br>• Los datos de playas (acceso, tarifas, servicios) son observaciones que cambian con el tiempo.<br><br><b>No tomes decisiones de seguridad basándote solo en esta información.</b> Consulta a las autoridades locales, los salvavidas y las banderas de la playa. El servicio se ofrece «tal cual», sin garantías de ningún tipo.",
@@ -624,12 +627,15 @@ _T = {
         "disclaimer_title": "⚠️ Important notice",
         "disclaimer_short": "An estimate, not an official advisory.",
         "report_title": "At the beach? How much sargassum is there today?",
+        "report_heading": "At the beach?",
+        "report_question": "How much sargassum is at {beach} today?",
+        "report_question_short": "📣 Here now? How much sargassum is there today?",
         "report_none": "None",
         "report_low": "A little",
         "report_medium": "Quite a lot",
         "report_high": "A lot",
         "report_send": "Send report",
-        "report_help": "Your report is compared with the forecast to improve it. We only store the beach, the date and the amount: nothing personal.",
+        "report_help": "Your report helps improve the forecast. We only store the beach, the date and the amount.",
         "report_thanks": "Thank you! Today's report helps improve the forecast.",
         "report_error": "The report could not be sent. Please try again in a moment.",
         "disclaimer_body": "This tool provides <b>automated estimates</b> of sargassum from satellite imagery and ocean-current models. It is <b>not an official advisory</b> and does not replace the competent authorities.<br><br>• Detections may be <b>several days old</b> because of cloud cover and the satellite revisit cycle.<br>• Arrival forecasts are approximate and lose reliability beyond 72 h.<br>• Beach details (access, fees, facilities) are observations that change over time.<br><br><b>Do not make safety decisions based on this information alone.</b> Check local authorities, lifeguards and beach flags. The service is provided «as is», without warranties of any kind.",
@@ -1184,6 +1190,136 @@ iframe[title="streamlit_folium.st_folium"] {
     color: #b2ebf2 !important; font-weight: 700 !important; font-size: 12px !important;
 }
 
+/* ── Visitor report card: its own floating card beside the beach card ──
+   Desktop/tablet: to the LEFT of the beach card (295 px wide at right:16px;
+   260 px under 1024 px). Phones: a full-width strip just above the beach
+   card's bottom sheet, options in one row of large touch targets.
+   The selectors start with section[data-testid="stMain"] because the app
+   zeroes every main-area flex gap (see "Kill the flex GAP" above), and
+   Streamlit gives each markdown block a -1rem bottom margin that the normal
+   gap would have absorbed: without both overrides text overlaps the buttons
+   and the card's last line is clipped. */
+section[data-testid="stMain"] div.st-key-beach_report_card {
+    position: fixed !important; top: 60px; right: 323px; z-index: 99999;
+    width: 272px !important; box-sizing: border-box;
+    display: flex !important; flex-direction: column; gap: 12px !important;
+    padding: 16px !important;
+    background: linear-gradient(160deg,#001f26 0%,#003540 45%,#005060 100%);
+    border-radius: 22px;
+    box-shadow: 0 12px 50px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.1);
+    animation: beach-card-a .22s ease-out;
+}
+section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stElementContainer"],
+section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stMarkdown"],
+section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stMarkdownContainer"] {
+    margin: 0 !important; width: 100% !important;
+}
+.st-key-beach_report_card .report-card-head { display: flex; flex-direction: column; gap: 4px; }
+.st-key-beach_report_card .report-card-title {
+    color: #fff; font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 900; line-height: 1.25;
+}
+.st-key-beach_report_card .report-card-sub {
+    color: #b2dfdb; font-family: 'Nunito', sans-serif; font-size: 12.5px; line-height: 1.4;
+}
+.st-key-beach_report_card .report-card-sub-short { display: none; }
+.st-key-beach_report_card .report-card-note {
+    color: #8aa4ab; font-family: 'Nunito', sans-serif; font-size: 10.5px; line-height: 1.4;
+}
+.st-key-beach_report_card .report-card-done {
+    color: #a5d6a7; font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; line-height: 1.4;
+}
+.st-key-beach_report_card .report-card-error {
+    color: #ffcc80; font-family: 'Nunito', sans-serif; font-size: 12px; line-height: 1.4;
+}
+/* Options: equal-width 2x2 grid of 40 px targets (one row on phones),
+   spanning the card's full width. */
+.st-key-beach_report_card [data-testid="stButtonGroup"] { width: 100% !important; }
+.st-key-beach_report_card [data-testid="stButtonGroup"] > div:last-child {
+    display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important;
+    width: 100% !important; max-width: none !important;
+}
+.st-key-beach_report_card [data-testid="stButtonGroup"] > div:last-child > * {
+    justify-self: stretch; min-width: 0;
+}
+.st-key-beach_report_card [data-testid="stButtonGroup"] button {
+    width: 100% !important; min-height: 40px !important; margin: 0 !important;
+    padding: 6px 8px !important; border-radius: 12px !important;
+    background: rgba(255,255,255,.07) !important;
+    border: 1px solid rgba(255,255,255,.20) !important;
+    transition: background .15s ease, border-color .15s ease;
+}
+.st-key-beach_report_card [data-testid="stButtonGroup"] button:hover {
+    background: rgba(255,255,255,.13) !important;
+}
+.st-key-beach_report_card [data-testid="stButtonGroup"] button p {
+    color: #e0f7fa !important; font-size: 13px !important; font-weight: 700 !important;
+}
+/* Selected option: clearly filled, not just a lighter border. */
+.st-key-beach_report_card [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"],
+.st-key-beach_report_card [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"]:hover {
+    background: rgba(0,200,150,.35) !important; border: 1.5px solid #4dd0b0 !important;
+    box-shadow: 0 0 0 1px rgba(77,208,176,.35) inset;
+}
+.st-key-beach_report_card [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] p {
+    color: #fff !important; font-weight: 900 !important;
+}
+/* Primary action: full width, 40 px. */
+.st-key-beach_report_card [data-testid="stButton"] button {
+    width: 100% !important; min-height: 40px !important; border-radius: 12px !important;
+    background: linear-gradient(135deg,#00a884,#007a66) !important;
+    border: 1px solid rgba(0,255,180,.35) !important;
+}
+.st-key-beach_report_card [data-testid="stButton"] button p {
+    color: #fff !important; font-weight: 800 !important; font-size: 13.5px !important;
+}
+.st-key-beach_report_card [data-testid="stButton"] button:disabled {
+    background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
+}
+.st-key-beach_report_card [data-testid="stButton"] button:disabled p { color: rgba(224,247,250,.5) !important; }
+.st-key-beach_report_card button:focus-visible {
+    outline: 2px solid #80cbc4 !important; outline-offset: 2px;
+}
+@media (max-width: 1024px) {
+    section[data-testid="stMain"] div.st-key-beach_report_card { right: 288px; width: 248px !important; }
+}
+@media (max-width: 768px) {
+    /* Phones: a compact strip — one line of text, one row of chips. The send
+       button only appears once an option is chosen, so the strip stays
+       ~80 px tall until the visitor actually reports. */
+    section[data-testid="stMain"] div.st-key-beach_report_card {
+        top: auto !important; left: 8px !important; right: 8px !important;
+        bottom: calc(36vh + 6px) !important; width: auto !important;
+        gap: 6px !important; padding: 8px 8px 8px 10px !important; border-radius: 14px;
+    }
+    .st-key-beach_report_card .report-card-title,
+    .st-key-beach_report_card .report-card-sub { display: none; }
+    .st-key-beach_report_card .report-card-sub-short {
+        display: block; color: #e0f7fa; font-family: 'Nunito', sans-serif;
+        font-size: 12.5px; font-weight: 800; line-height: 1.3;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .st-key-beach_report_card [data-testid="stElementContainer"]:has(.report-card-note) { display: none !important; }
+    .st-key-beach_report_card [data-testid="stButtonGroup"] > div:last-child {
+        grid-template-columns: repeat(4, 1fr); gap: 6px !important;
+    }
+    .st-key-beach_report_card [data-testid="stButtonGroup"] button {
+        min-height: 34px !important; padding: 3px 2px !important; border-radius: 10px !important;
+    }
+    .st-key-beach_report_card [data-testid="stButtonGroup"] button p { font-size: 12px !important; }
+    .st-key-beach_report_card [data-testid="stElementContainer"]:has([data-testid="stButton"] button:disabled) {
+        display: none !important;
+    }
+    .st-key-beach_report_card [data-testid="stButton"] button {
+        min-height: 34px !important; border-radius: 10px !important;
+    }
+    .st-key-beach_report_card [data-testid="stButton"] button p { font-size: 13px !important; }
+    .st-key-beach_report_card .report-card-done { font-size: 12.5px; }
+}
+@media (max-width: 480px) {
+    section[data-testid="stMain"] div.st-key-beach_report_card { bottom: calc(36vh + 6px) !important; }
+    .st-key-beach_report_card [data-testid="stButtonGroup"] button p { font-size: 11.5px !important; }
+}
+
 /* ── Floating map legend (desktop: bottom-center) ── */
 .map-legend {
     position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
@@ -1287,14 +1423,15 @@ iframe[title="streamlit_folium.st_folium"] {
     /* Detail panel → full-width bottom sheet, floating over the always-100dvh
        map (see the "map always fills the whole screen" block below) rather
        than sharing a fixed height split with it.
-       43vh gives ~260px of content on a 600px phone while leaving the top of
+       36vh gives ~215px of content on a 600px phone (the sheet scrolls) while
+       leaving most of the map visible; it was 43vh. Leaves the top of
        the map visible above the sheet. padding-top:22px clears the ::before
        drag-handle element. */
     .beach-detail {
         right: 0 !important; left: 0 !important;
         top: auto !important; bottom: 0 !important;
         width: 100% !important; max-width: 100% !important;
-        max-height: 43vh !important;
+        max-height: 36vh !important;
         border-radius: 18px 18px 0 0 !important;
         padding: 22px 16px 20px !important;
         box-shadow: 0 -6px 32px rgba(0,0,0,.6) !important;
@@ -1377,9 +1514,9 @@ iframe[title="streamlit_folium.st_folium"] {
     [data-testid="stIFrame"] iframe {
         min-height: 260px !important;
     }
-    /* On 480px screens keep the panel at 42vh; the extra 2vh vs 768px slightly
-       increases content visibility on the tallest compact phones (667px). */
-    .beach-detail { max-height: 42vh !important; padding: 22px 14px 18px !important; }
+    /* Phones: the sheet stays at 36vh (it scrolls) so the map keeps most of
+       the screen above it. */
+    .beach-detail { max-height: 36vh !important; padding: 22px 14px 18px !important; }
     .map-legend { max-height: 18vh !important; font-size: 10px; }
 }
 
@@ -1677,9 +1814,20 @@ def _render_report_form(beach: dict) -> None:
     """
     reported: set = st.session_state.setdefault("_reported_beaches", set())
     name = beach["name"]
-    with st.container(key="beach_report"):
+    # Its own floating card next to the beach card (CSS: .st-key-beach_report_card):
+    # to the left of it on desktop, a strip just above the bottom sheet on phones.
+    with st.container(key="beach_report_card"):
+        st.markdown(
+            f"<div class='report-card-head'>"
+            f"<div class='report-card-title'>📣 {L['report_heading']}</div>"
+            f"<div class='report-card-sub'>{L['report_question'].format(beach=name)}</div>"
+            f"<div class='report-card-sub-short'>{L['report_question_short']}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
         if name in reported:
-            st.caption(f"✅ {L['report_thanks']}")
+            st.markdown(f"<div class='report-card-done'>✅ {L['report_thanks']}</div>",
+                        unsafe_allow_html=True)
             return
         slug = _slugify(name)
         amount = st.segmented_control(
@@ -1687,15 +1835,18 @@ def _render_report_form(beach: dict) -> None:
             _REPORT_LEVELS,
             format_func=lambda k: L[f"report_{k}"],
             key=f"report_amount_{slug}",
-            help=L["report_help"],
+            label_visibility="collapsed",
         )
         if st.button(L["report_send"], key=f"report_send_{slug}",
                      disabled=amount is None, use_container_width=True):
             if _post_report(name, amount):
                 reported.add(name)
-                st.caption(f"✅ {L['report_thanks']}")
+                st.rerun()
             else:
-                st.caption(f"⚠️ {L['report_error']}")
+                st.markdown(f"<div class='report-card-error'>⚠️ {L['report_error']}</div>",
+                            unsafe_allow_html=True)
+        st.markdown(f"<div class='report-card-note'>{L['report_help']}</div>",
+                    unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -2741,10 +2892,6 @@ with _nav_slot:
                                use_container_width=True):
             _goto_beach(_nav_by_name[_pick], zoom=ZOOM_CLOSE)
 
-        # Ground truth: let a visitor who is on this beach say what they
-        # see. Hidden without an API to send it to (offline explorer).
-        if _pick and API_BASE_URL:
-            _render_report_form(_nav_by_name[_pick])
     else:
         st.info(L["no_match"])
     st.caption(L["results"].format(n=len(filtered), total=len(BEACHES)))
@@ -3385,19 +3532,22 @@ if _show_drift_legend:
             f"<div style='display:flex;align-items:center;gap:7px;margin:2px 0'>"
             f"<div style='width:16px;height:10px;background:#ffcc80;border:1.5px dashed #ff8f00;border-radius:50%'></div>"
             f"<span style='font-size:11px;color:#37474f'>{_drift_label} (+{_drift_h}h)</span></div>"
-            f"<div style='font-size:9.5px;color:#78909c;margin-top:3px'>{'Corriente media del Caribe' if lang == 'es' else 'Caribbean mean current'}</div>"
+            f"<div style='font-size:9.5px;color:#78909c;margin-top:3px'>"
+            f"{('Corrientes y viento reales (Copernicus · Open-Meteo)' if lang == 'es' else 'Real currents and wind (Copernicus · Open-Meteo)') if globals().get('_has_tracks') else ('Corriente media del Caribe' if lang == 'es' else 'Caribbean mean current')}</div>"
             f"</div>"
         )
 
 # Tip banner sits on the SAME row as the zoom control (below the reserved
 # "Filtros" lane) and starts to the right of it, so the three top-left overlays
 # — Filtros pill, zoom buttons, tip — stack instead of piling on each other.
-m.get_root().html.add_child(folium.Element(
-    f"<div id='sarg-tip' style='position:absolute;top:{_MAP_TOP_LANE}px;left:60px;"
-    f"z-index:1000;background:rgba(0,96,100,.88);color:#fff;border-radius:10px;"
-    f"padding:8px 14px;font-size:12px;font-weight:700;backdrop-filter:blur(4px)'>"
-    f"{L['tip']}</div>"
-))
+# Only until a beach is open: after that it has done its job and just covers map.
+if not st.session_state.get("selected_beach"):
+    m.get_root().html.add_child(folium.Element(
+        f"<div id='sarg-tip' style='position:absolute;top:{_MAP_TOP_LANE}px;left:60px;"
+        f"z-index:1000;background:rgba(0,96,100,.88);color:#fff;border-radius:10px;"
+        f"padding:8px 14px;font-size:12px;font-weight:700;backdrop-filter:blur(4px)'>"
+        f"{L['tip']}</div>"
+    ))
 if _ml_drift_mode:
     m.get_root().html.add_child(folium.Element(
         f"<div style='position:absolute;bottom:36px;left:60px;z-index:1000;"
@@ -3984,5 +4134,10 @@ if _panel_beach:
         + "</div>"
     )
     st.markdown(_bubble, unsafe_allow_html=True)
+
+    # Ground truth: a visitor on this beach can say what they see, in a card
+    # of its own beside the beach card. Hidden without an API to send it to.
+    if API_BASE_URL:
+        _render_report_form(_pb)
 
 
