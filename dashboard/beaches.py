@@ -475,6 +475,7 @@ _T = {
         "report_title": "¿Estás en la playa? ¿Cuánto sargazo hay hoy?",
         "report_heading": "¿Estás en la playa?",
         "report_question": "¿Cuánto sargazo hay hoy en {beach}?",
+        "report_question_short": "¿Cuánto sargazo hay hoy?",
         "report_none": "Nada",
         "report_low": "Poco",
         "report_medium": "Bastante",
@@ -628,6 +629,7 @@ _T = {
         "report_title": "At the beach? How much sargassum is there today?",
         "report_heading": "At the beach?",
         "report_question": "How much sargassum is at {beach} today?",
+        "report_question_short": "How much sargassum is there today?",
         "report_none": "None",
         "report_low": "A little",
         "report_medium": "Quite a lot",
@@ -1189,67 +1191,119 @@ iframe[title="streamlit_folium.st_folium"] {
 }
 
 /* ── Visitor report card: its own floating card beside the beach card ──
-   Desktop: to the LEFT of the beach card (which is 295 px wide at right:16px).
-   Phones: a compact strip just above the beach card's bottom sheet. */
-.st-key-beach_report_card {
-    position: fixed !important; top: 60px; right: 323px;
-    width: 250px !important; z-index: 99999;
+   Desktop/tablet: to the LEFT of the beach card (295 px wide at right:16px;
+   260 px under 1024 px). Phones: a full-width strip just above the beach
+   card's bottom sheet, options in one row of large touch targets.
+   The selectors start with section[data-testid="stMain"] because the app
+   zeroes every main-area flex gap (see "Kill the flex GAP" above), and
+   Streamlit gives each markdown block a -1rem bottom margin that the normal
+   gap would have absorbed: without both overrides text overlaps the buttons
+   and the card's last line is clipped. */
+section[data-testid="stMain"] div.st-key-beach_report_card {
+    position: fixed !important; top: 60px; right: 323px; z-index: 99999;
+    width: 272px !important; box-sizing: border-box;
+    display: flex !important; flex-direction: column; gap: 12px !important;
+    padding: 16px !important;
     background: linear-gradient(160deg,#001f26 0%,#003540 45%,#005060 100%);
-    border-radius: 22px; padding: 14px 14px 12px !important;
+    border-radius: 22px;
     box-shadow: 0 12px 50px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.1);
-    gap: 8px !important;
     animation: beach-card-a .22s ease-out;
 }
+section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stElementContainer"],
+section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stMarkdown"],
+section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stMarkdownContainer"] {
+    margin: 0 !important; width: 100% !important;
+}
+.st-key-beach_report_card .report-card-head { display: flex; flex-direction: column; gap: 4px; }
 .st-key-beach_report_card .report-card-title {
-    color: #fff; font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 900;
+    color: #fff; font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 900; line-height: 1.25;
 }
 .st-key-beach_report_card .report-card-sub {
-    color: #b2dfdb; font-family: 'Nunito', sans-serif; font-size: 11.5px; line-height: 1.35;
+    color: #b2dfdb; font-family: 'Nunito', sans-serif; font-size: 12.5px; line-height: 1.4;
 }
+.st-key-beach_report_card .report-card-sub-short { display: none; }
 .st-key-beach_report_card .report-card-note {
-    color: #78909c; font-family: 'Nunito', sans-serif; font-size: 9.5px; line-height: 1.35;
+    color: #8aa4ab; font-family: 'Nunito', sans-serif; font-size: 10.5px; line-height: 1.4;
 }
 .st-key-beach_report_card .report-card-done {
-    color: #a5d6a7; font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700;
+    color: #a5d6a7; font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; line-height: 1.4;
 }
 .st-key-beach_report_card .report-card-error {
-    color: #ffcc80; font-family: 'Nunito', sans-serif; font-size: 11px;
+    color: #ffcc80; font-family: 'Nunito', sans-serif; font-size: 12px; line-height: 1.4;
+}
+/* Options: equal-width 2x2 grid of 40 px targets (one row on phones),
+   spanning the card's full width. */
+.st-key-beach_report_card [data-testid="stButtonGroup"] { width: 100% !important; }
+.st-key-beach_report_card [data-testid="stButtonGroup"] > div:last-child {
+    display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important;
+    width: 100% !important; max-width: none !important;
+}
+.st-key-beach_report_card [data-testid="stButtonGroup"] > div:last-child > * {
+    justify-self: stretch; min-width: 0;
 }
 .st-key-beach_report_card [data-testid="stButtonGroup"] button {
-    background: rgba(255,255,255,.08) !important;
-    border: 1px solid rgba(255,255,255,.18) !important;
-    border-radius: 16px !important; padding: 3px 9px !important; min-height: 0 !important;
+    width: 100% !important; min-height: 40px !important; margin: 0 !important;
+    padding: 6px 8px !important; border-radius: 12px !important;
+    background: rgba(255,255,255,.07) !important;
+    border: 1px solid rgba(255,255,255,.20) !important;
+    transition: background .15s ease, border-color .15s ease;
+}
+.st-key-beach_report_card [data-testid="stButtonGroup"] button:hover {
+    background: rgba(255,255,255,.13) !important;
 }
 .st-key-beach_report_card [data-testid="stButtonGroup"] button p {
-    color: #e0f7fa !important; font-size: 11.5px !important; font-weight: 700 !important;
+    color: #e0f7fa !important; font-size: 13px !important; font-weight: 700 !important;
 }
-.st-key-beach_report_card [data-testid="stButtonGroup"] button[aria-checked="true"],
-.st-key-beach_report_card [data-testid="stButtonGroup"] button[kind$="Active"] {
-    background: rgba(0,255,180,.25) !important; border-color: rgba(0,255,180,.6) !important;
+/* Selected option: clearly filled, not just a lighter border. */
+.st-key-beach_report_card [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"],
+.st-key-beach_report_card [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"]:hover {
+    background: rgba(0,200,150,.35) !important; border: 1.5px solid #4dd0b0 !important;
+    box-shadow: 0 0 0 1px rgba(77,208,176,.35) inset;
 }
+.st-key-beach_report_card [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] p {
+    color: #fff !important; font-weight: 900 !important;
+}
+/* Primary action: full width, 40 px. */
 .st-key-beach_report_card [data-testid="stButton"] button {
-    background: linear-gradient(135deg,rgba(0,180,130,.55),rgba(0,120,100,.55)) !important;
-    border: 1px solid rgba(0,255,180,.35) !important; border-radius: 20px !important;
-    padding: 5px 12px !important; min-height: 0 !important;
+    width: 100% !important; min-height: 40px !important; border-radius: 12px !important;
+    background: linear-gradient(135deg,#00a884,#007a66) !important;
+    border: 1px solid rgba(0,255,180,.35) !important;
 }
 .st-key-beach_report_card [data-testid="stButton"] button p {
-    color: #fff !important; font-weight: 800 !important; font-size: 12px !important;
+    color: #fff !important; font-weight: 800 !important; font-size: 13.5px !important;
 }
-.st-key-beach_report_card [data-testid="stButton"] button:disabled { opacity: .45 !important; }
+.st-key-beach_report_card [data-testid="stButton"] button:disabled {
+    background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
+}
+.st-key-beach_report_card [data-testid="stButton"] button:disabled p { color: rgba(224,247,250,.5) !important; }
+.st-key-beach_report_card button:focus-visible {
+    outline: 2px solid #80cbc4 !important; outline-offset: 2px;
+}
 @media (max-width: 1024px) {
-    .st-key-beach_report_card { right: 288px; width: 230px !important; }
+    section[data-testid="stMain"] div.st-key-beach_report_card { right: 288px; width: 248px !important; }
 }
 @media (max-width: 768px) {
-    .st-key-beach_report_card {
-        top: auto !important; right: 8px !important; left: 8px !important;
+    section[data-testid="stMain"] div.st-key-beach_report_card {
+        top: auto !important; left: 8px !important; right: 8px !important;
         bottom: calc(43vh + 8px) !important; width: auto !important;
-        border-radius: 16px; padding: 10px 12px !important; gap: 6px !important;
+        gap: 10px !important; padding: 12px !important; border-radius: 16px;
     }
-    .st-key-beach_report_card .report-card-note { display: none; }
-    .st-key-beach_report_card .report-card-title { font-size: 12.5px; }
+    /* The sheet below already names the beach: keep the strip short. */
+    .st-key-beach_report_card .report-card-sub { display: none; }
+    .st-key-beach_report_card [data-testid="stElementContainer"]:has(.report-card-note) { display: none !important; }
+    .st-key-beach_report_card .report-card-sub-short {
+        display: block; color: #b2dfdb; font-family: 'Nunito', sans-serif; font-size: 12.5px;
+    }
+    .st-key-beach_report_card .report-card-title { font-size: 14px; }
+    .st-key-beach_report_card [data-testid="stButtonGroup"] > div:last-child {
+        grid-template-columns: repeat(4, 1fr); gap: 6px !important;
+    }
+    .st-key-beach_report_card [data-testid="stButtonGroup"] button { min-height: 44px !important; padding: 6px 4px !important; }
+    .st-key-beach_report_card [data-testid="stButton"] button { min-height: 44px !important; }
 }
 @media (max-width: 480px) {
-    .st-key-beach_report_card { bottom: calc(42vh + 8px) !important; }
+    section[data-testid="stMain"] div.st-key-beach_report_card { bottom: calc(42vh + 8px) !important; }
+    .st-key-beach_report_card [data-testid="stButtonGroup"] button p { font-size: 12px !important; }
 }
 
 /* ── Floating map legend (desktop: bottom-center) ── */
@@ -1749,8 +1803,11 @@ def _render_report_form(beach: dict) -> None:
     # to the left of it on desktop, a strip just above the bottom sheet on phones.
     with st.container(key="beach_report_card"):
         st.markdown(
+            f"<div class='report-card-head'>"
             f"<div class='report-card-title'>📣 {L['report_heading']}</div>"
-            f"<div class='report-card-sub'>{L['report_question'].format(beach=name)}</div>",
+            f"<div class='report-card-sub'>{L['report_question'].format(beach=name)}</div>"
+            f"<div class='report-card-sub-short'>{L['report_question_short']}</div>"
+            f"</div>",
             unsafe_allow_html=True,
         )
         if name in reported:
