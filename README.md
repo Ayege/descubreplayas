@@ -6,7 +6,7 @@ Detects floating sargassum from satellite imagery (Sentinel-2, checked and gap-f
 
 It also ships a tourist **beach explorer**: 55 DR beaches on one map, where every number, colour and drift path comes from that same forecast. Each beach has a "Conoce esta playa" panel on its wildlife, surf and wind ratings, access and parking. Visitors can **report what they see on the beach**, and those reports are the ground truth every forecast is scored against.
 
-An ML layer adds 7 / 14 / 21-day outlooks between the 72-hour drift forecast and monthly climatology. It's used only while it beats the seasonal fallback on held-out data.
+A 7 / 14 / 21-day outlook bridges the 72-hour drift forecast and monthly climatology. It publishes whichever of an ML model, persistence (today's drift risk holds) and seasonal climatology scores best on held-out data.
 
 <p align="center">
   <img src="docs/media/hero.png" alt="Beach explorer zoomed on south-east Hispaniola: sargassum masses with their +48 h drift paths, zone coastlines coloured by risk, the visitor report card and the Playa Mano Juan (Saona) forecast card" width="100%">
@@ -103,6 +103,7 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `ML_RETRAIN_EVERY_N_RUNS` | Pipeline (optional)    | Retrain ML model every N pipeline runs (default`28` ≈ 1 week)      |
 | `WIND_DRIFT_FACTOR`       | Pipeline (optional)    | Central windage: single-particle runs and beach exposure (default `0.01`) |
 | `FAI_THRESHOLD`           | Pipeline (optional)    | Floating Algae Index detection threshold (default`0.005`)           |
+| `MAX_CLOUD_COVER_PCT`     | Pipeline (optional)    | Highest scene cloud cover used; clouds inside are masked per pixel (default `60`) |
 | `AFAI_ENABLED`            | Pipeline (optional)    | Compare with NOAA/USF daily AFAI each run (default `1`)              |
 | `AFAI_GAP_FILL`           | Pipeline (optional)    | Add AFAI clusters Sentinel-2 missed as detections (default `1`)      |
 | `AFAI_ANOMALY_THRESHOLD`  | Pipeline (optional)    | AFAI above local background to flag a cell (default `0.001`)         |
@@ -131,6 +132,8 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `S2_FAI_FULL_COVER`       | Pipeline (optional)    | FAI anomaly of a fully covered pixel, for `covered_km2` (default `0.08`) |
 | `AFAI_DAYS`               | Pipeline (optional)    | Daily AFAI fields combined per run (default `3`)                     |
 | `ML_CALIBRATE`            | Pipeline (optional)    | Calibrate the extended model's probabilities (default `1`)           |
+| `ML_ALLOW_PERSISTENCE`    | Pipeline (optional)    | Let the skill gate publish persistence when it scores best (default `1`) |
+| `FAI_DENSE_THRESHOLD`     | Pipeline (optional)    | Raw FAI that counts as dense algae whatever the background (default `0.02`) |
 | `DASHBOARD_WIND_DRIFT_FACTOR` | Dashboard (optional) | Windage of the explorer's fallback estimate, used only without beach forecasts (default `0.02`) |
 | `CORS_ORIGINS`            | API (optional)         | Origins allowed to call the API                                       |
 | `APP_CANONICAL_URL`       | Dashboard (optional)   | Canonical site URL for SEO tags                                       |
@@ -179,7 +182,7 @@ Copy `.env.example` to `.env` and fill in every variable.
 | Step | Module | Horizon | Method |
 | ---- | ------ | ------- | ------ |
 | 1–4 | `detect` → `afai` → `ocean` → `drift` | 0–72 h | Particle ensemble through real Copernicus currents and Open-Meteo wind, caught up from each mass's observation time |
-| 6 | `model.py` | 7 / 14 / 21 d | Calibrated gradient boosting, used only while it beats seasonal walk-forward; otherwise seasonal |
+| 6 | `model.py` | 7 / 14 / 21 d | Best walk-forward scorer of calibrated gradient boosting, persistence and seasonal |
 | — | `climatology.py` | Monthly | Caribbean seasonal index (always available, coarsest) |
 
 ### Repo layout
@@ -190,9 +193,9 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `pipeline/afai.py` | NOAA/USF daily AFAI from ERDDAP: agreement check and cloudy-day gap fill |
 | `pipeline/ocean.py` | Gridded Copernicus currents (with tides and Stokes drift) and Open-Meteo wind (m/s), interpolated anywhere |
 | `pipeline/drift.py` | Particle ensemble, coastline arrival, zone and beach forecasts, patch tracks, beach exposure, zone coastlines |
-| `pipeline/data/land.geojson` | Hispaniola, Puerto Rico and nearby islands (US State Dept. LSIB, public domain): where particles stop |
+| `pipeline/data/land.geojson` | Hispaniola, Puerto Rico and nearby islands (US State Dept. LSIB, public domain; Isla Catalina from OpenStreetMap): where particles stop |
 | `pipeline/features.py` | Model inputs per zone (`zone_features`), shared by training and prediction |
-| `pipeline/model.py` | Extended 7 / 14 / 21-day forecast: training data, calibration, skill gate |
+| `pipeline/model.py` | Extended 7 / 14 / 21-day forecast: training data, calibration, skill gate (ML / persistence / seasonal) |
 | `pipeline/evaluate.py` | Walk-forward evaluation and scoring against visitor reports (reads only) |
 | `pipeline/replay.py` | Re-runs history with the current drift: tunes settings against reports, rebuilds `zone_features` |
 | `pipeline/backfill_features.py` | One-off copy of old runs into `zone_features` as `legacy` |
@@ -327,7 +330,7 @@ The pipeline runs every 6 hours via GitHub Actions. Steps 1–4 produce the 72-h
 ### Step 1 — Detection (Sentinel-2 / FAI)
 
 Satellite imagery is pulled from the **Copernicus Sentinel-2 SR Harmonized** collection via Google Earth Engine.
-Only scenes with cloud cover ≤ 40 % are used.
+Scenes with up to 60 % cloud cover are used (`MAX_CLOUD_COVER_PCT`); clouds inside them are masked pixel by pixel.
 For each pixel inside the DR Exclusive Economic Zone (lat 17.3–21.5 °N, lon 72.1–67.3 °W) the **Floating Algae Index (FAI)** is computed:
 
 $$
@@ -423,7 +426,7 @@ Beyond 72 hours the physics model diverges from reality because small errors in 
 
 > Before November 2026 training read `forecasts`/`detections` directly with `.limit()`, which Supabase silently caps at 1,000 rows, and parsed detection centroids as WKT while Supabase returns GeoJSON. The model therefore trained on the first weeks of data with every detection at (0, 0). `python -m pipeline.backfill_features --write` copies that history into `zone_features` marked `model_version = 'legacy'`; training ignores it (`ML_TRAIN_VERSIONS`), because its physics labels came from the old drift model. Regenerate history with the current model instead: `python -m pipeline.replay --days 150 --write-features`.
 
-**Skill check:** every training first scores the model walk-forward (below). If it doesn't beat the seasonal fallback, predictions stay seasonal (`ML_REQUIRE_SKILL=0` turns this off), and the scores are saved to `model_evaluations`.
+**Skill check:** every training scores the model walk-forward (below) next to two simple forecasts: **persistence** (the zone's current 72-h drift risk holds) and **seasonal**. The best of the three by macro-F1 is published, and a method must beat the simpler ones strictly, so ties stay simple. Each forecast row records which method produced it, and the card names it (🤖 ML / 📌 Persistencia / 📊 Estacional). On the history so far that choice is persistence. `ML_ALLOW_PERSISTENCE=0` leaves persistence out; `ML_REQUIRE_SKILL=0` always publishes the model. Scores and the chosen method are saved to `model_evaluations`.
 
 **Model lifecycle:**
 
@@ -707,9 +710,9 @@ Understanding these constraints is essential before relying on the system for pl
 | Limitation              | Detail                                                                                   | Impact                                                                             |
 | ----------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Sentinel-2 revisit time | ~5-day repeat cycle for a single tile; cloud cover can extend this to 10+ days           | Masses can be days old; the drift catches each one up from its observation time, and daily AFAI fills gaps at ~1.6 km |
-| Cloud masking threshold | Scenes with >40% cloud cover are skipped entirely                                        | During Caribbean hurricane season (Jun–Nov) there may be extended blind windows   |
+| Very cloudy scenes      | Scenes with >60 % cloud cover are skipped (raised from 40 % after testing: on a cloudy September week, 12 scenes instead of 10 and 89 % of checkable patches confirmed by AFAI instead of 80 %) | Hurricane-season blind windows are shorter but still happen; AFAI fills some of them |
 | Thresholds not tuned on ground truth | The FAI background radius, FAI and AFAI thresholds were chosen by inspecting real DR scenes | False positives remain possible near river plumes and shallow reefs; watch `detection_checks` and reports |
-| Big mats under-detected  | A mat wider than ~1 km raises its own 500 m background, so only its edges are flagged    | Area of very large aggregations is understated                                     |
+| Big mats                 | A mat wider than ~1 km raises its own 500 m background; pixels with raw FAI above `FAI_DENSE_THRESHOLD` (0.02) are flagged anyway | On a cloudy September week this added 17 % area (20.4 → 23.8 km²) with the same AFAI agreement; no change on calmer weeks |
 | EEZ coverage only       | Detection runs within the DR EEZ bounding box; Atlantic source regions are not monitored | Large aggregations outside the box are invisible until they enter the EEZ          |
 | No growth/decay model   | Mass area is assumed constant between detections                                         | A patch can shrink, split, or die between pipeline runs with no signal in the data |
 
@@ -720,7 +723,6 @@ Understanding these constraints is essential before relying on the system for pl
 | Untuned ensemble        | Windage range (0.5–1.5 %), diffusivity (20 m²/s) and the 3 km arrival distance come from the literature and judgement, not from DR data | Probabilities are indicative until tuned against visitor reports |
 | 1/12° currents          | Copernicus currents resolve ~9 km; bays, reefs and harbour mouths are finer than that | Arrival within a bay is approximate; particles stop 3 km from the coast |
 | Coverage gaps           | Isla Beata and the mangrove coast inside Los Haitises (inner Samaná Bay) belong to no zone | Arrivals there count for no zone (no catalogue beaches there) |
-| Isla Catalina missing   | The land polygon (US State Department LSIB) does not include Catalina | Particles can pass through it |
 | Dashboard fallback      | When a beach has no pipeline forecast yet, the card falls back to its quick estimate with fixed regional currents | Only until the first pipeline run with `beach_forecasts` |
 | Beach thresholds        | Beach forecasts use the zone thresholds on the smaller area reaching one beach | Beach levels run lower; tune with `pipeline.replay` |
 
@@ -729,7 +731,7 @@ Understanding these constraints is essential before relying on the system for pl
 | Limitation | Detail | Impact |
 | ---------- | ------ | ------ |
 | Labels are model output | Until visitor reports give `ML_MIN_REPORT_ROWS` rows, labels are the drift model's own risk at *T + lead* | The model learns the drift model's behaviour, biases included |
-| Loses to persistence | On history it beat seasonal but not "today's risk will hold" | Used only while it beats seasonal; persistence is not yet a fallback option |
+| Loses to persistence | On history it beat seasonal but not "today's risk will hold" | The skill gate then publishes persistence instead, until the model wins |
 | Small training set | Rare high-risk events are few | High-risk probabilities may be understated |
 | No spatial features | Zone-level aggregates only | Same total area in very different layouts looks identical |
 | 21-day cap | No predictions beyond 21 days are stored | Use the seasonal estimate for longer planning |
@@ -748,36 +750,32 @@ Understanding these constraints is essential before relying on the system for pl
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Untuned heuristic      | The size/direction/period/wind weighting is physically-grounded but has not been validated against reported surf | Treat the score as "is it worth the drive", not a substitute for looking at the water |
 | Shore-normal estimate  | Each curated spot's shore-facing angle is read off the coastline, accurate to roughly ±15°                       | Direction scoring can be off for spots close to that margin                          |
-| Region-level fallback  | 42 of 55 beaches have no curated spot and inherit their coastal region's orientation, not their own              | Marked "approximate" in the panel; a single cove can still face away from the regional norm |
+| Region-level fallback  | 42 of 55 beaches have no curated spot and inherit their coastal region's orientation, not their own              | Marked "approximate" in the panel. Directions computed from the coastline (LSIB and OpenStreetMap) were tested against the 13 measured spots and did worse (median 19–23°, up to 70° off) than the regional values (median 10°, all within 20°), so they are not used; measuring the 42 by hand is the fix |
 | Offshore grid sampling | Open-Meteo's wave grid snaps to the nearest ocean cell, 9–20 km from some beaches                                | Correct for open-water swell, but not a literal beach-front reading; the panel shows the distance |
 
 ---
 
 ## How to close the gaps (upgrade path)
 
-Already done: daily AFAI coverage, gridded currents with Stokes drift, coastline-based arrival, per-beach forecasts, ground-truth collection (visitor reports) and history rebuilt with the current model. What's left, roughly by impact:
+Already done: daily AFAI coverage, gridded currents with Stokes drift, coastline-based arrival, per-beach forecasts, ground-truth collection (visitor reports), history rebuilt with the current model, and persistence as a published option for the extended forecast. What's left, roughly by impact:
 
 ### 1 — Gather reports, then tune
 
 Everything downstream improves once there are enough reports: run `python -m pipeline.replay` to choose the windage range, arrival distance, area field and thresholds, and let the extended model switch to report labels. Sharing the report card and `/reporte` with CODOPESCA, REDDOM and hotel networks speeds this up.
 
-### 2 — Persistence as a fallback
-
-On history, "today's drift risk will hold" beat both the ML model and seasonal. Let the skill gate fall back to persistence for 7 days when it beats seasonal.
-
-### 3 — Growth and decay
+### 2 — Growth and decay
 
 Mass area is assumed constant between detections. A simple decay or growth rate, fitted against consecutive detections, would stop old masses from carrying full weight.
 
-### 4 — Watch upstream
+### 3 — Watch upstream
 
 Detection covers the DR EEZ only. Adding the Atlantic and Lesser Antilles approaches (AFAI already covers them) would show big aggregations days before they enter the box.
 
-### 5 — Older detection history
+### 4 — Older detection history
 
 `replay` can rebuild any period back to Nov 2020 for currents, but stored detections start in June 2026. Re-running the new detection step over past seasons would give the model years of training data.
 
-### 6 — A draggable phone sheet
+### 5 — A draggable phone sheet
 
 The phone sheet takes 36 % of the screen. A sheet that opens small and expands when dragged would leave even more map.
 
@@ -844,6 +842,7 @@ check them before redistributing derived datasets:
 | **Copernicus Marine Service** | Ocean currents with tides and Stokes drift (`GLOBAL_ANALYSISFORECAST_PHY_001_024`) | Free with registration; cite the product |
 | **Open-Meteo** | 10 m wind (forecast and historical) | Free for non-commercial use (CC BY 4.0) |
 | **US State Department LSIB** | Coastline where particles stop | Public domain |
+| **OpenStreetMap** (Isla Catalina) | Catalina's outline, missing from LSIB | © OpenStreetMap contributors, ODbL |
 | **Natural Earth** | DR outline | Public domain |
 | **OpenStreetMap** | Map tiles; checking and aligning beach pins to the coastline | © OpenStreetMap contributors, ODbL |
 | **iNaturalist** | Species records and photos | Per record; each photo is shown with its own credit and licence |

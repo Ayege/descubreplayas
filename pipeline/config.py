@@ -143,8 +143,13 @@ MIN_PATCH_AREA_KM2 = float(os.environ.get("MIN_PATCH_AREA_KM2", "0.05"))
 # Vectorization scale (m/pixel) for reduceToVectors. Coarser = faster/less noise.
 DETECT_SCALE_M = float(os.environ.get("DETECT_SCALE_M", "60"))
 
-# Maximum acceptable cloud cover (%) when filtering the S2 collection.
-MAX_CLOUD_COVER_PCT = float(os.environ.get("MAX_CLOUD_COVER_PCT", "40"))
+# Maximum scene-level cloud cover (%) for a Sentinel-2 image to be used.
+# Clouds are masked pixel by pixel (SCL + Cloud Score+), so a cloudy scene
+# still contributes its clear water. Raised from 40 after a cloudy
+# September week on the east coast: 12 scenes instead of 10, and 89 % of
+# checkable patches confirmed by AFAI instead of 80 %. 80 was identical on
+# that week but has not been tested on scenes that cloudy.
+MAX_CLOUD_COVER_PCT = float(os.environ.get("MAX_CLOUD_COVER_PCT", "60"))
 
 # Cloud Score+ (Google): keep pixels whose clear-sky score cs_cdf is at least
 # this. Applied on top of the Sentinel-2 scene classification's cloud classes.
@@ -153,6 +158,9 @@ CLOUD_SCORE_MIN = float(os.environ.get("CLOUD_SCORE_MIN", "0.6"))
 # removes haze, sun glint and shallow-bottom brightness before thresholding.
 # Larger windows were 5-20x slower on Earth Engine (see detect.py).
 FAI_BG_RADIUS_M = float(os.environ.get("FAI_BG_RADIUS_M", "500"))
+# Raw FAI this high is dense floating algae whatever the background: catches
+# the interior of mats wider than the background window.
+FAI_DENSE_THRESHOLD = float(os.environ.get("FAI_DENSE_THRESHOLD", "0.02"))
 # Strip this much (m) off the coast before detecting: surf, river plumes and
 # shallow reefs at the shoreline otherwise read as floating algae.
 COAST_BUFFER_M = float(os.environ.get("COAST_BUFFER_M", "300"))
@@ -260,6 +268,10 @@ RISK_AREA_FIELD = os.environ.get("RISK_AREA_FIELD", "area_km2")
 # A particle stopping within this distance (km) of a beach counts for that
 # beach's own forecast (beach_forecasts table).
 BEACH_RADIUS_KM = float(os.environ.get("BEACH_RADIUS_KM", "10"))
+# Minimum arrived area (km²) for a BEACH forecast to register any risk. Lower
+# than RISK_AREA_MIN_KM2 because one beach's 10 km catchment collects far less
+# than a whole zone's coast; with the zone bar, beaches almost never left "none".
+BEACH_RISK_AREA_MIN_KM2 = float(os.environ.get("BEACH_RISK_AREA_MIN_KM2", "0.1"))
 
 # --- Extended forecast / ML model ----------------------------------------
 # Physics drift is reliable up to FORECAST_HOURS_PHYSICS.  Beyond that the
@@ -273,6 +285,9 @@ ML_RETRAIN_EVERY_N_RUNS = int(os.environ.get("ML_RETRAIN_EVERY_N_RUNS", "28"))
 ML_REQUIRE_SKILL = os.environ.get("ML_REQUIRE_SKILL", "1") not in ("0", "false", "False", "")
 # Walk-forward folds used to score the model at each training.
 ML_EVAL_FOLDS = int(os.environ.get("ML_EVAL_FOLDS", "3"))
+# Let the skill gate publish persistence ("today's drift risk will hold")
+# when it scores best walk-forward, ahead of both ML and seasonal.
+ML_ALLOW_PERSISTENCE = os.environ.get("ML_ALLOW_PERSISTENCE", "1") not in ("0", "false", "False", "")
 # Switch the training labels from physics risk to visitor reports once the
 # reports give this many (zone, day, lead) rows.
 ML_MIN_REPORT_ROWS = int(os.environ.get("ML_MIN_REPORT_ROWS", "150"))

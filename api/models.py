@@ -21,7 +21,7 @@ from typing import Annotated, Literal, Optional
 from pydantic import BaseModel, Field
 
 RiskLevel = Literal["none", "low", "medium", "high"]
-ForecastMethod = Literal["ml", "seasonal"]
+ForecastMethod = Literal["ml", "persistence", "seasonal"]
 
 
 # ---------------------------------------------------------------------------

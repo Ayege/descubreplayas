@@ -204,7 +204,26 @@ def walk_forward(rows: list[dict], n_folds: int = 3, min_train: int | None = Non
     result["beats_seasonal"] = bool(
         result["metrics"]["model"]["macro_f1"] > result["metrics"]["seasonal"]["macro_f1"]
     )
+    result["chosen"] = choose_method(result["metrics"])
     return result
+
+
+def choose_method(metrics: dict) -> str:
+    """Which extended forecast to publish: 'ml', 'persistence' or 'seasonal'.
+
+    The highest pooled walk-forward macro-F1 wins. A method must beat the
+    simpler ones strictly (seasonal < persistence < ml), so a tie never
+    switches to the more complex forecast. Persistence is skipped when
+    ML_ALLOW_PERSISTENCE is off.
+    """
+    order = ["seasonal", "persistence", "model"]
+    if not config.ML_ALLOW_PERSISTENCE:
+        order.remove("persistence")
+    best = "seasonal"
+    for m in order[1:]:
+        if metrics.get(m, {}).get("macro_f1", -1) > metrics.get(best, {}).get("macro_f1", -1):
+            best = m
+    return "ml" if best == "model" else best
 
 
 # ---------------------------------------------------------------------------
@@ -459,6 +478,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nBeats seasonal fallback: {'YES' if wf['beats_seasonal'] else 'NO'} "
               f"(macro-F1 {wf['metrics']['model']['macro_f1']:.3f} vs "
               f"{wf['metrics']['seasonal']['macro_f1']:.3f})")
+        print(f"Method the pipeline would publish: {wf['chosen']}")
     else:
         print("\nNot enough history to score the model yet.")
 

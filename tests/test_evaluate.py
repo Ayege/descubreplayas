@@ -239,8 +239,37 @@ def test_calibrated_probabilities_and_brier() -> None:
     print(f"  calibrated (n,4) probabilities; Brier model {result['metrics']['model']['brier']}: OK")
 
 
+def test_choose_method_and_persistence_forecast() -> None:
+    from pipeline import config
+    from pipeline.model import SargassumForecaster
+    m = lambda mo, pe, se: {"model": {"macro_f1": mo}, "persistence": {"macro_f1": pe},
+                            "seasonal": {"macro_f1": se}}
+    assert evaluate.choose_method(m(0.26, 0.41, 0.17)) == "persistence"   # the real history
+    assert evaluate.choose_method(m(0.50, 0.41, 0.17)) == "ml"
+    assert evaluate.choose_method(m(0.10, 0.12, 0.17)) == "seasonal"
+    assert evaluate.choose_method(m(0.20, 0.20, 0.20)) == "seasonal"      # ties never go complex
+    config.ML_ALLOW_PERSISTENCE = False
+    try:
+        assert evaluate.choose_method(m(0.26, 0.41, 0.17)) == "ml"
+    finally:
+        config.ML_ALLOW_PERSISTENCE = True
+
+    f = SargassumForecaster()
+    f._method = "persistence"
+    f.evaluation = {"metrics": {"persistence": {"by_lead": {"7": {"accuracy": 0.62}}}}}
+    zones = list(ZONES.values())
+    preds = f.predict(zones, [], {"Punta Cana": 2, "Puerto Plata": 0}, run_date=dt.date(2026, 7, 1))
+    pc7 = next(p for p in preds if p["zone_name"] == "Punta Cana" and p["lead_days"] == 7)
+    assert pc7["method"] == "persistence" and pc7["risk_level"] == "medium"
+    assert pc7["confidence"] == 0.62 and pc7["probs"] is None
+    pp14 = next(p for p in preds if p["zone_name"] == "Puerto Plata" and p["lead_days"] == 14)
+    assert pp14["risk_level"] == "none" and pp14["confidence"] == 0.5     # no lead score -> 0.5
+    print("  method choice (persistence on real history) and persistence forecast: OK")
+
+
 def main() -> int:
     tests = [
+        test_choose_method_and_persistence_forecast,
         test_report_training_rows,
         test_calibrated_probabilities_and_brier,
         test_build_training_rows_pairs_label_at_lead,
