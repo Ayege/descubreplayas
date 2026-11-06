@@ -51,8 +51,10 @@ the ground truth, scored in pipeline/evaluate.py.
 Skill check
 -----------
 Every training first scores the model walk-forward (train on the past, test
-on the next block of time; see pipeline/evaluate.py). If it does not beat the
-seasonal fallback and ML_REQUIRE_SKILL is on, predictions stay seasonal.
+on the next block of time; see pipeline/evaluate.py) next to two simple
+forecasts: persistence (the zone's current drift risk holds) and seasonal.
+With ML_REQUIRE_SKILL on, the best of the three by macro-F1 is published —
+a method must beat the simpler ones strictly, so ties stay simple.
 """
 from __future__ import annotations
 
@@ -415,9 +417,10 @@ class SargassumForecaster:
         self._trained_at: dt.datetime | None = None
         # Walk-forward test scores from the last training (evaluate.walk_forward).
         self.evaluation: dict | None = None
-        # False when the model failed to beat the seasonal fallback on held-out
-        # data and ML_REQUIRE_SKILL is on: predictions then use seasonal.
-        self._use_ml = True
+        # Which extended forecast is published: "ml", "persistence" or
+        # "seasonal" — the best walk-forward scorer at the last training
+        # (evaluate.choose_method), or "ml" when ML_REQUIRE_SKILL is off.
+        self._method = "ml"
 
     # ── Training ──────────────────────────────────────────────────────────────
 
@@ -455,14 +458,18 @@ class SargassumForecaster:
             return False
 
         self.evaluation = walk_forward(rows, n_folds=config.ML_EVAL_FOLDS)
-        beats = bool(self.evaluation.get("beats_seasonal"))
-        self._use_ml = beats or not config.ML_REQUIRE_SKILL
+        if not config.ML_REQUIRE_SKILL:
+            self._method = "ml"
+        elif self.evaluation.get("n_folds"):
+            self._method = self.evaluation.get("chosen", "seasonal")
+        else:
+            self._method = "seasonal"   # no verdict: never publish an unscored model
+        m = self.evaluation.get("metrics", {})
         logger.info(
-            "ml: walk-forward over %d fold(s): model macro-F1 %s vs seasonal %s -> %s",
+            "ml: walk-forward over %d fold(s): macro-F1 model %s · persistence %s · seasonal %s -> publishing %s",
             self.evaluation.get("n_folds", 0),
-            self.evaluation.get("metrics", {}).get("model", {}).get("macro_f1"),
-            self.evaluation.get("metrics", {}).get("seasonal", {}).get("macro_f1"),
-            "using ML" if self._use_ml else "using seasonal (model did not beat it)",
+            m.get("model", {}).get("macro_f1"), m.get("persistence", {}).get("macro_f1"),
+            m.get("seasonal", {}).get("macro_f1"), self._method,
         )
 
         X = np.array([r["features"] for r in rows], dtype=float)
@@ -481,7 +488,7 @@ class SargassumForecaster:
                 pickle.dump({
                     "clf": self._clf,
                     "trained_at": self._trained_at,
-                    "use_ml": self._use_ml,
+                    "method": self._method,
                     "evaluation": self.evaluation,
                 }, f)
         except Exception:
@@ -500,9 +507,9 @@ class SargassumForecaster:
             self._clf = obj["clf"]
             self._trained_at = obj.get("trained_at")
             self.evaluation = obj.get("evaluation")
-            # Artefacts from before the skill check carry no verdict: treat
-            # them as unproven so they are retrained and scored.
-            self._use_ml = bool(obj.get("use_ml", False))
+            # Older artefacts stored use_ml; ones before the skill check carry
+            # no verdict and are treated as unproven (seasonal until retrained).
+            self._method = obj.get("method") or ("ml" if obj.get("use_ml") else "seasonal")
             logger.info("Loaded model trained at %s.", self._trained_at)
             return True
         except Exception:
@@ -538,8 +545,9 @@ class SargassumForecaster:
             run_date = dt.datetime.now(dt.timezone.utc).date()
 
         results: list[dict] = []
-        # None → seasonal fallback (no model, or it did not beat seasonal).
-        clf = self._clf if self._use_ml else None
+        # None → persistence or seasonal (no model, or another method scored better).
+        clf = self._clf if self._method == "ml" else None
+        persist_acc = (((self.evaluation or {}).get("metrics") or {}).get("persistence") or {}).get("by_lead", {})
 
         for zi, zone in enumerate(zones):
             zone_id = zi + 1
@@ -583,8 +591,15 @@ class SargassumForecaster:
                         confidence = 0.4
                         probs = None
                         method = "seasonal"
+                elif self._method == "persistence":
+                    # Today's 72-h drift risk for the zone will hold; confidence
+                    # is persistence's own walk-forward accuracy at this lead.
+                    risk_level = INT_TO_RISK[int(phys)]
+                    confidence = float((persist_acc.get(str(lead)) or {}).get("accuracy") or 0.5)
+                    probs = None
+                    method = "persistence"
                 else:
-                    # No trained model — use seasonal climatology
+                    # No trained model, or seasonal scored best
                     risk_level = _seasonal_risk_for_zone(zone, target_date)
                     confidence = 0.4
                     probs = None
@@ -609,8 +624,13 @@ class SargassumForecaster:
 
     @property
     def uses_ml(self) -> bool:
-        """True when predictions come from the model rather than seasonal."""
-        return self._clf is not None and self._use_ml
+        """True when predictions come from the model."""
+        return self._clf is not None and self._method == "ml"
+
+    @property
+    def method(self) -> str:
+        """The published extended-forecast method: ml, persistence or seasonal."""
+        return self._method if (self._method != "ml" or self._clf is not None) else "seasonal"
 
 
 # ── Module-level singleton (loaded on first import) ───────────────────────────

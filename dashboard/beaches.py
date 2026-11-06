@@ -415,6 +415,10 @@ _T = {
         "prediction_seasonal": "Temporada (>21d): Climatología histórica del Caribe. No predice eventos específicos.",
         "prediction_date_note": "⚠️ Hasta 3 días: pronóstico físico. 4-21 días: estimación ML. Más lejos: climatología estacional.",
         "ml_badge": "Pronóstico ML (extendido)",
+        "persist_badge": "Persistencia (extendido)",
+        "seasonal_ext_badge": "Estacional (extendido)",
+        "persist_advisory": "El riesgo actual de la deriva se mantiene: en las pruebas con datos pasados, este método acertó más que el modelo ML y que la climatología.",
+        "method_persist": "Método: persistencia del riesgo actual · Acierto histórico {conf}%",
         "method_ml": "Método: ML extendido · Confianza {conf}%",
         "ml_advisory": "Estimación basada en patrones históricos y condiciones actuales. Más precisa que climatología estacional, menos que física de 72h.",
         "ml_confidence": "Confianza modelo",
@@ -433,6 +437,8 @@ _T = {
         "method_physics": "Método: estimación rápida con corrientes promedio (aún no hay pronóstico por playa)",
         "method_particles": "Método: deriva de partículas con corrientes y viento reales (Copernicus, Open-Meteo) · actualizado cada 6 h",
         "advice_none_model": "El modelo de deriva no prevé que llegue sargazo a esta playa en este horizonte.",
+        "risk_possible": "Posible",
+        "advice_possible": "Llega sargazo en el {p}% de las simulaciones de deriva. No es lo más probable, pero conviene vigilar.",
         "horizon_from_date": "Horizonte fijado por la fecha elegida: +{h} h.",
         "mass_track_pos": "Posición a +72 h (fin del modelo de deriva)",
         "mass_track_route": "Ruta de deriva (72 h)",
@@ -571,6 +577,10 @@ _T = {
         "prediction_seasonal": "Seasonal (>21d): Caribbean historical climatology. Does not predict specific events.",
         "prediction_date_note": "⚠️ Within 3 days: physics drift. 4-21 days: ML estimate. Further: seasonal climatology.",
         "ml_badge": "ML Forecast (extended)",
+        "persist_badge": "Persistence (extended)",
+        "seasonal_ext_badge": "Seasonal (extended)",
+        "persist_advisory": "Today's drift risk is assumed to hold: on past data this method scored better than the ML model and seasonal climatology.",
+        "method_persist": "Method: persistence of current risk · Historical accuracy {conf}%",
         "method_ml": "Method: ML extended · Confidence {conf}%",
         "ml_advisory": "Estimate based on historical patterns and current conditions. More accurate than seasonal climatology, less than 72h physics.",
         "ml_confidence": "Model confidence",
@@ -589,6 +599,8 @@ _T = {
         "method_physics": "Method: quick estimate with average currents (no per-beach forecast yet)",
         "method_particles": "Method: particle drift with real currents and wind (Copernicus, Open-Meteo) · updated every 6 h",
         "advice_none_model": "The drift model does not expect sargassum to reach this beach at this horizon.",
+        "risk_possible": "Possible",
+        "advice_possible": "Sargassum arrives in {p}% of drift simulations. Not the most likely outcome, but worth watching.",
         "horizon_from_date": "Horizon set by the chosen date: +{h} h.",
         "mass_track_pos": "Position at +72 h (end of the drift model)",
         "mass_track_route": "Drift path (72 h)",
@@ -2014,6 +2026,37 @@ def _beach_fc_at(beach: dict, horizon: int) -> str | None:
     return best.get("risk_level")
 
 
+# A "none" beach forecast still shows "Posible" when at least this share of the
+# drift ensemble brings sargassum to the beach. The headline level needs a
+# majority (RISK_PROB_THRESHOLD = 50 %), so a real 1-in-5 chance read "Sin riesgo".
+POSSIBLE_PROB = 0.15
+# Grey-green sits between grey "none" and green "low"; amber would read as
+# worse than "low".
+POSSIBLE_COLOR = "#6f8a6a"
+POSSIBLE_EMOJI = "🔍"
+
+
+def _beach_arrival_prob_at(beach: dict, horizon: int) -> float | None:
+    """Share of ensemble members that bring any risk to this beach by the
+    checkpoint closest to `horizon` (1 - P(none)), or None if not stored."""
+    bf = _BEACH_FC.get(beach["name"])
+    if not bf or not bf.get("horizons"):
+        return None
+    best = min(bf["horizons"], key=lambda h: abs(int(h.get("horizon_hours", 0)) - horizon))
+    probs = best.get("probs") or {}
+    if "none" not in probs:
+        return None
+    return 1.0 - float(probs["none"])
+
+
+def _is_possible(beach: dict, risk: str | None, horizon: int) -> bool:
+    """True when the headline is "none" but a minority of runs still arrive."""
+    if risk != "none":
+        return False
+    p = _beach_arrival_prob_at(beach, horizon)
+    return p is not None and p >= POSSIBLE_PROB
+
+
 # Pre-index ML forecasts by zone_id for O(1) lookups in _ml_risk_for_zone.
 _ml_forecasts_by_zone_id: dict[int, list[dict]] = {}
 for _f in _ml_forecasts:
@@ -2046,6 +2089,16 @@ def _ml_risk_for_zone(
 
 
 _track_at = track_position  # pipeline drift track lookup (risk_overlay)
+
+
+def _ext_badge(method: str | None) -> str:
+    """Badge for the extended (4-21 day) forecast, naming the method that the
+    pipeline published: ML, persistence or seasonal."""
+    if method == "persistence":
+        return f"📌 {L['persist_badge']}"
+    if method == "seasonal":
+        return f"📊 {L['seasonal_ext_badge']}"
+    return f"🤖 {L['ml_badge']}"
 
 
 def _masses_shifted_to(masses: list[dict], horizon: int) -> list[dict]:
@@ -3070,18 +3123,20 @@ for b in filtered:
         rc = RISK_COLORS.get(risk_level, "#6c757d")
         label_txt = RISK_LABEL.get(risk_level, risk_level.upper())
         _ml_conf_pct = 40
+        _ml_method_b = None
         if near_zone and _ml_forecasts:
             _zid_b = near_zone.get("id")
             _mf_hit = next((f for f in _ml_forecasts if f.get("zone_id") == _zid_b), None)
             if _mf_hit:
                 _ml_conf_pct = int(_mf_hit.get("confidence", 0.4) * 100)
+                _ml_method_b = _mf_hit.get("method")
         risk_badge = (
             f"<div style='background:{rc};color:#fff;display:inline-block;"
             f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
             f"🌊 {L['popup_sargassum']}: {label_txt}"
             f"</div>"
             f"<div style='color:#ce93d8;font-size:10.5px;margin-top:4px'>"
-            f"🤖 {L['ml_badge']} · {_ml_conf_pct}%</div>"
+            f"{_ext_badge(_ml_method_b)} · {_ml_conf_pct}%</div>"
         )
     elif _mode_b == "seasonal" and risk_level is not None:
         rc = RISK_COLORS.get(risk_level, "#6c757d")
@@ -3097,6 +3152,9 @@ for b in filtered:
     elif risk_level is not None and near_zone:
         rc = RISK_COLORS.get(risk_level, "#6c757d")
         label_txt = RISK_LABEL.get(risk_level, risk_level.upper())
+        # Same "Posible" rule as the beach card, so popup and card agree.
+        if b["name"] in _BEACH_FC and _is_possible(b, risk_level, globals().get("SEL_HORIZON") or 0):
+            rc, label_txt = POSSIBLE_COLOR, L["risk_possible"]
         _dist_txt = (
             f" · ~{dist_km_b:.0f} km"
             if dist_km_b is not None else ""
@@ -3189,10 +3247,11 @@ if show_zones and zones:
             # ML window: pick the forecast for this zone at the closest lead day
             _ml_hit = _ml_risk_for_zone(_zid, _days_ahead_g, _ml_forecasts) if _ml_forecasts else None
             if _ml_hit:
-                _z_risk, _z_conf, _ = _ml_hit
+                _z_risk, _z_conf, _z_method = _ml_hit
             else:
                 _z_risk = seasonal_risk(sel_date.month, zone_region(_clat, _clon))
                 _z_conf = 0.4
+                _z_method = "seasonal"
         elif _date_mode == "seasonal":
             _z_risk = seasonal_risk(sel_date.month, zone_region(_clat, _clon))
             _z_conf = 0.0
@@ -3211,7 +3270,7 @@ if show_zones and zones:
             _z_extra = (
                 f"<div style='background:rgba(123,31,162,.2);border-radius:12px;"
                 f"padding:3px 10px;font-size:10px;color:#ce93d8;margin-top:4px'>"
-                f"🤖 {L['ml_badge']} · +{_ml_lead}d</div>"
+                f"{_ext_badge(_z_method)} · +{_ml_lead}d</div>"
                 f"<div style='color:#ce93d8;font-size:10px;margin-top:3px'>"
                 f"{L['ml_confidence']}: {_z_conf_pct}%</div>"
                 + (f"<div style='color:#80cbc4;font-size:10px;margin-top:3px'>📅 {_ml_valid}</div>"
@@ -3651,6 +3710,7 @@ if _panel_beach:
         _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("", ""))
         _advice = _advice_en if lang == "en" else _advice_es
         _ml_conf_panel = int((_fc or {}).get("confidence", 0.4) * 100)
+        _ext_method = (_fc or {}).get("method")
         _ml_lead_panel = min([7, 14, 21], key=lambda d: abs(d - _days_ahead_g))
         _zone_name = _near_zone["name"] if _near_zone else ""
         _ml_probs = _ml_probs_for_zone(_near_zone["id"], _days_ahead_g) if _near_zone else None
@@ -3666,7 +3726,7 @@ if _panel_beach:
             f"<span style='background:{_rc};color:#fff;border-radius:16px;"
             f"padding:2px 10px;font-size:11px;font-weight:800'>{_emoji} {_rlbl}</span>"
             f"<span style='background:rgba(123,31,162,.25);color:#ce93d8;border-radius:16px;"
-            f"padding:2px 10px;font-size:10px;font-weight:700'>🤖 {L['ml_badge']}</span>"
+            f"padding:2px 10px;font-size:10px;font-weight:700'>{_ext_badge(_ext_method)}</span>"
             f"</div>"
             f"<div style='color:#cfd8dc;font-size:11.5px;line-height:1.45;margin-bottom:6px'>{_advice}</div>"
             f"<div style='background:rgba(0,0,0,.2);border-radius:8px;padding:6px 10px;margin:5px 0'>"
@@ -3679,9 +3739,9 @@ if _panel_beach:
             f"{'Zona' if lang == 'es' else 'Zone'}: {_zone_name} · {L['ml_confidence']}: {_ml_conf_panel}%</div>"
             + _ml_probs_html +
             f"</div>"
-            f"<div style='color:#ce93d8;font-size:10.5px;line-height:1.4;margin-bottom:4px'>⚠️ {L['ml_advisory']}</div>"
+            f"<div style='color:#ce93d8;font-size:10.5px;line-height:1.4;margin-bottom:4px'>⚠️ {L['persist_advisory'] if _ext_method == 'persistence' else L['ml_advisory']}</div>"
             f"<div style='color:#80cbc4;font-size:10px;border-top:1px solid rgba(255,255,255,.1);"
-            f"padding-top:5px;margin-top:5px'>{L['method_ml'].format(conf=_ml_conf_panel)}</div>"
+            f"padding-top:5px;margin-top:5px'>{(L['method_persist'] if _ext_method == 'persistence' else L['method_ml']).format(conf=_ml_conf_panel)}</div>"
             f"</div>"
         )
     elif _mode == "seasonal" and _risk_level:
@@ -3718,7 +3778,16 @@ if _panel_beach:
         _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("", ""))
         _advice = _advice_en if lang == "en" else _advice_es
         _has_bfc = _pb["name"] in _BEACH_FC
-        if _has_bfc and _risk_level == "none":
+        _sel_h_risk = globals().get("SEL_HORIZON") or 0
+        _possible = _has_bfc and _is_possible(_pb, _risk_level, _sel_h_risk)
+        if _possible:
+            # Minority of ensemble runs arrive: not "Sin riesgo", not yet "Bajo".
+            _rc = POSSIBLE_COLOR
+            _rlbl = L["risk_possible"]
+            _emoji = POSSIBLE_EMOJI
+            _advice = L["advice_possible"].format(
+                p=round(100 * (_beach_arrival_prob_at(_pb, _sel_h_risk) or 0)))
+        elif _has_bfc and _risk_level == "none":
             _advice = L["advice_none_model"]
 
         # ETA lines — per-beach drift estimate (primary) + zone run timestamp
@@ -3797,6 +3866,8 @@ if _panel_beach:
                 _h_label = L["horizon_now"] if _h == 0 else f"+{_h}h"
                 _h_color = RISK_COLORS.get(_h_risk, "#607d8b")
                 _h_emoji = RISK_EMOJI.get(_h_risk, "⚪")
+                if _pb["name"] in _BEACH_FC and _is_possible(_pb, _h_risk, _h):
+                    _h_color, _h_emoji = POSSIBLE_COLOR, POSSIBLE_EMOJI
                 _h_border = (
                     "border:2px solid #fff" if _h == _sel_h else "border:2px solid transparent"
                 )
@@ -3828,7 +3899,10 @@ if _panel_beach:
         if _expo is not None and _expo < SHELTERED_BELOW:
             _physics_extra_html += (f"<div style='color:#a5d6a7;font-size:10.5px;margin:5px 0'>"
                                     f"{L[_sheltered_key]}</div>")
-        elif _expo is not None and _expo > EXPOSED_ABOVE:
+        elif (_expo is not None and _expo > EXPOSED_ABOVE
+              and (_risk_level != "none" or _possible)):
+            # Only when sargassum is actually expected: next to "Sin riesgo"
+            # the onshore-push line read as a contradiction.
             _physics_extra_html += (f"<div style='color:#ffcc80;font-size:10.5px;margin:5px 0'>"
                                     f"{L['expo_exposed']}</div>")
         _bfc = _BEACH_FC.get(_pb["name"])

@@ -208,10 +208,11 @@ def detect_sargassum(
     background = fai.focalMedian(radius=config.FAI_BG_RADIUS_M, kernelType="square", units="meters")
     fai_anom = fai.subtract(background).rename("FAI_ANOM")
 
-    algae = (
-        fai_anom.gt(config.FAI_THRESHOLD)
-        .And(composite.select("NDVI").gt(config.NDVI_MIN))
-    ).selfMask().rename("algae")
+    # A mat wider than ~1 km raises its own 500 m background, so its interior
+    # would read as "normal". Pixels whose raw FAI is far above any water
+    # (FAI_DENSE_THRESHOLD) are flagged whatever their surroundings.
+    bright = fai_anom.gt(config.FAI_THRESHOLD).Or(fai.gt(config.FAI_DENSE_THRESHOLD))
+    algae = bright.And(composite.select("NDVI").gt(config.NDVI_MIN)).selfMask().rename("algae")
 
     # Vectorize the binary mask into polygons (ocean area only). The extra
     # bands are reduced per polygon: latest observation time (max) and mean

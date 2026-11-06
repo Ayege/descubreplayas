@@ -279,7 +279,8 @@ def insert_model_evaluation(evaluation: dict, used_for_predict: bool) -> None:
     _client().table("model_evaluations").insert({
         "n_rows": int(evaluation.get("n_rows", 0)),
         "n_folds": int(evaluation.get("n_folds", 0)),
-        "metrics": evaluation.get("metrics", {}),
+        "metrics": {**evaluation.get("metrics", {}), "chosen": evaluation.get("chosen"),
+                    "label_source": evaluation.get("label_source")},
         "beats_seasonal": bool(evaluation.get("beats_seasonal", False)),
         "used_for_predict": bool(used_for_predict),
     }).execute()
