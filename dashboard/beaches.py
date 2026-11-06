@@ -408,8 +408,10 @@ _T = {
         "horizon_now": "Ahora",
         "risk_by_horizon": "Riesgo proyectado",
         "how_we_know": "Cómo lo sabemos",
-        "advice_none_forecast": "Buen momento para ir: el pronóstico no prevé sargazo.",
-        "advice_none_seasonal": "Buena época: en estas fechas el sargazo suele ser poco aquí.",
+        "monitor_zone": "Zona de monitoreo",
+        "nearest_sargassum": "Sargazo más cercano a ~{km} km",
+        "advice_none_forecast": "Buen momento para ir.",
+        "advice_none_seasonal": "Buena época para ir.",
         "days": "días",
         "next_72h": "Próximas 72 h",
         "verdict_none": "Sin sargazo",
@@ -455,7 +457,7 @@ _T = {
         "physics_badge": "Pronóstico (deriva)",
         "method_physics": "Método: estimación rápida con corrientes promedio (aún no hay pronóstico por playa)",
         "method_particles": "Método: deriva de partículas con corrientes y viento reales (Copernicus, Open-Meteo) · actualizado cada 6 h",
-        "advice_none_model": "Buen momento para ir: el modelo de deriva no prevé que llegue sargazo.",
+        "advice_none_model": "Buen momento para ir.",
         "risk_possible": "Posible",
         "advice_possible": "Llega sargazo en el {p}% de las simulaciones de deriva. No es lo más probable, pero conviene vigilar.",
         "horizon_from_date": "Horizonte fijado por la fecha elegida: +{h} h.",
@@ -495,12 +497,11 @@ _T = {
         "goto_beach": "Ir a la playa",
         "goto_help": "Elige una playa y el mapa vuela hasta ella.",
         "goto_placeholder": "Elige una playa…",
-        "proudly_dr": "Orgullosamente dominicano · Open source",
+        "proudly_dr": "Orgullosamente dominicano",
         "donate": "Invítame un café",
         "disclaimer_title": "Aviso importante",
         "disclaimer_short": "Estimación, no es un aviso oficial.",
         "report_title": "¿Estás en la playa? ¿Cuánto sargazo hay hoy?",
-        "report_heading": "¿Estás en la playa?",
         "report_question": "¿Cuánto sargazo hay hoy en {beach}?",
         "report_question_short": "¿Estás aquí? ¿Cuánto sargazo hay hoy?",
         "report_none": "Nada",
@@ -508,7 +509,7 @@ _T = {
         "report_medium": "Bastante",
         "report_high": "Mucho",
         "report_send": "Enviar reporte",
-        "report_help": "Tu reporte ayuda a mejorar el pronóstico. Solo guardamos la playa, la fecha y la cantidad.",
+        "report_help": "Solo guardamos playa, fecha y cantidad.",
         "report_thanks": "¡Gracias! Tu reporte de hoy ayuda a mejorar el pronóstico.",
         "report_error": "No se pudo enviar el reporte. Inténtalo de nuevo en un momento.",
         "disclaimer_body": "Esta herramienta ofrece <b>estimaciones automáticas</b> de sargazo a partir de imágenes satelitales y modelos de corrientes. <b>No es un aviso oficial</b> ni sustituye a las autoridades competentes.<br><br>• Las detecciones pueden tener <b>días de antigüedad</b> por la nubosidad y el ciclo de paso del satélite.<br>• Los pronósticos de llegada son aproximados y pierden fiabilidad más allá de 72 h.<br>• Los datos de playas (acceso, tarifas, servicios) son observaciones que cambian con el tiempo.<br><br><b>No tomes decisiones de seguridad basándote solo en esta información.</b> Consulta a las autoridades locales, los salvavidas y las banderas de la playa. El servicio se ofrece «tal cual», sin garantías de ningún tipo.",
@@ -518,8 +519,6 @@ _T = {
         "zoom_here": "Acercar a esta playa",
         "popup_sargassum": "Sargazo",
         "popup_no_data": "sin datos",
-        "popup_nearby": "Sargazo ya cerca",
-        "popup_eta": "Llegada estimada",
         "mass_ml_route": "Ruta especulativa ML",
         "mass_ml_pos": "Sargazo especulativo",
         "mass_route": "Ruta estimada",
@@ -589,8 +588,10 @@ _T = {
         "horizon_now": "Now",
         "risk_by_horizon": "Projected risk",
         "how_we_know": "How we know",
-        "advice_none_forecast": "A good time to go: the forecast expects no sargassum.",
-        "advice_none_seasonal": "A good season: sargassum is usually light here at this time of year.",
+        "monitor_zone": "Monitoring zone",
+        "nearest_sargassum": "Nearest sargassum ~{km} km away",
+        "advice_none_forecast": "A good time to go.",
+        "advice_none_seasonal": "A good season to go.",
         "days": "days",
         "next_72h": "Next 72 h",
         "verdict_none": "No sargassum",
@@ -636,7 +637,7 @@ _T = {
         "physics_badge": "Forecast (drift)",
         "method_physics": "Method: quick estimate with average currents (no per-beach forecast yet)",
         "method_particles": "Method: particle drift with real currents and wind (Copernicus, Open-Meteo) · updated every 6 h",
-        "advice_none_model": "A good time to go: the drift model does not expect sargassum here.",
+        "advice_none_model": "A good time to go.",
         "risk_possible": "Possible",
         "advice_possible": "Sargassum arrives in {p}% of drift simulations. Not the most likely outcome, but worth watching.",
         "horizon_from_date": "Horizon set by the chosen date: +{h} h.",
@@ -676,12 +677,11 @@ _T = {
         "goto_beach": "Go to beach",
         "goto_help": "Pick a beach and the map flies straight to it.",
         "goto_placeholder": "Choose a beach…",
-        "proudly_dr": "Proudly Dominican · Open source",
+        "proudly_dr": "Proudly Dominican",
         "donate": "Buy me a coffee",
         "disclaimer_title": "Important notice",
         "disclaimer_short": "An estimate, not an official advisory.",
         "report_title": "At the beach? How much sargassum is there today?",
-        "report_heading": "At the beach?",
         "report_question": "How much sargassum is at {beach} today?",
         "report_question_short": "Here now? How much sargassum is there today?",
         "report_none": "None",
@@ -689,7 +689,7 @@ _T = {
         "report_medium": "Quite a lot",
         "report_high": "A lot",
         "report_send": "Send report",
-        "report_help": "Your report helps improve the forecast. We only store the beach, the date and the amount.",
+        "report_help": "We only store the beach, the date and the amount.",
         "report_thanks": "Thank you! Today's report helps improve the forecast.",
         "report_error": "The report could not be sent. Please try again in a moment.",
         "disclaimer_body": "This tool provides <b>automated estimates</b> of sargassum from satellite imagery and ocean-current models. It is <b>not an official advisory</b> and does not replace the competent authorities.<br><br>• Detections may be <b>several days old</b> because of cloud cover and the satellite revisit cycle.<br>• Arrival forecasts are approximate and lose reliability beyond 72 h.<br>• Beach details (access, fees, facilities) are observations that change over time.<br><br><b>Do not make safety decisions based on this information alone.</b> Check local authorities, lifeguards and beach flags. The service is provided «as is», without warranties of any kind.",
@@ -699,8 +699,6 @@ _T = {
         "zoom_here": "Zoom to this beach",
         "popup_sargassum": "Sargassum",
         "popup_no_data": "no data",
-        "popup_nearby": "Sargassum already nearby",
-        "popup_eta": "ETA",
         "mass_ml_route": "ML speculative route",
         "mass_ml_pos": "Speculative sargassum",
         "mass_route": "Estimated route",
@@ -1239,11 +1237,15 @@ section[data-testid="stMain"] div.st-key-today_card {
 section[data-testid="stMain"] div.st-key-today_card [data-testid="stElementContainer"],
 section[data-testid="stMain"] div.st-key-today_card [data-testid="stMarkdown"],
 section[data-testid="stMain"] div.st-key-today_card [data-testid="stMarkdownContainer"] { width: 100% !important; }
+/* Streamlit pulls each markdown block up with a negative bottom margin, which
+   slid the "Buenas para ir" label under the first button. */
+.st-key-today_card [data-testid="stMarkdown"],
+.st-key-today_card [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
 .st-key-today_card .today-title { font-size: 17px; font-weight: 900; color: #fff; }
 .st-key-today_card .today-counts { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #e0f7fa; margin-top: 4px; }
 .st-key-today_card .today-dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
 .st-key-today_card .today-label {
-    margin: 8px 0 4px; color: #b2dfdb; font-size: 11.5px; font-weight: 700;
+    margin-top: 8px; padding-bottom: 6px; color: #b2dfdb; font-size: 11.5px; font-weight: 700;
     text-transform: uppercase; letter-spacing: .5px;
 }
 .st-key-today_card .today-hint { color: #b2dfdb; font-size: 12px; line-height: 1.4; margin-top: 4px; }
@@ -1255,9 +1257,11 @@ section[data-testid="stMain"] div.st-key-today_card [data-testid="stMarkdownCont
 .st-key-today_card [data-testid="stButton"] button:hover { background: rgba(0,180,130,.26) !important; }
 .st-key-today_card [data-testid="stButton"] button p { font-size: 13px !important; font-weight: 700 !important; text-align: left; }
 @media (max-width: 768px) {
-    /* Phones: a compact strip at the bottom, like the beach sheet it gives way to. */
+    /* Phones: a compact strip at the bottom, like the beach sheet it gives way
+       to. It stops 24px short of the edge so the map's OpenStreetMap credit,
+       which the tile licence requires to stay visible, isn't covered. */
     section[data-testid="stMain"] div.st-key-today_card {
-        top: auto !important; left: 8px !important; right: 8px !important; bottom: 8px !important;
+        top: auto !important; left: 8px !important; right: 8px !important; bottom: 24px !important;
         width: auto !important; padding: 12px !important; border-radius: 16px; gap: 4px !important;
     }
     .st-key-today_card .today-title { font-size: 15px; }
@@ -1581,10 +1585,11 @@ section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stMarkd
         border-radius: 2px;
         pointer-events: none;
     }
-    /* Legend → top-RIGHT; avoids the sidebar-reopen button (top-left) and
-       stays well above the bottom sheet. */
+    /* Legend → top-RIGHT, under the "Filtros" pill (top:10px, ~46px tall)
+       with a gap, and well above the bottom sheet. At 54px it slid under
+       the pill. */
     .map-legend {
-        top: 54px !important; bottom: auto !important;
+        top: 68px !important; bottom: auto !important;
         left: auto !important; right: 8px !important; transform: none !important;
         max-height: 22vh !important; padding: 6px 10px !important;
         min-width: 0 !important; font-size: 11px;
@@ -1959,8 +1964,7 @@ def _render_report_form(beach: dict) -> None:
     with st.container(key="beach_report_card"):
         st.markdown(
             f"<div class='report-card-head'>"
-            f"<div class='report-card-title'>{icon('megaphone', 14)} {L['report_heading']}</div>"
-            f"<div class='report-card-sub'>{L['report_question'].format(beach=name)}</div>"
+            f"<div class='report-card-title'>{icon('megaphone', 14)} {L['report_question'].format(beach=name)}</div>"
             f"<div class='report-card-sub-short'>{L['report_question_short']}</div>"
             f"</div>",
             unsafe_allow_html=True,
@@ -3098,7 +3102,8 @@ with _nav_slot:
 
     else:
         st.info(L["no_match"])
-    st.caption(L["results"].format(n=len(filtered), total=len(BEACHES)))
+    if len(filtered) < len(BEACHES):
+        st.caption(L["results"].format(n=len(filtered), total=len(BEACHES)))
 
 with st.sidebar:
     # Footer: authorship, licence and source. The licence links point at the
@@ -3138,8 +3143,6 @@ with st.sidebar:
             f"text-decoration:none;white-space:nowrap'>{icon('coffee', 12)} {L['donate']}</a></div>"
             if DONATE_URL else ""
         ) +
-        f"<div style='font-size:11px;color:#5f9ea0;margin-top:6px'>"
-        f"© 2026 Ayesha Yege</div>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -3266,125 +3269,8 @@ for b in filtered:
             b["name"] in _BEACH_FC
             and _is_possible(b, risk_level, globals().get("SEL_HORIZON") or 0),
         )
-    turtle_icon = (" " + icon("turtle", 14, label=_PROTECTED_LABEL[lang])
-                   if b["protected_area"] else "")
-    _desc_full = tr_text(b, "description")
-    desc_short = _desc_full[:170].rstrip()
-    if len(_desc_full) > 170:
-        desc_short += "…"
-
-    # Per-beach ETA line for the popup (drift estimate)
-    _eta_popup = ""
-    if _eta_b is not None and _mode_b == "physics":
-        if _eta_b == 0:
-            _eta_popup = (
-                "<div style='color:#ffcdd2;font-size:11.5px;margin-top:3px'>"
-                f"{icon('triangle-alert', 11)} {L['popup_nearby']}</div>"
-            )
-        else:
-            _eta_popup = (
-                f"<div style='color:#b2ebf2;font-size:11.5px;margin-top:3px'>"
-                f"{icon('clock', 11)} {L['popup_eta']}: ~{_eta_b}h</div>"
-            )
-
-    # Risk badge — always present
-    if _mode_b == "ml" and risk_level is not None:
-        rc = RISK_COLORS.get(risk_level, "#6c757d")
-        label_txt = RISK_LABEL.get(risk_level, risk_level.upper())
-        _ml_conf_pct = 40
-        _ml_method_b = None
-        if near_zone and _ml_forecasts:
-            _zid_b = near_zone.get("id")
-            _mf_hit = next((f for f in _ml_forecasts if f.get("zone_id") == _zid_b), None)
-            if _mf_hit:
-                _ml_conf_pct = int(_mf_hit.get("confidence", 0.4) * 100)
-                _ml_method_b = _mf_hit.get("method")
-        risk_badge = (
-            f"<div style='background:{rc};color:#fff;display:inline-block;"
-            f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            f"{L['popup_sargassum']}: {label_txt}"
-            f"</div>"
-            f"<div style='color:#ce93d8;font-size:11.5px;margin-top:4px'>"
-            f"{_ext_badge(_ml_method_b)} · {_ml_conf_pct}%</div>"
-        )
-    elif _mode_b == "seasonal" and risk_level is not None:
-        rc = RISK_COLORS.get(risk_level, "#6c757d")
-        label_txt = RISK_LABEL.get(risk_level, risk_level.upper())
-        risk_badge = (
-            f"<div style='background:{rc};color:#fff;display:inline-block;"
-            f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            f"{L['popup_sargassum']}: {label_txt}"
-            f"</div>"
-            f"<div style='color:#b2ebf2;font-size:11.5px;margin-top:4px'>"
-            f"{icon('chart-column', 11)} {L['seasonal_badge']}</div>"
-        )
-    elif risk_level is not None and near_zone:
-        rc = RISK_COLORS.get(risk_level, "#6c757d")
-        label_txt = RISK_LABEL.get(risk_level, risk_level.upper())
-        # Same "Posible" rule as the beach card, so popup and card agree.
-        if b["name"] in _BEACH_FC and _is_possible(b, risk_level, globals().get("SEL_HORIZON") or 0):
-            rc, label_txt = POSSIBLE_COLOR, L["risk_possible"]
-        _dist_txt = (
-            f" · ~{dist_km_b:.0f} km"
-            if dist_km_b is not None else ""
-        )
-        risk_badge = (
-            f"<div style='background:{rc};color:#fff;display:inline-block;"
-            f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            f"{L['popup_sargassum']}: {label_txt}{_dist_txt}"
-            f"</div>{_eta_popup}"
-        )
-    else:
-        risk_badge = (
-            "<div style='background:#90a4ae;color:#fff;display:inline-block;"
-            "padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            f"{L['popup_sargassum']}: {L['popup_no_data']}"
-            "</div>"
-        )
-
-    # Live surf line for the popup. Only the fetched numbers appear here —
-    # rating, swell height/period and wind — never any canned spot blurb.
-    surf_badge = ""
-    if _surf_b is not None:
-        _sr = _surf_b["rating"]
-        _sc = SURF_COLORS.get(_sr, "#455a64")
-        _sport_lbl = (L["surf_sport_wind"] if _surf_b["sport"] == SPORT_WIND
-                      else L["surf_sport_surf"])
-        surf_badge = (
-            f"<div style='background:{_sc};color:#04242b;display:inline-block;"
-            f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:800;"
-            f"margin:5px 0'>{_sport_lbl}: "
-            f"{surf_rating_label(_sr, lang)}</div>"
-        )
-        _cnd = _surf_b.get("conditions") or {}
-        if not _surf_b.get("no_data") and _cnd.get("swell_height_m") is not None:
-            _sw = _cnd["swell_height_m"]
-            _pd = _cnd.get("swell_period_s")
-            _pd_txt = f"@{_pd:.0f}s" if _pd is not None else ""
-            _wd = _cnd.get("wind_speed_kt")
-            _wd_txt = (f" · {icon('wind', 11)} {_wd:.0f}kt "
-                       f"{_surf_relation_label(_surf_b['wind_relation'])}"
-                       if _wd is not None else "")
-            surf_badge += (
-                f"<div style='color:#b2ebf2;font-size:11.5px;margin-top:3px'>"
-                f"{icon('waves', 11)} {_sw:.1f}m{_pd_txt}{_wd_txt}</div>"
-            )
-
-    popup_html = (
-        f"<div style='font-family:\"Nunito\",sans-serif;min-width:220px;max-width:280px;"
-        f"border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.28)'>"
-        # teal header only — no white box
-        f"<div style='background:linear-gradient(135deg,#005f73,#0a9396);padding:12px 14px'>"
-        f"<div style='color:#fff;font-size:15px;font-weight:900'>{b['name']}{turtle_icon}</div>"
-        f"<div style='color:#b2ebf2;font-size:11px;margin-top:2px'>{b['province']} · {region_short(b['region'])}</div>"
-        f"<div style='margin-top:7px'>{risk_badge}</div>"
-        + (f"<div>{surf_badge}</div>" if surf_badge else "")
-        + f"<a href='{b['google_maps_url']}' target='_blank' "
-        f"style='display:block;text-align:center;background:rgba(255,255,255,.22);"
-        f"color:#fff;border-radius:20px;padding:5px;font-size:11px;font-weight:800;"
-        f"margin-top:8px;text-decoration:none'>{icon('map-pin', 12)} Google Maps ↗</a>"
-        f"</div></div>"
-    )
+    # No popup: a click opens the beach card, which carries the name, place,
+    # sargassum reading and Google Maps link that the popup used to repeat.
     # Draw beach as a white pin with a colored ring (region color).
     # This makes beaches visually distinct from risk zones (colored filled rectangles).
     folium.CircleMarker(
@@ -3395,7 +3281,6 @@ for b in filtered:
         fill_color="#ffffff",
         fill_opacity=1.0,
         weight=3,
-        popup=folium.Popup(popup_html, max_width=340),
         tooltip=f"{b['name']} — {b['province']}",
     ).add_to(cluster)
 
@@ -3944,8 +3829,7 @@ if _panel_beach:
     # The badges carry no per-level symbol: their colour and label already say
     # the level, and a second cue only added noise.
     _ADVISORY = {
-        "none":   ("Buen momento para ir: no se detecta sargazo en la zona.",
-                   "A good time to go: no sargassum detected in the area."),
+        "none":   ("Buen momento para ir.", "A good time to go."),
         "low":    ("Se puede ir. Quizás haya algo de sargazo en la orilla.",
                    "Fine to go. There may be a little sargassum on the shore."),
         "medium": ("Probable sargazo en el agua y la orilla. Considera otra playa.",
@@ -4069,10 +3953,11 @@ if _panel_beach:
         _zone_name = _near_zone["name"] if _near_zone else ""
         if _zone_name and _fold(_zone_name) == _fold(_pb["province"]):
             _zone_name = ""
-        _where = " · ".join(x for x in (
-            _zone_name,
-            f"{L['popup_sargassum'].lower()} ~{_dist_km:.0f} km" if _dist_km is not None else "",
-        ) if x)
+        # Shown alone under the verdict, the zone name read like a second
+        # address; it belongs with the explanation.
+        _zone_txt = f"{L['monitor_zone']}: {_zone_name}" if _zone_name else ""
+        _where = (L["nearest_sargassum"].format(km=round(_dist_km))
+                  if _dist_km is not None else "")
 
         # Risk at each checkpoint. When every checkpoint says the same thing
         # the four identical cells are replaced by the verdict's "72 h" span.
@@ -4143,7 +4028,7 @@ if _panel_beach:
             + _eta_line
             + _horizon_bd_html
             + _how_we_know(
-                _fine(_expo_txt), _fine(_prob_txt), _fine(_updated_txt),
+                _fine(_zone_txt), _fine(_expo_txt), _fine(_prob_txt), _fine(_updated_txt),
                 _fine(L["method_particles"] if _has_bfc else L["method_physics"]),
             )
         ))
