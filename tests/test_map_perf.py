@@ -154,6 +154,29 @@ def test_smooth_moves_leave_the_visitors_own_zoom_alone() -> None:
     _check("SmoothMapMoves().add_to(m)" in source, "the dashboard's map uses it")
 
 
+def test_beach_moves_land_beside_the_cards() -> None:
+    fmap = folium.Map(location=[19.0, -69.8], zoom_start=7)
+    map_perf.SmoothMapMoves().add_to(fmap)
+    html = fmap.get_root().render()
+    _check(f"if(z>={map_perf.CARD_ZOOM}){{z=Math.max(z,m.getZoom());c=f(c,z)}}" in html,
+           "only beach-level moves are shifted, and they never zoom out")
+    _check(f"Math.min(dx,s.x/2-{map_perf.CARD_EDGE_PX})" in html and f"Math.min(dy,s.y/2-{map_perf.CARD_EDGE_PX})" in html,
+           "the beach never leaves the visible map")
+    _check(f"dx={map_perf.CARD_COVER_DESKTOP_PX}/2" in html and f"dx={map_perf.CARD_COVER_TABLET_PX}/2" in html,
+           "shifted by half the covered width")
+    _check("window.parent" in html and "catch(e)" in html, "reading the page size must not break the map")
+    source = Path(map_perf.__file__).with_name("beaches.py").read_text(encoding="utf-8")
+    _check("right: 323px; z-index: 99999;\n    width: 272px" in source
+           and map_perf.CARD_COVER_DESKTOP_PX == 323 + 272, "desktop cover matches the report card CSS")
+    _check("right: 288px; width: 248px" in source
+           and map_perf.CARD_COVER_TABLET_PX == 288 + 248, "tablet cover matches the report card CSS")
+    _check(f"max-height: {round(map_perf.CARD_SHEET_VH * 100)}vh !important" in source, "sheet height matches")
+    _check(f"@media (max-width: {map_perf.CARD_TABLET_MAX_PX}px)" in source
+           and f"@media (max-width: {map_perf.CARD_PHONE_MAX_PX}px)" in source, "breakpoints match")
+    _check("zmax: int = CARD_ZOOM - 1" in source, "area views must stay below beach zoom")
+    _check("_goto_beach(_click_beaches[picked])" in source, "a marker click flies to the beach")
+
+
 def test_loader_hides_once_the_map_exists_with_a_fallback() -> None:
     source = Path(map_perf.__file__).with_name("beaches.py").read_text(encoding="utf-8")
     _check('.stApp:has(iframe[title="streamlit_folium.st_folium"]) #sarg-loader' in source, "hide when the map exists")

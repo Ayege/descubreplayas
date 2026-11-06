@@ -82,6 +82,7 @@ from dashboard.conoce import conoce_panel
 from dashboard.icons import icon
 from dashboard.map_perf import (
     CompactCircles,
+    CARD_ZOOM,
     SmoothMapMoves,
     beach_from_map_click,
     next_card_motion,
@@ -2805,7 +2806,7 @@ filtered_names = {b["name"] for b in filtered}
 # a request that stays put leaves the user free to pan and zoom by hand; the
 # view jumps only on the rerun where we actually change the request.
 # ---------------------------------------------------------------------------
-ZOOM_BEACH = 13   # the beach plus the coast around it
+ZOOM_BEACH = CARD_ZOOM   # the beach plus the coast around it
 ZOOM_CLOSE = 16   # street level, for the panel's zoom button
 
 
@@ -2833,8 +2834,11 @@ def _goto_beach(beach: dict, zoom: int = ZOOM_BEACH) -> None:
 
 def _bounds_view(points: list[tuple[float, float]], map_w: int = 1100,
                  map_h: int = 780, pad: float = 0.28,
-                 zmin: int = 6, zmax: int = 13) -> tuple[float, float, int]:
+                 zmin: int = 6, zmax: int = CARD_ZOOM - 1) -> tuple[float, float, int]:
     """Centre + zoom that frames every point (Web Mercator).
+
+    Capped below CARD_ZOOM: closer moves are read as "go to one beach" and get
+    shifted clear of the beach card (see map_perf.SmoothMapMoves).
 
     The pixel size of the map is assumed rather than measured — it lives in an
     iframe and Streamlit never learns its dimensions. It only controls how
@@ -3628,15 +3632,19 @@ if _ml_drift_mode:
 # user's manual panning survives every rerun in between.
 _view = st.session_state.get("_view")
 _map_click_targets = {b["name"]: (float(b["latitude"]), float(b["longitude"])) for b in filtered}
+_click_beaches = {b["name"]: b for b in filtered}
 
 
 def _on_map_click() -> None:
     """Runs before the rerun a click causes, so that one rerun already shows the new
     beach. Handling the click after the map had drawn needed a second full rerun.
+
+    A click also flies the map to the beach, the same as picking it in the
+    sidebar, so it lands close up and in the open map beside the card.
     """
     picked = beach_from_map_click(st.session_state.get("beach_map"), _map_click_targets)
     if picked:
-        st.session_state["selected_beach"] = picked
+        _goto_beach(_click_beaches[picked])
 
 
 st_folium(
