@@ -177,6 +177,20 @@ def test_beach_moves_land_beside_the_cards() -> None:
     _check("_goto_beach(_click_beaches[picked])" in source, "a marker click flies to the beach")
 
 
+def test_map_answers_where_the_sargassum_is() -> None:
+    source = Path(map_perf.__file__).with_name("beaches.py").read_text(encoding="utf-8")
+    _check("region_color = _beach_ring_color(" in source, "beaches are coloured by risk by default")
+    _check('st.checkbox(L["color_by_region"]' in source, "region colouring stays available")
+    _check("icon_create_function=_cluster_icon_js" in source, "clusters show their worst beach, not their size")
+    _check("sarg-tip" not in source, "the stuck tip banner inside the map is gone")
+    _check("_render_today_card(filtered)" in source and 'key="today_card"' in source,
+           "the app opens with a summary card")
+    _check("_verdict_html(" in source and "how-we-know" in source, "the card leads with a verdict")
+    _check('key="lang"' in source and "st.toggle(" not in source, "language is an ES | EN choice, not a switch")
+    _check('L["about_data"]' in source and 'st.expander(L["disclaimer_title"]' not in source,
+           "notice and methods share one expander")
+
+
 def test_loader_hides_once_the_map_exists_with_a_fallback() -> None:
     source = Path(map_perf.__file__).with_name("beaches.py").read_text(encoding="utf-8")
     _check('.stApp:has(iframe[title="streamlit_folium.st_folium"]) #sarg-loader' in source, "hide when the map exists")
