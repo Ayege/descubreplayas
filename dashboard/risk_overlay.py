@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Risk level -> hex colour, shared with the sargassum dashboard.
 RISK_COLORS = {
-    "none": "#6c757d",    # grey
+    "none": "#1976d2",    # blue — clear water; grey read as "no data" or "off"
     "low": "#28a745",     # green
     "medium": "#fd7e14",  # orange
     "high": "#dc3545",    # red
