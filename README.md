@@ -2,19 +2,21 @@
 
 > **POC** · Dominican Republic EEZ · Free-tier · ~$0/month
 
-Detects floating sargassum from satellite imagery, models its drift with ocean currents and wind, computes arrival probabilities and ETAs for 14 DR coastal zones and each of 55 beaches, and sends Telegram alerts to fishermen and hotels.
-Also ships a tourist **beach explorer** — 55 DR beaches with live sargassum risk, per-beach arrival time estimates, a "Conoce esta playa" panel on each beach's wildlife, activities, parking, and Google Maps links.
-An ML extended forecast layer adds 7 / 14 / 21-day outlooks that bridge the gap between the 72-hour physics drift model and monthly seasonal climatology.
+Detects floating sargassum from satellite imagery (Sentinel-2, checked and gap-filled with NOAA/USF daily AFAI), drifts every mass with a particle ensemble through real Copernicus currents and Open-Meteo wind, and forecasts arrival probability, risk and ETA for 14 DR coastal zones and each of 55 beaches. Alerts go to Telegram subscribers.
+
+It also ships a tourist **beach explorer**: 55 DR beaches on one map, where every number, colour and drift path comes from that same forecast. Each beach has a "Conoce esta playa" panel on its wildlife, surf and wind ratings, access and parking. Visitors can **report what they see on the beach**, and those reports are the ground truth every forecast is scored against.
+
+An ML layer adds 7 / 14 / 21-day outlooks between the 72-hour drift forecast and monthly climatology. It's used only while it beats the seasonal fallback on held-out data.
 
 <p align="center">
-  <img src="docs/media/hero.png" alt="Beach explorer — national map with detected sargassum masses and the Playa Rincón detail panel" width="100%">
+  <img src="docs/media/hero.png" alt="Beach explorer zoomed on south-east Hispaniola: sargassum masses with their +48 h drift paths, zone coastlines coloured by risk, the visitor report card and the Playa Mano Juan (Saona) forecast card" width="100%">
 </p>
 
 <p align="center">
-  <em>Detected sargassum masses (brown) drifting across the DR EEZ, monitoring zones (dashed), and per-beach risk with arrival ETA.</em>
+  <em>Masses at their estimated position now (brown) with their particles' path to +48 h (orange), each zone's coastline coloured by its risk, the beach's own forecast with probability and ETA, and the visitor report card. Real data, 5 Nov 2026.</em>
 </p>
 
-**Contents:** [Quick start](#quick-start-5-minutes-to-a-running-dashboard) · [Environment variables](#environment-variables) · [Architecture](#architecture) · [API](#api-reference) · [Database](#database-schema) · [Telegram](#telegram-bot-commands) · [Deployment](#deployment) · [Risk calculation](#how-sargassum-risk-is-calculated) · [Beach explorer](#beach-explorer-features) · [Conoce esta playa](#conoce-esta-playa) · [Adding a beach photo](#adding-a-beach-photo) · [Surf & wind](#surf--wind-conditions) · [Testing](#testing) · [Limitations](#limitations-and-known-gaps) · [License](#license)
+**Contents:** [Quick start](#quick-start-5-minutes-to-a-running-dashboard) · [Environment variables](#environment-variables) · [Architecture](#architecture) · [API](#api-reference) · [Database](#database-schema) · [Telegram](#telegram-bot-commands) · [Deployment](#deployment) · [Risk calculation](#how-sargassum-risk-is-calculated) · [Visitor reports](#visitor-reports) · [Scoring and tuning](#scoring-the-forecasts) · [Beach explorer](#beach-explorer-features) · [Conoce esta playa](#conoce-esta-playa) · [Adding a beach photo](#adding-a-beach-photo) · [Surf & wind](#surf--wind-conditions) · [Testing](#testing) · [Limitations](#limitations-and-known-gaps) · [License](#license)
 
 ---
 
@@ -56,19 +58,27 @@ Open http://localhost:8501 — you'll see the interactive tropical map with 55 D
 > at a host that is down the map shows beaches but no sargassum. Start the API
 > (below) in a second terminal and reload.
 
-### Also run the API and risk map
+### Run the whole stack locally
+
+Use the project's `.venv` in every terminal (`which python` should end in `.venv/bin/python`). Another environment's `streamlit` fails with `No module named 'folium'`.
 
 ```bash
-# API (separate terminal)
-uvicorn api.main:app --reload
+# Terminal 1 — API on your Supabase project (from .env)
+.venv/bin/uvicorn api.main:app --reload --port 8000
 # → http://localhost:8000/docs for interactive API docs
 
-# Coastal risk map
-streamlit run dashboard/app.py
+# Terminal 2 — one pipeline run: detect, drift, forecast (needs EE + CMEMS)
+python -m pipeline.run --dry-run                 # writes nothing, sends nothing; prints the forecasts
+TELEGRAM_BOT_TOKEN= python -m pipeline.run       # writes to Supabase like the cron job, sends no alerts
 
-# Full detection pipeline (requires EE + CMEMS credentials)
-python -m pipeline.run
+# Terminal 2 — the explorer, reading your local API
+API_BASE_URL=http://localhost:8000 .venv/bin/streamlit run dashboard/beaches.py
+
+# Optional: the older coastal risk map
+streamlit run dashboard/app.py
 ```
+
+The explorer caches API data for 5 minutes, so restart Streamlit after a pipeline run to see it at once.
 
 ---
 
@@ -89,9 +99,9 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `TELEGRAM_WEBHOOK_SECRET` | Alerts                 | Shared secret echoed in Telegram's webhook header (prevents spoofing) |
 | `API_BASE_URL`            | Dashboard risk overlay | Public API URL. Unset, it uses the production API; blank skips live risk |
 | `FORECAST_HOURS_PHYSICS`  | Pipeline (optional)    | Physics drift horizon in hours (default`72`)                        |
-| `FORECAST_HOURS_EXTENDED` | Pipeline (optional)    | ML forecast horizon cap in hours (default`168` = 7 d)               |
+| `FORECAST_HOURS_EXTENDED` | —                      | Unused; the extended forecast's leads are fixed at 7 / 14 / 21 days  |
 | `ML_RETRAIN_EVERY_N_RUNS` | Pipeline (optional)    | Retrain ML model every N pipeline runs (default`28` ≈ 1 week)      |
-| `WIND_DRIFT_FACTOR`       | Pipeline (optional)    | Central windage, used with a single particle (default `0.01`)       |
+| `WIND_DRIFT_FACTOR`       | Pipeline (optional)    | Central windage: single-particle runs and beach exposure (default `0.01`) |
 | `FAI_THRESHOLD`           | Pipeline (optional)    | Floating Algae Index detection threshold (default`0.005`)           |
 | `AFAI_ENABLED`            | Pipeline (optional)    | Compare with NOAA/USF daily AFAI each run (default `1`)              |
 | `AFAI_GAP_FILL`           | Pipeline (optional)    | Add AFAI clusters Sentinel-2 missed as detections (default `1`)      |
@@ -113,7 +123,15 @@ Copy `.env.example` to `.env` and fill in every variable.
 | `RISK_AREA_FIELD`         | Pipeline (optional)    | `area_km2` (outline) or `covered_km2` for the risk thresholds (default `area_km2`) |
 | `BEACH_RADIUS_KM`         | Pipeline (optional)    | Arrivals this close count for a beach's own forecast (default `10`)  |
 | `DRIFT_MODEL_VERSION` / `ML_MODEL_VERSION` | Pipeline (optional) | Version stamped on stored forecasts; bump when the model changes |
-| `ZONE_BOX_HALF_DEG`       | Pipeline (optional)    | Half-width of each zone's detection box in degrees (default`0.35`)  |
+| `ZONE_BOX_HALF_DEG`       | Pipeline (optional)    | Half-width of the legacy display box stored for new zones (default `0.35`); arrivals use coastlines |
+| `ZONE_COAST_RADIUS_KM`    | Pipeline (optional)    | Coast within this distance of a zone centre (and nearest to it) belongs to that zone (default `40`) |
+| `DRIFT_DIFFUSIVITY_M2S`   | Pipeline (optional)    | Random-walk eddy diffusivity for particles (default `20`)            |
+| `DRIFT_MAX_AGE_DAYS`      | Pipeline (optional)    | Masses seen longer ago are not drifted (default `8`)                 |
+| `FAI_BG_RADIUS_M`         | Pipeline (optional)    | Radius of the local-median FAI background (default `500`)            |
+| `S2_FAI_FULL_COVER`       | Pipeline (optional)    | FAI anomaly of a fully covered pixel, for `covered_km2` (default `0.08`) |
+| `AFAI_DAYS`               | Pipeline (optional)    | Daily AFAI fields combined per run (default `3`)                     |
+| `ML_CALIBRATE`            | Pipeline (optional)    | Calibrate the extended model's probabilities (default `1`)           |
+| `DASHBOARD_WIND_DRIFT_FACTOR` | Dashboard (optional) | Windage of the explorer's fallback estimate, used only without beach forecasts (default `0.02`) |
 | `CORS_ORIGINS`            | API (optional)         | Origins allowed to call the API                                       |
 | `APP_CANONICAL_URL`       | Dashboard (optional)   | Canonical site URL for SEO tags                                       |
 | `APP_OG_IMAGE_URL`        | Dashboard (optional)   | Social preview image URL                                              |
@@ -129,110 +147,123 @@ Copy `.env.example` to `.env` and fill in every variable.
 ## Architecture
 
 ```
-┌────────────┐   ┌─────────────┐   ┌───────────────┐   ┌───────────┐   ┌────────────┐
-│  detect.py │ → │  ocean.py   │ → │   drift.py    │ → │  store.py │ → │dispatch.py │
-│  (GEE/FAI) │   │ (CMEMS cur) │   │ (Lagrangian)  │   │ (Supabase)│   │ (Telegram) │
-└────────────┘   └─────────────┘   └───────────────┘   └───────────┘   └────────────┘
-                                                               │
-                                         ┌─────────────────────┤
-                                         ▼                     │
-                                  ┌────────────┐               │
-                                  │  model.py  │ (Step 6)      │
-                                  │  7/14/21d  │               │
-                                  │ ML forecast│               │
-                                  └─────┬──────┘               │
-                                        │ upsert_ml_forecasts   │
-                              ┌─────────▼──────────────────────┤
-                              ▼                                ▼
-                       ┌────────────┐                  ┌───────────────┐
-                       │  FastAPI   │                  │   Streamlit   │
-                       │  api/      │                  │  dashboard/   │
-                       └────────────┘                  └───────────────┘
+                         every 6 h (GitHub Actions, pipeline.yml)
+┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌────────────────────┐
+│  detect.py   │ → │   afai.py    │ → │   ocean.py   │ → │      drift.py      │
+│ Sentinel-2   │   │ NOAA/USF     │   │ gridded      │   │ 24-particle        │
+│ FAI vs local │   │ daily AFAI:  │   │ Copernicus   │   │ ensemble per patch │
+│ background,  │   │ check + fill │   │ currents     │   │ → coast arrivals   │
+│ Cloud Score+ │   │ cloudy gaps  │   │ (+tide,Stokes│   │ → zone & beach     │
+│              │   │              │   │ ) + wind     │   │   risk, tracks,    │
+└──────────────┘   └──────────────┘   └──────────────┘   │   exposure         │
+                                                         └─────────┬──────────┘
+          ┌────────────────────────────────┬──────────────────────┤
+          ▼                                ▼                      ▼
+   ┌─────────────┐                 ┌──────────────┐        ┌─────────────┐
+   │  store.py   │                 │   model.py   │        │ dispatch.py │
+   │  Supabase   │◄────────────────│ 7/14/21-day  │        │  Telegram   │
+   │  (PostGIS)  │                 │ ML, used only│        │  alerts     │
+   └──────┬──────┘                 │ if it beats  │        └─────────────┘
+          │                        │ seasonal     │
+          │                        └──────────────┘
+    ┌─────┴──────────────┐
+    ▼                    ▼               scored and tuned offline against
+┌────────┐        ┌──────────────┐       visitor reports:
+│FastAPI │ ─────► │  Streamlit   │       evaluate.py · replay.py
+│ api/   │        │  explorer    │ ──► POST /reports (+ Telegram /reporte)
+└────────┘        └──────────────┘
 ```
 
 **Forecast horizons handled by each step:**
 
-| Step | Module                  | Horizon       | Method                                                              |
-| ---- | ----------------------- | ------------- | ------------------------------------------------------------------- |
-| 1–4 | `detect` → `drift` | 0–72 h       | Physics (Lagrangian advection + CMEMS currents)                     |
-| 6    | `model.py`            | 7 / 14 / 21 d | ML (GradientBoostingClassifier), falls back to seasonal climatology |
-| —   | `climatology.py`      | Monthly       | Caribbean seasonal index (always available, coarsest)               |
+| Step | Module | Horizon | Method |
+| ---- | ------ | ------- | ------ |
+| 1–4 | `detect` → `afai` → `ocean` → `drift` | 0–72 h | Particle ensemble through real Copernicus currents and Open-Meteo wind, caught up from each mass's observation time |
+| 6 | `model.py` | 7 / 14 / 21 d | Calibrated gradient boosting, used only while it beats seasonal walk-forward; otherwise seasonal |
+| — | `climatology.py` | Monthly | Caribbean seasonal index (always available, coarsest) |
 
 ### Repo layout
 
-| Path                          | Purpose                                                                  |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| `pipeline/detect.py`        | GEE Sentinel-2 FAI detection → patch polygons                           |
-| `pipeline/ocean.py`         | Copernicus Marine current + Open-Meteo wind fetch                        |
-| `pipeline/drift.py`         | Lagrangian advection → 72-h zone ETA + risk                             |
-| `pipeline/features.py`      | Feature engineering for the ML model (12-element vector)                 |
-| `pipeline/model.py`         | GradientBoostingClassifier — 7 / 14 / 21-day extended forecasts         |
-| `pipeline/store.py`         | Upsert detections, forecasts, and ML forecasts to Supabase               |
-| `pipeline/dispatch.py`      | Match forecasts to subscribers, de-duplicate, send Telegram alerts       |
-| `pipeline/run.py`           | Orchestrate all 6 steps; graceful per-step error handling                |
-| `pipeline/config.py`        | EEZ bbox, zones, thresholds, ML settings — all from env vars            |
-| `api/`                      | FastAPI: health, zones, forecasts, extended forecasts, beaches, Telegram |
-| `dashboard/beaches.py`      | Streamlit beach explorer (tropical UI, bilingual ES/EN)                  |
+| Path | Purpose |
+| ---- | ------- |
+| `pipeline/detect.py` | Sentinel-2 FAI detection on Earth Engine: local-background FAI, Cloud Score+, raster coast mask, observation time and covered area per patch |
+| `pipeline/afai.py` | NOAA/USF daily AFAI from ERDDAP: agreement check and cloudy-day gap fill |
+| `pipeline/ocean.py` | Gridded Copernicus currents (with tides and Stokes drift) and Open-Meteo wind (m/s), interpolated anywhere |
+| `pipeline/drift.py` | Particle ensemble, coastline arrival, zone and beach forecasts, patch tracks, beach exposure, zone coastlines |
+| `pipeline/data/land.geojson` | Hispaniola, Puerto Rico and nearby islands (US State Dept. LSIB, public domain): where particles stop |
+| `pipeline/features.py` | Model inputs per zone (`zone_features`), shared by training and prediction |
+| `pipeline/model.py` | Extended 7 / 14 / 21-day forecast: training data, calibration, skill gate |
+| `pipeline/evaluate.py` | Walk-forward evaluation and scoring against visitor reports (reads only) |
+| `pipeline/replay.py` | Re-runs history with the current drift: tunes settings against reports, rebuilds `zone_features` |
+| `pipeline/backfill_features.py` | One-off copy of old runs into `zone_features` as `legacy` |
+| `pipeline/store.py` | Writes detections, forecasts, beach forecasts, features and checks to Supabase; tolerates columns not yet migrated |
+| `pipeline/dispatch.py` | Matches medium/high zones to subscribers and sends Telegram alerts with a 6 h cooldown |
+| `pipeline/run.py` | Orchestrates the steps; `--dry-run` writes nothing; one failed step never stops the run |
+| `pipeline/config.py` | EEZ, zones, thresholds, drift and ML settings — all from env vars |
+| `api/` | FastAPI: health, zones (with coastlines), forecasts, beach forecasts, extended forecasts, detections (with tracks), beaches, reports, Telegram |
+| `api/reports.py` | Visitor reports shared by `POST /reports` and Telegram `/reporte` |
+| `dashboard/beaches.py` | Streamlit beach explorer (tropical UI, bilingual ES/EN) |
 | `dashboard/beaches_data.py` | 55-beach offline dataset (canonical, English — filters and API key on it) |
-| `dashboard/beaches_i18n.py` | Spanish display layer: 183 vocabulary terms + prose for all 55 beaches   |
-| `dashboard/climatology.py`  | Caribbean monthly risk index (seasonal fallback)                         |
-| `dashboard/risk_overlay.py` | Live risk fetch + nearest-zone mapping                                   |
-| `dashboard/surf.py`         | Live surf/kite scoring from Open-Meteo wave + wind (no stored data)      |
-| `dashboard/surf_data.py`    | Per-beach shore orientation and swell/wind windows used to score surf    |
-| `dashboard/conoce.py`       | Renders the "Conoce esta playa" panel; every value is escaped            |
-| `dashboard/conoce_data.py`  | Validates and indexes species, photos and hand-written beach content     |
-| `dashboard/beach_profiles.py` | Hand-written beach content, with sources                               |
-| `dashboard/map_perf.py`     | Parallel loading, compact map markers, smooth map and card motion        |
-| `dashboard/data/`           | `species_auto.json` (generated) and `beach_photos.json` (reviewed)       |
-| `dashboard/static/`         | Self-hosted images, re-encoded with no metadata, served at `/app/static/` |
-| `sql/schema.sql`            | PostGIS tables, seed zones (including La Romana), indexes, RLS policies  |
-| `scripts/seed_beaches.py`   | Idempotent Supabase beach seeder                                         |
-| `scripts/fetch_species.py`  | Refreshes species data and thumbnails from iNaturalist and OBIS          |
-| `scripts/beach_photo_candidates.py` | Lists Commons photos near each beach for review                  |
-| `scripts/review_photos.py`  | Local-only server for choosing photos in the browser                     |
-| `scripts/import_beach_photo.py` | The only script that writes beach photos                             |
-| `requirements/`             | Hashed lockfiles per service; see [its README](requirements/README.md)   |
-| `.github/workflows/`        | `ci.yml` (tests + security scans), `deploy.yml` (Cloud Run), `pipeline.yml` (cron every 6 h), `keepalive.yml` (daily ping) |
+| `dashboard/beaches_i18n.py` | Spanish display layer: 183 vocabulary terms + prose for all 55 beaches |
+| `dashboard/climatology.py` | Caribbean monthly risk index (seasonal fallback) |
+| `dashboard/risk_overlay.py` | Live data fetch, nearest-zone mapping, drift-track lookup, shore exposure |
+| `dashboard/surf.py` | Live surf/kite scoring from Open-Meteo wave + wind (no stored data) |
+| `dashboard/surf_data.py` | Per-beach shore orientation and swell/wind windows (also used for exposure) |
+| `dashboard/conoce.py` | Renders the "Conoce esta playa" panel; every value is escaped |
+| `dashboard/conoce_data.py` | Validates and indexes species, photos and hand-written beach content |
+| `dashboard/beach_profiles.py` | Hand-written beach content, with sources |
+| `dashboard/map_perf.py` | Parallel loading, compact map markers, smooth map and card motion |
+| `dashboard/dr_boundary.geojson` | DR outline (Natural Earth): which coast counts as a DR beach |
+| `dashboard/data/` | `species_auto.json` (generated) and `beach_photos.json` (reviewed) |
+| `dashboard/static/` | Self-hosted images, re-encoded with no metadata, served at `/app/static/` |
+| `sql/schema.sql` | PostGIS tables, 14 seed zones, views, indexes, RLS; safe to re-run after every change |
+| `scripts/seed_beaches.py` | Idempotent Supabase beach seeder |
+| `scripts/fetch_species.py` | Refreshes species data and thumbnails from iNaturalist and OBIS |
+| `scripts/beach_photo_candidates.py` | Lists Commons photos near each beach for review |
+| `scripts/review_photos.py` | Local-only server for choosing photos in the browser |
+| `scripts/import_beach_photo.py` | The only script that writes beach photos |
+| `requirements/` | Hashed lockfiles per service; see [its README](requirements/README.md) |
+| `.github/workflows/` | `ci.yml` (tests + security scans), `deploy.yml` (Cloud Run), `pipeline.yml` (cron every 6 h, model cached between runs), `keepalive.yml` (daily ping) |
 
 ---
 
 ## API reference
 
-| Method   | Endpoint                | Description                                                    |
-| -------- | ----------------------- | -------------------------------------------------------------- |
-| `GET`  | `/health`             | Liveness + DB connectivity                                     |
-| `GET`  | `/zones`              | All monitored coastal zones                                    |
-| `GET`  | `/forecast`           | Latest 72-h physics forecast for every zone                    |
-| `GET`  | `/forecast/{zone_id}` | Latest 72-h physics forecast for one zone                      |
-| `GET`  | `/forecast/extended`  | ML extended forecasts (7/14/21 d); filter with`?lead_days=7` |
-| `GET`  | `/beaches`            | Beach catalog (`?province=` / `?region=` filters)          |
-| `GET`  | `/detections`         | Latest detected sargassum masses (lat/lon + area);`?limit=`  |
-| `POST` | `/subscribe`          | Subscribe a Telegram chat to a zone                            |
-| `GET`  | `/forecast/beaches`   | Latest pipeline forecast for every beach (risk, ETA, probabilities, horizons) |
-| `POST` | `/reports`            | A visitor's own sighting: `{beach, amount, observed_on?}` (today or yesterday) |
-| `POST` | `/telegram/webhook`   | Telegram Bot API update handler                                |
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| `GET` | `/health` | Liveness + DB connectivity |
+| `GET` | `/zones` | The 14 zones, each with its owned coastline (`coast`, GeoJSON) |
+| `GET` | `/forecast` | Latest 72-h drift forecast for every zone: risk, ETA, `arrival_probability`, `risk_probs`, horizons, `model_version` |
+| `GET` | `/forecast/beaches` | Latest forecast for every beach: risk, ETA, probabilities, horizons, `exposure` |
+| `GET` | `/forecast/extended` | 7 / 14 / 21-day forecasts with calibrated `probs`; filter with `?lead_days=7` |
+| `GET` | `/forecast/{zone_id}` | Latest drift forecast for one zone |
+| `GET` | `/detections` | Latest masses (lat/lon, area, source, observation time, covered area, drift `track`); `?limit=` |
+| `GET` | `/beaches` | Beach catalog (`?province=` / `?region=` filters) |
+| `POST` | `/reports` | A visitor's sighting: `{beach, amount, observed_on?}` — catalogue beaches, today or yesterday only, rate-limited per visitor |
+| `POST` | `/subscribe` | Subscribe a Telegram chat to a zone |
+| `POST` | `/telegram/webhook` | Telegram Bot API update handler (shared-secret header) |
 
-Interactive docs at `/docs` when the API is running.
+Reads fall back cleanly when a newer column hasn't been migrated yet, so deploying the API before re-running `sql/schema.sql` never breaks it. Interactive docs at `/docs` when the API runs locally.
 
 ---
 
 ## Database schema
 
-| Table            | Description                                                                    |
-| ---------------- | ------------------------------------------------------------------------------ |
-| `zones`        | 14 coastal monitoring zones (centre points; `coast` = the coastline each zone owns; `geom` = legacy display boxes) |
-| `detections`   | Sargassum patches detected from satellite imagery (polygon + centroid + area)  |
-| `forecasts`    | 72-h physics zone risk + ETA per pipeline run (with optional`horizons` JSON) |
-| `ml_forecasts` | ML extended forecasts per (zone, lead_days); unique on (run_at, zone, lead)    |
-| `subscribers`  | Telegram subscribers per zone                                                  |
-| `beaches`      | 55 DR beaches with metadata + PostGIS point geometry                           |
-| `beach_reports` | What visitors saw on a beach (`none`…`high`) — the ground truth forecasts are scored against. Service role only |
-| `zone_features` | Per-run, per-zone inputs of the extended model, written each run             |
-| `detection_checks` | Per-run agreement between Sentinel-2 and NOAA/USF AFAI, and AFAI gap fill |
+| Table | Description |
+| ----- | ----------- |
+| `zones` | 14 coastal zones: centre point, `coast` (the coastline the zone owns, where its arrivals count), `geom` (legacy display box) |
+| `detections` | Sargassum patches: polygon, centroid, outline `area_km2`, `covered_km2`, `observed_at`, `source` (`sentinel-2` / `usf-afai`), drift `track` |
+| `forecasts` | Zone drift forecast per run: risk, ETA, `arrival_probability`, `risk_probs`, `horizons`, `model_version` |
+| `beach_forecasts` | Beach drift forecast per run (particles stopping within `BEACH_RADIUS_KM`), with `exposure`; what the card shows and reports are scored on |
+| `ml_forecasts` | Extended forecasts per (zone, lead) with calibrated `probs` and `model_version` |
+| `zone_features` | Per-run, per-zone model inputs, keyed by drift `model_version` (`legacy` rows are ignored by training) |
+| `beach_reports` | What visitors saw (`none`…`high`), with date, time sent, beach and zone; nothing personal. Service role only |
+| `detection_checks` | Per-run agreement between Sentinel-2 and AFAI, and AFAI gap fill |
 | `model_evaluations` | Walk-forward scores of the extended model vs its baselines at each training |
-| `beach_forecasts` | The pipeline's 72-h forecast per beach (particles stopping within `BEACH_RADIUS_KM`); what the card shows and reports are scored on |
+| `subscribers` | Telegram subscribers per zone |
+| `beaches` | 55 DR beaches with metadata + PostGIS point geometry |
 
-Risk levels: `none` · `low` · `medium` · `high`
+Views `forecasts_latest`, `beach_forecasts_latest`, `ml_forecasts_latest` and `detections_latest` give the newest rows. Risk levels: `none` · `low` · `medium` · `high`.
 
 **Monitored zones (14):** Punta Cana · Bavaro · Samana · Puerto Plata · Juan Dolio · Barahona · Pedernales · Monte Cristi · Rio San Juan · Azua · La Romana · **Punta Rucia** · **Santo Domingo** · **Miches** *(the last three cover coast that belonged to no zone once arrivals were counted at the coastline)*
 
@@ -254,13 +285,19 @@ Once deployed and webhook registered:
 
 ## Deployment
 
-| Service                | What runs there                                       |
-| ---------------------- | ----------------------------------------------------- |
-| **Google Cloud Run**   | FastAPI (`api/`) and the dashboard (`dashboard/beaches.py`), as Docker images |
-| **Supabase**           | Postgres + PostGIS                                    |
-| **GitHub Actions**     | CI, deploys, pipeline cron and keep-alive             |
+| Service | What runs there |
+| ------- | --------------- |
+| **Google Cloud Run** | FastAPI (`api/`) and the dashboard (`dashboard/beaches.py`), as Docker images |
+| **Supabase** | Postgres + PostGIS |
+| **GitHub Actions** | CI, deploys, the 6-hourly pipeline and keep-alive |
 
-A push to `main` that touches the app runs `deploy.yml`: the CI checks run first, then both images are built and deployed without traffic, and each new revision gets traffic only after it passes a smoke check. `deploy/gcp-setup.sh` sets up the project, and secrets live in GCP Secret Manager. Cloud Run scales to zero when idle; check your own usage against its free tier.
+A push to `main` that touches the app runs `deploy.yml`. CI runs first; then each image whose files changed since the previous push is built, deployed without traffic, and given traffic only after it passes a smoke check. `deploy/gcp-setup.sh` sets up the project, and secrets live in GCP Secret Manager. Cloud Run scales to zero when idle; check your own usage against its free tier.
+
+**Releasing a change:**
+
+1. Re-run `sql/schema.sql` in the Supabase SQL editor when the schema changed. It is safe to re-run, and the code tolerates columns that are not there yet.
+2. Merge to `main`. If a deploy fails (e.g. a test), the next push only deploys what *it* changed, so run **Actions → deploy → Run workflow** to build and deploy both images.
+3. Optionally start the pipeline early (`gh workflow run pipeline.yml --ref main`) so new forecast fields appear without waiting for the next 6-hour run.
 
 `render.yaml` is an unused stub.
 
@@ -269,21 +306,23 @@ A push to `main` that touches the app runs `deploy.yml`: the CI checks run first
 ## Tech stack
 
 - **Language:** Python 3.11
-- **Detection:** earthengine-api · geemap · geopandas · shapely · numpy
-- **Ocean data:** copernicusmarine (CMEMS) · Open-Meteo (free wind API, no key)
+- **Detection:** earthengine-api (Sentinel-2, Cloud Score+, LSIB coastline) · geopandas · shapely · numpy
+- **Independent check:** NOAA/AOML ERDDAP (USF daily AFAI) · scipy
+- **Ocean data:** copernicusmarine (merged currents with tides + Stokes drift, archive back to Nov 2020) · Open-Meteo forecast and historical-forecast APIs (wind, no key)
+- **Drift:** numpy · scipy (interpolation, KD-tree coastline) · shapely
 - **Database:** Supabase (Postgres + PostGIS) via supabase-py
 - **API:** FastAPI · uvicorn · pydantic
-- **Bot:** python-telegram-bot / httpx
-- **Dashboard:** streamlit · folium · streamlit-folium · pydeck
-- **ML forecasting:** scikit-learn (GradientBoostingClassifier)
-- **Scheduling:** GitHub Actions
+- **Bot:** Telegram Bot API over requests
+- **Dashboard:** streamlit · folium · streamlit-folium
+- **ML forecasting:** scikit-learn (GradientBoostingClassifier, sigmoid calibration)
+- **Scheduling:** GitHub Actions (with the Actions cache for the model)
 - **Config:** python-dotenv
 
 ---
 
 ## How sargassum risk is calculated
 
-The pipeline runs six steps automatically every 6 hours via GitHub Actions. Steps 1–4 produce the risk reading below; steps 5–6 send alerts and add the extended forecast.
+The pipeline runs every 6 hours via GitHub Actions. Steps 1–4 produce the 72-h zone and beach forecasts (with the [AFAI check](#independent-check-noaausf-daily-afai) between detection and drift); step 5 sends alerts and step 6 adds the extended forecast. One failed step logs an error and the run continues.
 
 ### Step 1 — Detection (Sentinel-2 / FAI)
 
@@ -342,25 +381,19 @@ Try it without writing anything: `python -m pipeline.run --dry-run`.
 
 ### What the dashboard shows
 
-Each beach on the map is matched to the **nearest monitoring zone** by Haversine distance.
-The zone's risk level, ETA, and projected arrival timestamp are displayed in the beach detail panel, with the zone's **arrival probability** from the particle ensemble.
-Forecasts are refreshed every 6 hours when the pipeline runs.
+**One model on the page.** Everything the explorer shows for the next 72 h comes from the pipeline's particle drift, refreshed every 6 hours:
 
-**One model on the page.** Everything the explorer shows for the next 72 h comes from the pipeline's particle drift:
+- **Beach colours and the card** — risk, ETA and "chance of sargassum arriving within 10 km of this beach in 72 h" come from `beach_forecasts`. The card names its method ("deriva de partículas con corrientes y viento reales"). A visit date 1–3 days out sets the same horizon as the Now / +24 / +48 / +72 h selector, so colours, card and map always show the same moment.
+- **Masses** are drawn where the drift estimates they are **now** (Sentinel-2 may have seen them days earlier), with their particles' path to +24 / +48 / +72 h (`detections.track`). A mass too old to drift gets no invented path. The legend says which currents drew the paths.
+- **"The current and wind push sargassum toward / carry it away from this shore"** compares each beach's seaward direction (`shore_normal_deg`, `dashboard/surf_data.py`) with the next 24 h of the same gridded currents and wind (`beach_forecasts.exposure`), so it can never contradict the probability beside it.
+- **Zone layer** — each zone is drawn as the stretch of coastline it owns (`zones.coast`), coloured by its risk.
+- **Past 72 h** the map stops at the model's +72 h position, and beach colours switch to the extended per-zone forecast (with its calibrated chance of medium-or-high risk) or to the seasonal estimate.
 
-- beach colours, the card's risk, ETA and probability come from `beach_forecasts`; a visit date 1–3 days out sets the same horizon as the Now/+24/+48/+72 h selector;
-- masses are drawn where the drift estimates they are **now** (they may have been seen days earlier), with their particles' path to +24/+48/+72 h (`detections.track`); a mass too old to drift gets no invented path;
-- the "push toward / away from this shore" line uses the stored exposure from the same currents and wind (`beach_forecasts.exposure`);
-- the zone layer draws each zone's owned coastline (`zones.coast`), where its arrivals are counted;
-- past 72 h the map stops at the model's +72 h position, and beach colours switch to the extended per-zone forecast (or seasonal).
-
-The dashboard's own quick estimate (fixed regional currents) is used only when the API has no beach forecasts at all, and the card says so.
-
-**Beach exposure:** whether a beach faces the incoming sargassum matters as much as how close it is. Each beach's seaward direction (`shore_normal_deg` in `dashboard/surf_data.py`; region default for beaches without a curated spot) is compared with today's drift (regional current + wind). When the drift heads away from the beach's face, nearby sargassum counts one risk level lower (never below `low`), and the card says so; when it pushes straight on, the card says that too. The dashboard's quick drift uses 2 % windage (`DASHBOARD_WIND_DRIFT_FACTOR`) because its regional currents leave out Stokes drift.
+The explorer's own quick estimate (fixed regional currents, 2 % windage via `DASHBOARD_WIND_DRIFT_FACTOR`, and the one-level "sheltered beach" reduction) is used only when the API has no beach forecasts at all, and the card then says "estimación rápida".
 
 ### Step 5 — Telegram alerts (dispatch)
 
-After forecasts are stored, `dispatch.py` queries subscribers and sends de-duplicated Telegram alerts for zones where risk changed to `high`. A `last_alerted` timestamp prevents the same alert from being resent within the same pipeline cycle.
+After forecasts are stored, `dispatch.py` sends a Telegram alert to each subscriber of a zone whose risk is `medium` or `high`. A subscriber alerted in the last 6 hours is skipped, so back-to-back runs don't repeat the same alert.
 
 Alert format (Spanish, low-bandwidth):
 
@@ -394,8 +427,8 @@ Beyond 72 hours the physics model diverges from reality because small errors in 
 
 **Model lifecycle:**
 
-- First run: no model file → seasonal climatology fallback used immediately, training skipped.
-- Once ≥ 40 labelled examples accumulate in Supabase (≈ 10 pipeline days), the model trains and is persisted to `pipeline/.model_cache.pkl`.
+- With fewer than 40 labelled examples the extended forecast is seasonal. `python -m pipeline.replay --days 150 --write-features` fills `zone_features` from history with the current drift model, so a new deployment doesn't have to wait ~10 days.
+- Once trained, the model is persisted to `pipeline/.model_cache.pkl`.
 - The model retrains every `ML_RETRAIN_EVERY_N_RUNS` pipeline runs (default `28`, ≈ 1 week at the 6-h cron cadence). The model file and run counter are kept between scheduled runs with the Actions cache (`pipeline.yml`); before that they were lost every run.
 - **Labels:** physics risk at *T + lead* until visitor reports give `ML_MIN_REPORT_ROWS` (150) training rows; from then on the model learns from what visitors actually saw. The source is recorded with each evaluation.
 - **Probabilities:** the classifier is calibrated (sigmoid, on time-ordered folds) and all four class probabilities are stored in `ml_forecasts.probs` and served by `GET /forecast/extended`. The card shows the chance of medium-or-high risk. Evaluations report a Brier score next to macro-F1.
@@ -413,31 +446,27 @@ The threshold was chosen by inspecting real fields, not tuned against ground tru
 
 ### Visitor reports
 
-When a beach is selected, the sidebar asks *“¿Estás en la playa? ¿Cuánto sargazo hay hoy?”* (Nada / Poco / Bastante / Mucho). The answer goes to `POST /reports`, which accepts catalogue beaches only, today or yesterday only, stores the nearest zone, and keeps nothing personal (no IP, account or free text). Each session can report a beach once; the API rate-limits each visitor.
+Visitor reports are the only real observations of what reaches the beaches; everything else is a model output.
+
+- **On the explorer:** when a beach card is open, a card beside it asks *“¿Estás en la playa? ¿Cuánto sargazo hay hoy?”* (Nada / Poco / Bastante / Mucho → `none`…`high`). It sits to the left of the beach card on desktop and is a one-line strip above the sheet on phones. "Enviar reporte" activates once an amount is chosen, and the card then thanks the visitor instead of asking again.
+- **On Telegram:** `/reporte mucho Bávaro` (amount and beach in either order, accent-insensitive).
+- **Rules (`api/reports.py`):** catalogue beaches only, about today or yesterday only. The nearest zone and the time sent are stored, and nothing personal (no IP, account, chat id or free text). The API rate-limits each visitor; the explorer allows one report per beach per session.
 
 ### Scoring the forecasts
 
 ```bash
 python -m pipeline.evaluate                  # reads Supabase, never writes
-python -m pipeline.evaluate --from-history   # before zone_features is backfilled
 python -m pipeline.evaluate --json out.json
 python -m pipeline.evaluate --versions all   # include legacy zone_features
+python -m pipeline.evaluate --from-history   # rebuild features from raw detections first
 ```
 
-Every stored forecast carries a `model_version` (`DRIFT_MODEL_VERSION`, `ML_MODEL_VERSION`; rows from before versioning are `legacy`), and every score against reports is split by it, so the old and new models are never pooled. Beach forecasts are scored against beach-level reports directly; zone forecasts against each zone-day's median. A label needs `MIN_REPORTS_PER_LABEL` reports, and the output shows how many labels rest on 1, 2, 3… reports.
+1. **Extended model vs baselines (walk-forward).** Runs 6 h apart are near-copies, so a random split overstates accuracy. The history is cut into consecutive time blocks; each fold trains only on rows whose label time is before the block (purged) and tests on the block. The model is compared with **seasonal** (the current fallback), **persistence** (today's drift risk will still hold) and **majority** (always the most common class). The headline metric is macro-F1, because `none` dominates and accuracy rewards always saying `none`; a Brier score shows how good the probabilities are.
+2. **Forecasts vs visitor reports.** Beach forecasts are scored against beach-level reports directly; zone forecasts against each zone-day's median report; the published extended forecast per lead and the seasonal estimate likewise. A label needs `MIN_REPORTS_PER_LABEL` reports, and the output shows how many labels rest on 1, 2, 3… reports.
 
-### Tuning the drift against reports
+Every stored forecast carries a `model_version` (`DRIFT_MODEL_VERSION`, `ML_MODEL_VERSION`; rows from before versioning are `legacy`), and every score is split by it, so the old and new models are never pooled.
 
-```bash
-python -m pipeline.replay --days 60          # reads only
-```
-
-Rebuilds past runs from stored detections, Copernicus' archived currents (back to Nov 2020) and Open-Meteo's historical wind, and scores a grid of settings — windage range, arrival distance, outline vs covered area, risk-threshold scale — against the visitor reports, ranked by the day-ahead beach score. Apply a winner through the env vars once it holds on enough reports. Detections from before November 2026 came from the old detection step and carry no observation time, so treat early results with care.
-
-1. **Extended model vs baselines (walk-forward).** Runs 6 h apart are near-copies, so a random split overstates accuracy. The history is cut into consecutive time blocks; each fold trains only on rows whose label time is before the block (purged) and tests on the block. The model is compared with **seasonal** (the current fallback), **persistence** (today's physics risk will still hold) and **majority** (always the most common class). The headline metric is macro-F1, because `none` dominates and accuracy rewards always saying `none`.
-2. **Forecasts vs visitor reports.** Each zone-day gets the median reported amount, and every stored forecast valid that day is scored: physics per horizon, the published extended forecast per lead, and seasonal.
-
-First run on real history (16 Jun – 29 Oct 2026, 5,973 zone-runs, 3 folds, labels = physics risk):
+First run on real history (16 Jun – 29 Oct 2026, 5,973 zone-runs, 3 folds, labels = the old drift model's risk):
 
 | method      | macro-F1 | accuracy | MAE   |
 | ----------- | -------- | -------- | ----- |
@@ -446,63 +475,69 @@ First run on real history (16 Jun – 29 Oct 2026, 5,973 zone-runs, 3 folds, lab
 | persistence | **0.411** | **0.591** | **0.744** |
 | majority    | 0.162    | 0.478    | 0.948 |
 
-The model beats seasonal at every lead but loses to persistence at every lead. Scores against visitor reports will say which of these is closest to what actually reaches the beaches.
+The model beat seasonal at every lead but lost to persistence at every lead. History has since been rebuilt with the current drift model (`replay --write-features`), and the scores against visitor reports will say which forecast is closest to what actually reaches the beaches.
+
+### Tuning the drift against reports
+
+```bash
+python -m pipeline.replay --days 60                    # score a grid of settings (reads only)
+python -m pipeline.replay --days 150 --write-features  # rebuild zone_features with the current drift
+```
+
+`replay` rebuilds past runs from stored detections, Copernicus' archived currents (back to Nov 2020) and Open-Meteo's historical wind. It scores a grid of settings — windage range, arrival distance, outline vs covered area, risk-threshold scale — against the visitor reports, ranked by the day-ahead beach score. Settings that only change how arrivals are summarised re-score the same particles, so the grid stays cheap. Apply a winner through the env vars once it holds on enough reports. Detections from before November 2026 came from the old detection step and carry no observation time, so treat early results with care.
 
 ---
 
 ## Beach explorer features
 
 <p align="center">
-  <img src="docs/media/demo.gif" alt="Picking a beach from the sidebar, the map flying to it, zooming in, and the whole UI plus beach data switching to English" width="100%">
+  <img src="docs/media/demo.gif" alt="Picking Playa Mano Juan (Saona) from the sidebar: the map flies to it, the forecast and report cards open, zooming out shows the masses and their drift paths, an amount is chosen in the report card, and the whole interface switches to English" width="100%">
 </p>
 
 <p align="center">
-  <em>Type to find a beach → the map flies to it → zoom in → switch language. Interface <strong>and</strong> beach data are fully bilingual.</em>
+  <em>Find a beach → the map flies to it and opens its forecast and report cards → zoom out to the masses and their drift paths → report what you see → switch language. Interface <strong>and</strong> beach data are fully bilingual.</em>
 </p>
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/media/map-overview.png" alt="National view with no beach selected"></td>
-    <td width="50%"><img src="docs/media/beach-panel.png" alt="Beach detail panel showing sargassum risk, arrival ETA, season, access, activities and wildlife"></td>
+    <td width="50%"><img src="docs/media/map-overview.png" alt="National view at +48 h with no beach selected: masses at their estimated position now, their drift paths, and zone coastlines coloured by risk"></td>
+    <td width="50%"><img src="docs/media/beach-panel.png" alt="Visitor report card beside the Playa Mano Juan (Saona) card: risk by horizon, arrival in about 30 hours, 75 % chance of arrival within 10 km, shore direction, method, surf and beach details"></td>
   </tr>
   <tr>
-    <td align="center"><em>Opens on the national map — no card, nothing in the way.</em></td>
-    <td align="center"><em>Per-beach panel: live risk, arrival ETA, access, activities, wildlife.</em></td>
+    <td align="center"><em>National view: every mass where it is estimated to be now, its drift path, and each zone's coastline coloured by risk.</em></td>
+    <td align="center"><em>The beach's own forecast — risk by horizon, ETA, probability, shore direction — and the report card beside it.</em></td>
   </tr>
 </table>
 
 The `dashboard/beaches.py` app provides an interactive tropical map with:
 
 - **55 DR beaches** catalogued with province, region, activities, wildlife, facilities, and Google Maps links.
+- **A per-beach drift forecast** on every pin and card (see [What the dashboard shows](#what-the-dashboard-shows)): risk now and at +24 / +48 / +72 h, arrival ETA, the chance of sargassum arriving within 10 km, and whether today's current and wind push toward or away from that shore.
+- **Masses and their drift paths** — each mass where the model estimates it is now, with its particles' path to the chosen horizon; the zone layer shows each zone's owned coastline.
+- **Visitor report card** — *“¿Estás en la playa?”* next to the beach card; one tap and "Enviar reporte" (see [Visitor reports](#visitor-reports)).
+- **Time horizon (Now / +24 / +48 / +72 h)** and a **visit-date picker**: dates 1–3 days out use the drift forecast at that horizon, 4–21 days the extended forecast with its calibrated probability, later dates the seasonal estimate. Each card says which method produced its number.
 - **"Go to beach" picker** — type-ahead search over the current results; picking one flies the map to it and opens its panel, so you never have to hunt for a pin.
 - **Accent-insensitive search** — "Bavaro" finds *Playa Bávaro*, "Aguilas" finds *Bahía de las Águilas*. 12 of the 55 names carry an accent, and Streamlit's own fuzzy filter does not fold diacritics, so each affected option also shows its plain spelling.
 - **Auto-framing** — narrowing a filter (region, province, activity, risk) re-frames the map on what is left, computed in Web Mercator from the result set's bounds.
-- **Opens clean** — national map, no beach card. The panel appears only when you pick a beach, click a pin, or open a `?beach=…` link (which centres the map on it).
+- **Opens clean** — national map, no beach card. The panel appears only when you pick a beach, click a pin, or open a `?beach=…` link (which centres the map on it). The "click a marker" tip disappears once a beach is open.
 - **Fully bilingual (ES/EN)** — not just the interface: every beach description, access note, ecosystem, activity, species and facility is translated. 183 vocabulary terms plus per-beach prose live in `dashboard/beaches_i18n.py`; `beaches_data.py` stays English because the filters, the API and the Supabase seeder all key on it.
-- **Live risk badges** on each beach pin (none / low / medium / high) derived from the nearest monitoring zone's latest forecast.
-- **Per-beach arrival ETA** — direction-aware estimate of when the nearest approaching mass will reach the beach:
-  - Only masses whose drift vector points *toward* the beach (dot product > 0.005 m/s approach speed) are considered.
-  - Analytic estimate using effective drift speed, then verified hour-by-hour up to 72 h.
-- **Time horizon slider (0–72 h)** — slide to see where detected masses will be in the future. Risk badges and ETAs update live.
-- **Drift trails** — PolyLine showing the predicted path of each mass, with a ghost circle at its predicted position.
-- **Regional current model** — four coastal regimes with Caribbean-specific current speeds:
-  - East (Punta Cana / La Romana): −0.22 m/s — strong North Equatorial Current
-  - North (Puerto Plata and west): −0.12 m/s
-  - Southwest (Barahona / Pedernales): −0.08 m/s
-  - South/central default: −0.13 m/s
-- **Live wind** from Open-Meteo (free, no key required), cached 1 hour via `@st.cache_data`.
+- **Built for phones** — the beach card becomes a bottom sheet (36 % of the screen, scrollable), the report card a one-line strip above it with 34–44 px touch targets, and the map keeps the rest of the screen.
+- **Live wind** from Open-Meteo (free, no key required), cached 1 hour via `@st.cache_data`; used by the surf ratings and the fallback estimate.
 - **Custom loading screen** (pure CSS, no JavaScript) replaces the Streamlit splash screen. It fades out as soon as the map appears, usually within 1–2 seconds, with an 8-second fallback for browsers that don't support `:has()`.
 - **Shareable beach links** — each beach has its own address (`/beach/<name>` or `?beach=…`), and the page sets its canonical link and `og:url` to it, so search engines and link previews treat each beach as its own page.
 - **Smooth motion** — the card slides in when you open or change a beach, sections open and close gradually, and the map flies to a beach you pick. Your own panning and zooming are untouched, and all of it respects the reduced-motion setting.
 - **Pins on the shore** — every pin is within 50 m of the OpenStreetMap coastline.
 
-<p align="center">
-  <img src="docs/media/sidebar.png" alt="Sidebar with the go-to-beach picker on top and the filter, layers and prediction-method sections collapsed below" width="320">
-</p>
-
-<p align="center">
-  <em>Sidebar: the primary action sits on top; filters, map layers and forecast settings stay collapsed until needed.</em>
-</p>
+<table>
+  <tr>
+    <td width="40%" align="center"><img src="docs/media/mobile.png" alt="Phone view: map with sargassum masses, the one-line report strip and the Playa Mano Juan (Saona) bottom sheet" width="300"></td>
+    <td width="60%" align="center"><img src="docs/media/sidebar.png" alt="Sidebar with the go-to-beach picker and zoom button on top and the filter, layers, surf, notice and prediction-method sections collapsed below" width="320"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>On a phone: map on top, a one-line report strip, the forecast as a bottom sheet.</em></td>
+    <td align="center"><em>Sidebar: the primary action sits on top; filters, map layers and forecast settings stay collapsed until needed.</em></td>
+  </tr>
+</table>
 
 ---
 
@@ -646,6 +681,9 @@ done
 - All times stored as UTC; Telegram alerts display local DR time (UTC−4)
 - The `streamlit-folium` component is pinned at `0.27.2` — upgrading may break the map component asset loading behind custom-domain reverse proxies
 - `.streamlit/config.toml` keeps Streamlit's XSRF and CORS protection on, matching the Cloud Run image, and enables static file serving for the self-hosted images
+- **Floating Streamlit cards need two overrides.** The app sets `gap: 0` on every main-area vertical block (so the map reaches the top), and Streamlit gives each markdown block a `-1rem` bottom margin that the normal gap would absorb. A keyed container used as a floating card (like the report card, `.st-key-beach_report_card`) must restore its own gap with a selector starting `section[data-testid="stMain"]` and zero the markdown margins, or its text overlaps the next element and its last line is clipped.
+- **Check layout in a real browser.** `AppTest` can't see CSS. Drive Chrome with Playwright at desktop and phone sizes before shipping a UI change.
+- **Use the project `.venv`.** A `streamlit` from another environment fails with `No module named 'folium'`.
 - **Never put a `<style>` tag inside the beach card.** `dashboard/beaches.py` hides any container holding one, which would hide the risk reading too. Add CSS in its own `st.markdown` block.
 - Maps use **OpenStreetMap tiles** (free, no API key required). CartoDB tiles required an API key after their free-tier policy changed in 2023–2024.
 - **No sargassum on the map usually means the API is not running.** The explorer reads masses from `GET /detections`; with `API_BASE_URL` pointing at a dead host the call returns `[]` and the map draws beaches only. Start `uvicorn api.main:app` alongside the dashboard.
@@ -668,9 +706,10 @@ Understanding these constraints is essential before relying on the system for pl
 
 | Limitation              | Detail                                                                                   | Impact                                                                             |
 | ----------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Sentinel-2 revisit time | ~5-day repeat cycle for a single tile; cloud cover can extend this to 10+ days           | Detected masses may be 3–10 days stale by the time the pipeline runs              |
+| Sentinel-2 revisit time | ~5-day repeat cycle for a single tile; cloud cover can extend this to 10+ days           | Masses can be days old; the drift catches each one up from its observation time, and daily AFAI fills gaps at ~1.6 km |
 | Cloud masking threshold | Scenes with >40% cloud cover are skipped entirely                                        | During Caribbean hurricane season (Jun–Nov) there may be extended blind windows   |
-| Single spectral index   | FAI alone; no cross-validation with NDVI or AFAI                                         | Higher false-positive rate near coastal turbidity plumes and shallow reefs         |
+| Thresholds not tuned on ground truth | The FAI background radius, FAI and AFAI thresholds were chosen by inspecting real DR scenes | False positives remain possible near river plumes and shallow reefs; watch `detection_checks` and reports |
+| Big mats under-detected  | A mat wider than ~1 km raises its own 500 m background, so only its edges are flagged    | Area of very large aggregations is understated                                     |
 | EEZ coverage only       | Detection runs within the DR EEZ bounding box; Atlantic source regions are not monitored | Large aggregations outside the box are invisible until they enter the EEZ          |
 | No growth/decay model   | Mass area is assumed constant between detections                                         | A patch can shrink, split, or die between pipeline runs with no signal in the data |
 
@@ -687,21 +726,21 @@ Understanding these constraints is essential before relying on the system for pl
 
 ### ML extended forecast (7–21 days)
 
-| Limitation          | Detail                                                                                                                          | Impact                                                                                                                                     |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Cold-start data gap | The model requires ≥ 40 labelled training examples before it activates; at 4 runs/day that is ≈ 10 days of pipeline operation | All 7/14/21-day forecasts fall back to seasonal climatology for the first ~10 days after deployment                                        |
-| Small training set  | Even after the threshold is reached, data may be sparse for rare high-risk events                                               | The classifier may underestimate high-risk probabilities early in the deployment                                                           |
-| Label leakage risk  | Training labels are drawn from the`forecasts` table (physics model output), not from ground truth                             | The ML model learns to predict the physics model's output, not the actual ocean state; systematic biases in the physics step carry through |
-| No spatial features | Feature vector uses zone-level aggregates; spatial arrangement of patches is not captured                                       | Two scenarios with the same total area but very different spatial patterns receive identical features                                      |
-| 21-day cap          | The model is not reliable beyond 21 days; predictions past that horizon are not stored                                          | For seasonal planning, use`dashboard/climatology.py` directly                                                                            |
+| Limitation | Detail | Impact |
+| ---------- | ------ | ------ |
+| Labels are model output | Until visitor reports give `ML_MIN_REPORT_ROWS` rows, labels are the drift model's own risk at *T + lead* | The model learns the drift model's behaviour, biases included |
+| Loses to persistence | On history it beat seasonal but not "today's risk will hold" | Used only while it beats seasonal; persistence is not yet a fallback option |
+| Small training set | Rare high-risk events are few | High-risk probabilities may be understated |
+| No spatial features | Zone-level aggregates only | Same total area in very different layouts looks identical |
+| 21-day cap | No predictions beyond 21 days are stored | Use the seasonal estimate for longer planning |
 
 ### Zone coverage
 
-| Limitation           | Detail                                                                                                              |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 14 zones, 55 beaches | Each beach has its own particle forecast (`beach_forecasts`); zone matching remains for the extended forecast and alerts |
-| Max zone radius      | The largest gap before La Romana was added was 62 km (Bayahibe / Dominicus). La Romana zone now covers it at ~21 km |
-| Zone geometry        | All zones are simple square bounding boxes; real bay shapes and headlands are not modelled                          |
+| Limitation | Detail |
+| ---------- | ------ |
+| 14 zones, 55 beaches | Each beach has its own particle forecast (`beach_forecasts`); zones remain for alerts and the extended forecast |
+| Coast ownership | Each stretch of DR coast belongs to the nearest zone centre within 40 km; Isla Beata and inner Samaná Bay (Los Haitises) belong to none |
+| Beach catchment | A beach counts particles stopping within 10 km, whichever way the coast turns |
 
 ### Surf & wind ratings
 
@@ -716,64 +755,41 @@ Understanding these constraints is essential before relying on the system for pl
 
 ## How to close the gaps (upgrade path)
 
-These are the highest-leverage improvements beyond the current free-tier POC, roughly ordered by impact.
+Already done: daily AFAI coverage, gridded currents with Stokes drift, coastline-based arrival, per-beach forecasts, ground-truth collection (visitor reports) and history rebuilt with the current model. What's left, roughly by impact:
 
-### 1 — Add daily satellite coverage (MODIS / VIIRS)
+### 1 — Gather reports, then tune
 
-Sentinel-2's 5-day revisit is the biggest single gap. MODIS Terra/Aqua (250 m, daily) and VIIRS (375 m, daily) are both available free on Google Earth Engine.
+Everything downstream improves once there are enough reports: run `python -m pipeline.replay` to choose the windage range, arrival distance, area field and thresholds, and let the extended model switch to report labels. Sharing the report card and `/reporte` with CODOPESCA, REDDOM and hotel networks speeds this up.
 
-```python
-# Replace or supplement detect.py sentinel2 collection with:
-collection = ee.ImageCollection("MODIS/061/MOD09GA")  # daily Terra
-# Use NDVI or FAI equivalent from bands 1 (red) and 2 (NIR)
-```
+### 2 — Persistence as a fallback
 
-Daily detection cuts the mass-staleness from 5–10 days to ≤ 24 h. The trade-off is coarser resolution (250 m vs 10 m); patch area estimates will be less precise.
+On history, "today's drift risk will hold" beat both the ML model and seasonal. Let the skill gate fall back to persistence for 7 days when it beats seasonal.
 
-### 2 — Increase CMEMS sample points
+### 3 — Growth and decay
 
-The 20-point cap was set conservatively. If your CMEMS account allows it, increase `pipeline/ocean.py` sample from 20 to 50–100 points to give the nearest-neighbour expansion better coverage.
+Mass area is assumed constant between detections. A simple decay or growth rate, fitted against consecutive detections, would stop old masses from carrying full weight.
 
-```python
-MAX_OCEAN_SAMPLE_POINTS = int(os.environ.get("MAX_OCEAN_SAMPLE_POINTS", "20"))
-```
+### 4 — Watch upstream
 
-Add `MAX_OCEAN_SAMPLE_POINTS` to `.env.example` and thread it through `run.py`.
+Detection covers the DR EEZ only. Adding the Atlantic and Lesser Antilles approaches (AFAI already covers them) would show big aggregations days before they enter the box.
 
-### 3 — Stokes drift and wave forcing
+### 5 — Older detection history
 
-CMEMS provides the `GLOBAL_WAVE_ANF` product (significant wave height, peak direction, Stokes drift). Adding Stokes drift adds ≈ 5–15 cm/s to the effective velocity in trade-wind conditions and materially improves 24–48 h ETAs.
+`replay` can rebuild any period back to Nov 2020 for currents, but stored detections start in June 2026. Re-running the new detection step over past seasons would give the model years of training data.
 
-### 4 — Collect ground-truth labels
+### 6 — A draggable phone sheet
 
-The ML model currently trains on physics-model outputs, not real observations. Reach out to CODOPESCA, REDDOM, or coastal hotel networks to collect timestamped reports of beach arrivals. Even 50–100 labelled events will significantly reduce the label-leakage bias.
-
-### 5 — Real zone polygons
-
-Replace the 0.35° bounding-box zones with actual bay/beach geometry from a DR coastline GeoJSON (available from GADM or OSM). This improves both zone detection accuracy and ETA relevance for beaches behind headlands.
-
-### 6 — Pre-seed the ML training set from historical data
-
-The model needs historical pairs of (detection state at T, actual risk at T + lead). Both Sentinel-2 imagery and CMEMS reanalysis (GLORYS) are available back to 2016 on Earth Engine and the Copernicus Marine Data Store. Running a backfill loop over 2016–2024 would give 3 000+ training examples immediately, eliminating the cold-start period.
-
-```bash
-# Conceptual backfill loop
-for year in 2019 2020 2021 2022 2023 2024; do
-  python -m pipeline.run --backfill-date $year-06-01
-done
-```
-
-`pipeline/run.py` would need a `--backfill-date` flag that overrides `dt.date.today()` in Steps 1–3.
+The phone sheet takes 36 % of the screen. A sheet that opens small and expands when dragged would leave even more map.
 
 ---
 
 ## Disclaimer
 
 This tool publishes **automated estimates**, not official advisories, and must
-not be the sole basis for safety decisions. Detections can be days old, drift
-forecasts degrade past 72 h, and risk is computed per monitoring zone rather
-than measured at each beach. Read [`DISCLAIMER.md`](DISCLAIMER.md) in full
-before relying on it, and see
+not be the sole basis for safety decisions. Detections can be days old, the
+drift forecast is modelled (not measured) for each beach and degrades past
+72 h, and its settings are still being tuned against visitor reports. Read
+[`DISCLAIMER.md`](DISCLAIMER.md) in full before relying on it, and see
 [Limitations and known gaps](#limitations-and-known-gaps) for the technical
 detail.
 
@@ -823,8 +839,12 @@ check them before redistributing derived datasets:
 | Source | Used for | Terms |
 | --- | --- | --- |
 | **Copernicus Sentinel-2** (ESA) | Sargassum detection imagery | Free and open, attribution required |
-| **Copernicus Marine Service** | Ocean currents (`uo`, `vo`) | Free with registration; cite the product |
-| **Open-Meteo** | 10 m wind | Free for non-commercial use (CC BY 4.0) |
+| **Google Cloud Score+** | Cloud masking of Sentinel-2 | Via Earth Engine; see its dataset terms |
+| **USF / NOAA AOML** (ERDDAP) | Daily AFAI check and gap fill | Free; credit USF Optical Oceanography Lab and NOAA AOML |
+| **Copernicus Marine Service** | Ocean currents with tides and Stokes drift (`GLOBAL_ANALYSISFORECAST_PHY_001_024`) | Free with registration; cite the product |
+| **Open-Meteo** | 10 m wind (forecast and historical) | Free for non-commercial use (CC BY 4.0) |
+| **US State Department LSIB** | Coastline where particles stop | Public domain |
+| **Natural Earth** | DR outline | Public domain |
 | **OpenStreetMap** | Map tiles; checking and aligning beach pins to the coastline | © OpenStreetMap contributors, ODbL |
 | **iNaturalist** | Species records and photos | Per record; each photo is shown with its own credit and licence |
 | **OBIS** | Marine tags on species | See [the data card](docs/data-cards/species_auto.md) |

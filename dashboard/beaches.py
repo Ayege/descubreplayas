@@ -423,6 +423,8 @@ _T = {
         "beach_arrival_prob": "Probabilidad de que llegue sargazo a {km} km de esta playa en 72 h: {p}%",
         "expo_sheltered": "🧭 Hoy la corriente y el viento alejan el sargazo de esta orilla, así que el sargazo cercano cuenta un nivel menos de riesgo.",
         "expo_exposed": "🧭 Hoy la corriente y el viento empujan el sargazo hacia esta orilla.",
+        "expo_sheltered_model": "🧭 En las próximas 24 h la corriente y el viento alejan el sargazo de esta orilla.",
+        "eta_source_model": "Pronóstico de deriva · corrientes y viento reales",
         "ml_note_map": "Vista extendida — ML · posiciones especulativas",
         "beach_legend": "Playas por región",
         "zone_legend": "Riesgo de sargazo (zonas)",
@@ -577,6 +579,8 @@ _T = {
         "beach_arrival_prob": "Chance of sargassum arriving within {km} km of this beach in 72 h: {p}%",
         "expo_sheltered": "🧭 Today the current and wind carry sargassum away from this shore, so nearby sargassum counts one risk level lower.",
         "expo_exposed": "🧭 Today the current and wind push sargassum toward this shore.",
+        "expo_sheltered_model": "🧭 Over the next 24 h the current and wind carry sargassum away from this shore.",
+        "eta_source_model": "Drift forecast · real currents and wind",
         "ml_note_map": "Extended view — ML · speculative positions",
         "beach_legend": "Beaches by region",
         "zone_legend": "Sargassum risk (zones)",
@@ -3742,7 +3746,7 @@ if _panel_beach:
                     f"<span style='color:#e0f7fa;font-size:13px;font-weight:800'>~{_beach_eta}h</span>"
                     f"</div>"
                     f"<div style='color:#546e7a;font-size:9.5px;margin-top:2px'>"
-                    f"{'Estimado · corriente media del Caribe' if lang == 'es' else 'Estimated · Caribbean mean current'}"
+                    f"{L['eta_source_model'] if _pb['name'] in _BEACH_FC else ('Estimado · corriente media del Caribe' if lang == 'es' else 'Estimated · Caribbean mean current')}"
                     f"</div></div>"
                 )
 
@@ -3818,9 +3822,12 @@ if _panel_beach:
         # at the zone's coast (from the pipeline's particle ensemble)?
         _physics_extra_html = ""
         _expo = _beach_exposure(_pb)
+        # The "counts one level lower" note is true only for the quick
+        # fallback estimate; the pipeline forecast already models direction.
+        _sheltered_key = "expo_sheltered_model" if _pb["name"] in _BEACH_FC else "expo_sheltered"
         if _expo is not None and _expo < SHELTERED_BELOW:
             _physics_extra_html += (f"<div style='color:#a5d6a7;font-size:10.5px;margin:5px 0'>"
-                                    f"{L['expo_sheltered']}</div>")
+                                    f"{L[_sheltered_key]}</div>")
         elif _expo is not None and _expo > EXPOSED_ABOVE:
             _physics_extra_html += (f"<div style='color:#ffcc80;font-size:10.5px;margin:5px 0'>"
                                     f"{L['expo_exposed']}</div>")
