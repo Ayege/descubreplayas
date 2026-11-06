@@ -186,6 +186,8 @@ def test_map_answers_where_the_sargassum_is() -> None:
     _check("_render_today_card(filtered)" in source and 'key="today_card"' in source,
            "the app opens with a summary card")
     _check("_verdict_html(" in source and "how-we-know" in source, "the card leads with a verdict")
+    _check("popup_html" not in source, "a beach click opens the card; no popup repeating it")
+    _check("© 2026" not in source and "Open source" not in source, "the footer says each thing once")
     _check('key="lang"' in source and "st.toggle(" not in source, "language is an ES | EN choice, not a switch")
     _check('L["about_data"]' in source and 'st.expander(L["disclaimer_title"]' not in source,
            "notice and methods share one expander")
