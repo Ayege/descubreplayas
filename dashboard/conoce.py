@@ -34,6 +34,7 @@ from typing import NamedTuple
 
 import streamlit as st
 
+from dashboard.icons import icon
 from dashboard.conoce_data import (
     BEACH_IMAGE_FILE_RE,
     DEFAULT_LANGUAGE,
@@ -78,22 +79,26 @@ LABEL_KEYS = (
 # Absolute, because a relative src breaks on pretty URLs such as /beach/<name>.
 STATIC_PREFIX = "/app/static"
 THUMBNAIL_PX = 48
-# Shown for a species with no allowed photo. It is decorative: the species name
-# beside it carries the meaning, so it is hidden from screen readers.
-ICONIC_GROUP_EMOJI = MappingProxyType({
-    "Aves": "🐦",
-    "Actinopterygii": "🐟",
-    "Reptilia": "🦎",
-    "Mollusca": "🐚",
-    "Animalia": "🦀",
-    "Plantae": "🌿",
-    "Chromista": "🌿",
-    "Insecta": "🦋",
-    "Arachnida": "🕷️",
-    "Amphibia": "🐸",
-    "Fungi": "🍄",
+# Line icon shown for a species with no allowed photo (names from dashboard.icons).
+# It is decorative: the species name beside it carries the meaning, so it is
+# hidden from screen readers.
+ICONIC_GROUP_ICON = MappingProxyType({
+    "Aves": "bird",
+    "Actinopterygii": "fish",
+    "Reptilia": "turtle",
+    "Mollusca": "shell",
+    "Animalia": "paw-print",
+    "Plantae": "leaf",
+    "Chromista": "leaf",
+    "Insecta": "bug",
+    "Arachnida": "bug",
+    "Amphibia": "paw-print",
+    "Fungi": "sprout",
 })
-DEFAULT_GROUP_EMOJI = "🐾"
+DEFAULT_GROUP_ICON = "paw-print"
+# Icon beside the panel title. The lens titles stay plain text: the panel has a
+# byte budget, and an icon on every header added weight without adding meaning.
+TITLE_ICON = "compass"
 LINK_REL = "noopener noreferrer"
 SEPARATOR = " · "
 LENS_GROUP = "conoce-lens"
@@ -129,8 +134,9 @@ _CSS = (
     ".conoce-row{display:flex;gap:8px}"
     ".conoce-row>div{min-width:0}"
     f".conoce-row img{{flex:none;border-radius:8px;background:{_COLOR_THUMB_BG}}}"
-    f".conoce-emoji{{flex:none;display:flex;align-items:center;justify-content:center;width:{THUMBNAIL_PX}px;"
-    f"height:{THUMBNAIL_PX}px;border-radius:8px;background:{_COLOR_ITEM_BG};font-size:24px;line-height:1}}"
+    f".conoce-icon{{flex:none;display:flex;align-items:center;justify-content:center;width:{THUMBNAIL_PX}px;"
+    f"height:{THUMBNAIL_PX}px;border-radius:8px;background:{_COLOR_ITEM_BG};color:{_COLOR_LABEL}}}"
+    ".conoce summary .ic{margin-right:5px}"
     f".conoce-label{{color:{_COLOR_LABEL};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}}"
     f".conoce-text{{color:{_COLOR_BODY};font-size:12px;line-height:1.4}}"
     ".conoce-name{font-weight:700}"
@@ -264,9 +270,13 @@ def _thumbnail(species: Species) -> _Html:
     })
 
 
-def _group_emoji(species: Species) -> _Html:
-    emoji = ICONIC_GROUP_EMOJI.get(species["iconic_group"], DEFAULT_GROUP_EMOJI)
-    return _el("span", {"class": "conoce-emoji", "aria-hidden": "true"}, emoji)
+def _icon(name: str, size: int = 12) -> _Html:
+    return _Html(icon(name, size))
+
+
+def _group_icon(species: Species) -> _Html:
+    name = ICONIC_GROUP_ICON.get(species["iconic_group"], DEFAULT_GROUP_ICON)
+    return _el("span", {"class": "conoce-icon", "aria-hidden": "true"}, _icon(name, 22))
 
 
 def _photo_credit(photo: Photo, labels: Mapping[str, str]) -> _Html:
@@ -289,7 +299,7 @@ def _featured_row(species: Species, lang: str, labels: Mapping[str, str]) -> _Ht
     text = _species_text(species, lang, labels)
     if thumbnail:
         text.append(_photo_credit(species["photo"], labels))
-    picture = thumbnail or _group_emoji(species)
+    picture = thumbnail or _group_icon(species)
     return _el("div", {"class": "conoce-item conoce-row"}, picture, _el("div", None, *text))
 
 
@@ -413,7 +423,7 @@ def _lenses(bodies: Iterable[tuple[str, _Html]]) -> list[_Html]:
 
 
 def _summary(teaser_text: Localized | None, lang: str, labels: Mapping[str, str]) -> _Html:
-    children: list[str] = [labels["conoce_title"]]
+    children: list[str] = [_icon(TITLE_ICON), labels["conoce_title"]]
     if teaser_text:
         children.append(_el("span", {"class": "conoce-tease"}, teaser_text[lang]))
     return _el("summary", None, *children)

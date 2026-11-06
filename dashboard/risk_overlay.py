@@ -32,7 +32,6 @@ RISK_COLORS = {
     "medium": "#fd7e14",  # orange
     "high": "#dc3545",    # red
 }
-RISK_EMOJI = {"none": "⚪", "low": "🟢", "medium": "🟠", "high": "🔴"}
 
 # Order risk by severity for sensible defaults / comparisons.
 RISK_ORDER = {"none": 0, "low": 1, "medium": 2, "high": 3}

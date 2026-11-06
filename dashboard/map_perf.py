@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 
 # A click within this distance of a beach selects it, to avoid selecting on a misclick.
 MAX_CLICK_DISTANCE_KM = 0.6
-TOOLTIP_PREFIX = "🏖️ "
 TOOLTIP_SEPARATOR = " — "
 
 
@@ -61,7 +60,7 @@ def run_parallel(tasks: Sequence[Callable[[], object]]) -> None:
 def _name_from_label(label: object, names: Mapping[str, object]) -> str | None:
     if not isinstance(label, str):
         return None
-    name = label.replace(TOOLTIP_PREFIX, "").split(TOOLTIP_SEPARATOR)[0].strip()
+    name = label.split(TOOLTIP_SEPARATOR)[0].strip()
     return name if name in names else None
 
 

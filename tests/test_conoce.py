@@ -33,8 +33,9 @@ from unittest import mock
 
 from dashboard import conoce_data as cd
 from dashboard.beaches_data import BEACHES
+from dashboard.icons import ICON_NAMES
 from dashboard.conoce import (
-    DEFAULT_GROUP_EMOJI, ICONIC_GROUP_EMOJI, LABEL_KEYS, LENS_GROUP, STATIC_PREFIX, conoce_panel, render_conoce_html,
+    DEFAULT_GROUP_ICON, ICONIC_GROUP_ICON, LABEL_KEYS, LENS_GROUP, STATIC_PREFIX, conoce_panel, render_conoce_html,
 )
 from tests.conoce_fixtures import (
     BEACH, LABELS, UNIT, XSS, auto, beach_photo, full_inputs, historia, loc, note, profile, sourced, taxon, teaser, unit, vida,
@@ -139,27 +140,28 @@ def test_photo_credit_does_not_place_the_photo() -> None:
                 _check(word not in line.lower(), f"the credit must not place the photo: {word}")
 
 
-def test_emoji_fallback() -> None:
+def test_icon_fallback() -> None:
     fish = taxon(1, group="Actinopterygii", with_photo=False)
     html = _render(_knowledge(profile(), data=auto(fish)))
     _check("<img" not in html, "no photo means no image")
-    _check(f'<span class="conoce-emoji" aria-hidden="true">{ICONIC_GROUP_EMOJI["Actinopterygii"]}</span>' in html, "group emoji, hidden from screen readers")
+    _check('<span class="conoce-icon" aria-hidden="true"><svg class="ic ic-fish"' in html, "group icon, hidden from screen readers")
     _check("Especie 1" in html, "the species name carries the meaning")
     _check("Foto de la especie" not in html, "no photo, no credit")
     for group in (None, "Grupo nuevo"):
         other = _render(_knowledge(profile(), data=auto(taxon(1, group=group, with_photo=False))))
-        _check(f'aria-hidden="true">{DEFAULT_GROUP_EMOJI}</span>' in other, f"unknown group falls back: {group}")
+        _check(f'class="conoce-icon" aria-hidden="true"><svg class="ic ic-{DEFAULT_GROUP_ICON}"' in other, f"unknown group falls back: {group}")
     photographed = _render(_knowledge(profile(), data=auto(taxon(1))))
-    _check("conoce-emoji" not in photographed.split("<style")[0] and "<img" in photographed, "a photo replaces the emoji")
+    _check("conoce-icon" not in photographed.split("<style")[0] and "<img" in photographed, "a photo replaces the icon")
     bad_photo = taxon(1, group="Aves")
     bad_photo["photo"]["license_code"] = "cc-by-nc"
     dropped = _render(_knowledge(profile(), data=auto(bad_photo)))
-    _check(ICONIC_GROUP_EMOJI["Aves"] in dropped and "<img" not in dropped, "a dropped photo falls back too")
+    _check(f'ic-{ICONIC_GROUP_ICON["Aves"]}' in dropped and "<img" not in dropped, "a dropped photo falls back too")
 
 
-def test_emoji_mapping_is_complete_for_seen_groups() -> None:
+def test_icon_mapping_is_complete_for_seen_groups() -> None:
     seen = {"Aves", "Plantae", "Insecta", "Animalia", "Reptilia", "Actinopterygii", "Arachnida", "Mollusca", "Amphibia", "Fungi", "Chromista"}
-    _check(seen <= set(ICONIC_GROUP_EMOJI), "every iconic group seen in the real data needs an emoji")
+    _check(seen <= set(ICONIC_GROUP_ICON), "every iconic group seen in the real data needs an icon")
+    _check(set(ICONIC_GROUP_ICON.values()) <= ICON_NAMES, "every group icon must exist in dashboard.icons")
 
 
 def _poisoned_knowledge() -> dict:
@@ -229,7 +231,7 @@ def test_links_images_and_accordion() -> None:
     _check(html.count(f'name="{LENS_GROUP}"') == 3, "the three lenses must share one accordion group")
     _check(html.count('open="open"') == 2, "the panel and the first lens start open, the other lenses closed")
     more = html.split('class="conoce-more"')[1].split('name="conoce-lens"')[0]
-    _check("<img" not in more and "conoce-emoji" not in more, "see-more rows must be text only")
+    _check("<img" not in more and "conoce-icon" not in more, "see-more rows must be text only")
 
 
 def _photo_knowledge(*args: object, **fields: object) -> dict:
@@ -330,7 +332,7 @@ def test_bad_photo_files_are_never_rendered() -> None:
     html = _render(_knowledge(profile(), data=auto(taxon(1))) | {"species": [
         dict(_knowledge(profile(), data=auto(taxon(1)))["species"][0], photo=species_file["photo"])
     ]})
-    _check("<img" not in html and "conoce-emoji" in html, "a species can't point at another folder")
+    _check("<img" not in html and "conoce-icon" in html, "a species can't point at another folder")
 
 
 def test_alt_is_escaped_and_never_empty() -> None:
