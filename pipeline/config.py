@@ -268,10 +268,6 @@ RISK_AREA_FIELD = os.environ.get("RISK_AREA_FIELD", "area_km2")
 # A particle stopping within this distance (km) of a beach counts for that
 # beach's own forecast (beach_forecasts table).
 BEACH_RADIUS_KM = float(os.environ.get("BEACH_RADIUS_KM", "10"))
-# Minimum arrived area (km²) for a BEACH forecast to register any risk. Lower
-# than RISK_AREA_MIN_KM2 because one beach's 10 km catchment collects far less
-# than a whole zone's coast; with the zone bar, beaches almost never left "none".
-BEACH_RISK_AREA_MIN_KM2 = float(os.environ.get("BEACH_RISK_AREA_MIN_KM2", "0.1"))
 
 # --- Extended forecast / ML model ----------------------------------------
 # Physics drift is reliable up to FORECAST_HOURS_PHYSICS.  Beyond that the

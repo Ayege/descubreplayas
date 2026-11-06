@@ -126,22 +126,6 @@ def test_small_trace_is_low_or_none() -> None:
     print("  a 0.2 km² trace stays 'none': OK")
 
 
-def test_beach_uses_lower_area_bar() -> None:
-    """A 0.2 km² trace is below the zone bar but above BEACH_RISK_AREA_MIN_KM2,
-    so the beach it lands on reads 'low' while the zone stays 'none'."""
-    from dashboard.beaches_data import BEACHES
-    from pipeline.drift import forecast_zones_and_beaches
-    assert config.BEACH_RISK_AREA_MIN_KM2 < 0.2 < config.RISK_AREA_MIN_KM2
-    field = ForcingField.uniform(NOW, 96, u=-0.5, v=0.0)
-    zones, beaches = forecast_zones_and_beaches([_patch(18.58, -67.90, area=0.2)], field,
-                                                BEACHES, now=NOW, n_particles=12)
-    assert _zone(zones, "Punta Cana")["risk_level"] == "none"
-    hit = [b for b in beaches if b["risk_level"] == "low"]
-    assert hit, "some beach near the landing point should read 'low'"
-    assert all(b["arrival_probability"] >= 0.5 and b["eta_hours"] is not None for b in hit), hit
-    print(f"  0.2 km² trace: zone 'none', {len(hit)} beach(es) 'low': OK")
-
-
 def test_tracks_and_exposure() -> None:
     """Tracks start where the mass is NOW (caught up from when it was seen) and
     follow the real field; exposure comes from the same field."""
@@ -184,7 +168,6 @@ def main() -> int:
         test_old_observation_is_caught_up,
         test_ensemble_and_windage,
         test_small_trace_is_low_or_none,
-        test_beach_uses_lower_area_bar,
     ]
     for t in tests:
         print(f"\n{t.__name__}")

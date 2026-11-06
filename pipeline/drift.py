@@ -70,8 +70,7 @@ _KM_Y = 111.32
 # Risk classification (unchanged thresholds)
 # ---------------------------------------------------------------------------
 
-def _classify_risk(area_km2: float, significant_eta_hours: Optional[int],
-                   min_km2: Optional[float] = None) -> str:
+def _classify_risk(area_km2: float, significant_eta_hours: Optional[int]) -> str:
     """Classify sargassum risk from arrived area and how soon a significant
     amount of it arrives.
 
@@ -86,10 +85,8 @@ def _classify_risk(area_km2: float, significant_eta_hours: Optional[int],
     reached RISK_AREA_LOW_MAX_KM2 (see `_significant_eta`), not the nearest
     patch's ETA, so a trace arriving soon can't make an unrelated large mass
     arriving late read as imminent.
-
-    `min_km2` overrides RISK_AREA_MIN_KM2 (beaches use a lower bar).
     """
-    if area_km2 < (config.RISK_AREA_MIN_KM2 if min_km2 is None else min_km2):
+    if area_km2 < config.RISK_AREA_MIN_KM2:
         return "none"
     if (
         area_km2 >= config.RISK_AREA_LOW_MAX_KM2
@@ -424,14 +421,11 @@ def beach_exposures(field, beaches: list[dict], now: dt.datetime, hours: int = 2
     return out
 
 
-def _summarise_selection(raw: dict, sel: np.ndarray, now: dt.datetime, hours: list[int],
-                         min_km2: Optional[float] = None) -> dict:
+def _summarise_selection(raw: dict, sel: np.ndarray, now: dt.datetime, hours: list[int]) -> dict:
     """Risk, probabilities, ETA and horizons for the arrivals selected by `sel`.
 
-    Shared by zones and beaches so both follow the same rules; `min_km2`
-    (default RISK_AREA_MIN_KM2) is the only difference, beaches use a lower bar.
+    Shared by zones and beaches so both follow exactly the same rules.
     """
-    min_km2 = config.RISK_AREA_MIN_KM2 if min_km2 is None else min_km2
     horizons = sorted(set(hours))
     max_h = max(horizons)
     n = len(raw["windage"])
@@ -444,8 +438,7 @@ def _summarise_selection(raw: dict, sel: np.ndarray, now: dt.datetime, hours: li
     def levels_at(h: int) -> list[str]:
         return [
             _classify_risk(sum(a for hr, a in arr if hr <= h),
-                           _significant_eta(arr, h, config.RISK_AREA_LOW_MAX_KM2),
-                           min_km2)
+                           _significant_eta(arr, h, config.RISK_AREA_LOW_MAX_KM2))
             for arr in per_member
         ]
 
@@ -470,9 +463,9 @@ def _summarise_selection(raw: dict, sel: np.ndarray, now: dt.datetime, hours: li
 
     summary_level, summary_probs = headline(levels_at(max_h))
     # ETA: per member, when the arrived area first becomes enough to count as
-    # risk (min_km2) — the same bar as arrival_probability, so a
+    # risk (RISK_AREA_MIN_KM2) — the same bar as arrival_probability, so a
     # trace never produces an ETA for a zone with 0 % arrival probability.
-    first = [t for t in (_significant_eta(arr, max_h, min_km2)
+    first = [t for t in (_significant_eta(arr, max_h, config.RISK_AREA_MIN_KM2)
                          for arr in per_member) if t is not None]
     eta_h = int(np.median(first)) if len(first) / n >= config.RISK_PROB_THRESHOLD else None
     return {
@@ -501,9 +494,9 @@ def summarise_beaches(raw: dict, beaches: list[dict], now: dt.datetime,
                       hours: list[int] | None = None) -> list[dict]:
     """One forecast per beach: particles that STOPPED within BEACH_RADIUS_KM.
 
-    Uses the zone thresholds except the minimum area, which is
-    BEACH_RISK_AREA_MIN_KM2: the area reaching one beach is much smaller than
-    a whole zone's. Tune against visitor reports (pipeline/replay.py).
+    Uses the same thresholds as zones. The area reaching one beach is smaller
+    than a whole zone's, so beach levels run lower until the thresholds are
+    tuned against visitor reports (pipeline/replay.py).
     """
     hours = hours or [0, 24, 48, 72]
     if not len(raw["hour"]):
@@ -516,7 +509,7 @@ def summarise_beaches(raw: dict, beaches: list[dict], now: dt.datetime,
         here = _to_km([float(b["latitude"])], [float(b["longitude"])])[0]
         near = (np.linalg.norm(stops - here, axis=1) <= config.BEACH_RADIUS_KM
                 if len(stops) else np.zeros(0, dtype=bool))
-        res = _summarise_selection(raw, near, now, hours, config.BEACH_RISK_AREA_MIN_KM2)
+        res = _summarise_selection(raw, near, now, hours)
         zone_idx = raw["zone"][near & ~np.isnan(raw["hour"])]
         zone_idx = zone_idx[zone_idx >= 0]
         res.update({

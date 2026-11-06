@@ -437,8 +437,6 @@ _T = {
         "method_physics": "Método: estimación rápida con corrientes promedio (aún no hay pronóstico por playa)",
         "method_particles": "Método: deriva de partículas con corrientes y viento reales (Copernicus, Open-Meteo) · actualizado cada 6 h",
         "advice_none_model": "El modelo de deriva no prevé que llegue sargazo a esta playa en este horizonte.",
-        "risk_possible": "Posible",
-        "advice_possible": "Llega sargazo en el {p}% de las simulaciones de deriva. No es lo más probable, pero conviene vigilar.",
         "horizon_from_date": "Horizonte fijado por la fecha elegida: +{h} h.",
         "mass_track_pos": "Posición a +72 h (fin del modelo de deriva)",
         "mass_track_route": "Ruta de deriva (72 h)",
@@ -599,8 +597,6 @@ _T = {
         "method_physics": "Method: quick estimate with average currents (no per-beach forecast yet)",
         "method_particles": "Method: particle drift with real currents and wind (Copernicus, Open-Meteo) · updated every 6 h",
         "advice_none_model": "The drift model does not expect sargassum to reach this beach at this horizon.",
-        "risk_possible": "Possible",
-        "advice_possible": "Sargassum arrives in {p}% of drift simulations. Not the most likely outcome, but worth watching.",
         "horizon_from_date": "Horizon set by the chosen date: +{h} h.",
         "mass_track_pos": "Position at +72 h (end of the drift model)",
         "mass_track_route": "Drift path (72 h)",
@@ -2024,37 +2020,6 @@ def _beach_fc_at(beach: dict, horizon: int) -> str | None:
         return None
     best = min(bf["horizons"], key=lambda h: abs(int(h.get("horizon_hours", 0)) - horizon))
     return best.get("risk_level")
-
-
-# A "none" beach forecast still shows "Posible" when at least this share of the
-# drift ensemble brings sargassum to the beach. The headline level needs a
-# majority (RISK_PROB_THRESHOLD = 50 %), so a real 1-in-5 chance read "Sin riesgo".
-POSSIBLE_PROB = 0.15
-# Grey-green sits between grey "none" and green "low"; amber would read as
-# worse than "low".
-POSSIBLE_COLOR = "#6f8a6a"
-POSSIBLE_EMOJI = "🔍"
-
-
-def _beach_arrival_prob_at(beach: dict, horizon: int) -> float | None:
-    """Share of ensemble members that bring any risk to this beach by the
-    checkpoint closest to `horizon` (1 - P(none)), or None if not stored."""
-    bf = _BEACH_FC.get(beach["name"])
-    if not bf or not bf.get("horizons"):
-        return None
-    best = min(bf["horizons"], key=lambda h: abs(int(h.get("horizon_hours", 0)) - horizon))
-    probs = best.get("probs") or {}
-    if "none" not in probs:
-        return None
-    return 1.0 - float(probs["none"])
-
-
-def _is_possible(beach: dict, risk: str | None, horizon: int) -> bool:
-    """True when the headline is "none" but a minority of runs still arrive."""
-    if risk != "none":
-        return False
-    p = _beach_arrival_prob_at(beach, horizon)
-    return p is not None and p >= POSSIBLE_PROB
 
 
 # Pre-index ML forecasts by zone_id for O(1) lookups in _ml_risk_for_zone.
@@ -3775,16 +3740,7 @@ if _panel_beach:
         _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("", ""))
         _advice = _advice_en if lang == "en" else _advice_es
         _has_bfc = _pb["name"] in _BEACH_FC
-        _sel_h_risk = globals().get("SEL_HORIZON") or 0
-        _possible = _has_bfc and _is_possible(_pb, _risk_level, _sel_h_risk)
-        if _possible:
-            # Minority of ensemble runs arrive: not "Sin riesgo", not yet "Bajo".
-            _rc = POSSIBLE_COLOR
-            _rlbl = L["risk_possible"]
-            _emoji = POSSIBLE_EMOJI
-            _advice = L["advice_possible"].format(
-                p=round(100 * (_beach_arrival_prob_at(_pb, _sel_h_risk) or 0)))
-        elif _has_bfc and _risk_level == "none":
+        if _has_bfc and _risk_level == "none":
             _advice = L["advice_none_model"]
 
         # ETA lines — per-beach drift estimate (primary) + zone run timestamp
@@ -3863,8 +3819,6 @@ if _panel_beach:
                 _h_label = L["horizon_now"] if _h == 0 else f"+{_h}h"
                 _h_color = RISK_COLORS.get(_h_risk, "#607d8b")
                 _h_emoji = RISK_EMOJI.get(_h_risk, "⚪")
-                if _pb["name"] in _BEACH_FC and _is_possible(_pb, _h_risk, _h):
-                    _h_color, _h_emoji = POSSIBLE_COLOR, POSSIBLE_EMOJI
                 _h_border = (
                     "border:2px solid #fff" if _h == _sel_h else "border:2px solid transparent"
                 )
@@ -3896,10 +3850,7 @@ if _panel_beach:
         if _expo is not None and _expo < SHELTERED_BELOW:
             _physics_extra_html += (f"<div style='color:#a5d6a7;font-size:10.5px;margin:5px 0'>"
                                     f"{L[_sheltered_key]}</div>")
-        elif (_expo is not None and _expo > EXPOSED_ABOVE
-              and (_risk_level != "none" or _possible)):
-            # Only when sargassum is actually expected: next to "Sin riesgo"
-            # the onshore-push line read as a contradiction.
+        elif _expo is not None and _expo > EXPOSED_ABOVE:
             _physics_extra_html += (f"<div style='color:#ffcc80;font-size:10.5px;margin:5px 0'>"
                                     f"{L['expo_exposed']}</div>")
         _bfc = _BEACH_FC.get(_pb["name"])
