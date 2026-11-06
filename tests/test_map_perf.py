@@ -69,9 +69,9 @@ def test_parallel_contains_failures() -> None:
 
 
 def test_click_by_tooltip() -> None:
-    click = {"last_object_clicked_tooltip": "🏖️ Playa Uno — La Altagracia"}
+    click = {"last_object_clicked_tooltip": "Playa Uno — La Altagracia"}
     _check(beach_from_map_click(click, _BEACHES) == "Playa Uno", "the tooltip names the beach")
-    other = {"last_object_clicked": {"tooltip": "🏖️ Playa Dos — Samaná"}}
+    other = {"last_object_clicked": {"tooltip": "Playa Dos — Samaná"}}
     _check(beach_from_map_click(other, _BEACHES) == "Playa Dos", "the clicked object can carry it too")
 
 
@@ -88,7 +88,7 @@ def test_click_on_a_sargassum_marker_selects_nothing() -> None:
 
 
 def test_click_ignores_filtered_out_and_malformed() -> None:
-    hidden = {"last_object_clicked_tooltip": "🏖️ Playa Tres — Samaná"}
+    hidden = {"last_object_clicked_tooltip": "Playa Tres — Samaná"}
     _check(beach_from_map_click(hidden, _BEACHES) is None, "a beach the filters hide can't be selected")
     for result in (None, 5, "x", {}, {"last_clicked": "x"}, {"last_clicked": {"lat": "x", "lng": None}},
                    {"last_clicked": {}}, {"last_object_clicked": 5, "last_object_clicked_tooltip": 7}):

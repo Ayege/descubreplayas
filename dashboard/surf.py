@@ -114,9 +114,6 @@ RATING_COLORS = {
     "unknown": "#455a64",  # dark slate — no forecast for this spot/hour
 }
 
-RATING_EMOJI = {"flat": "😴", "poor": "🙁", "fair": "🙂", "good": "🤙",
-                "epic": "🔥", "unknown": "❔"}
-
 RATING_LABELS = {
     "es": {"flat": "PLANO", "poor": "MALO", "fair": "REGULAR",
            "good": "BUENO", "epic": "ÉPICO", "unknown": "SIN DATOS"},

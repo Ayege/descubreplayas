@@ -50,7 +50,6 @@ from dashboard.beaches_data import (
 from dashboard.risk_overlay import (
     EXPOSED_ABOVE,
     RISK_COLORS,
-    RISK_EMOJI,
     SHELTERED_BELOW,
     adjust_for_exposure,
     shore_exposure,
@@ -63,7 +62,6 @@ from dashboard.risk_overlay import (
 from dashboard.climatology import seasonal_index, seasonal_risk, zone_region
 from dashboard.surf import (
     RATING_COLORS as SURF_COLORS,
-    RATING_EMOJI as SURF_EMOJI,
     RATING_ORDER as SURF_ORDER,
     compass_point as surf_compass,
     conditions_at as surf_conditions_at,
@@ -81,6 +79,7 @@ from dashboard.surf_data import (
 )
 from dashboard.beaches_i18n import BEACH_TEXT_ES, TERMS_ES
 from dashboard.conoce import conoce_panel
+from dashboard.icons import icon
 from dashboard.map_perf import (
     CompactCircles,
     SmoothMapMoves,
@@ -389,31 +388,31 @@ st.markdown(
 # ---------------------------------------------------------------------------
 _T = {
     "es": {
-        "title": "🌴 Descubre Playas RD 🇩🇴",
+        "title": "Descubre Playas RD",
         "subtitle": "55 playas dominicanas: acceso, actividades, fauna, y sargazo y surf en vivo.",
-        "filters_header": "🔎 Filtrar playas",
+        "filters_header": "Filtrar playas",
         "region": "Región",
         "province": "Provincia",
         "activity": "Actividad",
         "protected_only": "Solo áreas protegidas",
         "free_only": "Solo entrada gratuita",
-        "risk_filter": "🌊 Filtrar por riesgo de sargazo",
-        "month_filter": "🗓️ Fecha de visita",
+        "risk_filter": "Filtrar por riesgo de sargazo",
+        "month_filter": "Fecha de visita",
         "month_note": "Filtra por mejor época. El riesgo de sargazo refleja condiciones actuales (72 h).",
-        "show_zones": "🌊 Mostrar zonas de monitoreo de Sargazo",
-        "show_masses": "🟤 Mostrar masas de sargazo detectadas",
+        "show_zones": "Mostrar zonas de monitoreo de Sargazo",
+        "show_masses": "Mostrar masas de sargazo detectadas",
         "masses_unavail": "Sin detecciones (ejecuta el pipeline)",
-        "horizon": "⏱️ Horizonte de pronóstico",
+        "horizon": "Horizonte de pronóstico",
         "horizon_note": "El pronóstico de sargazo es confiable solo ~72h. Más allá usa la temporada.",
         "horizon_now": "Ahora",
         "risk_by_horizon": "Riesgo proyectado",
         "more_details": "Más detalles",
-        "season_note": "📅 Sargazo: marzo–agosto.",
-        "prediction_info_title": "ℹ️ Métodos de predicción",
+        "season_note": "Sargazo: marzo–agosto.",
+        "prediction_info_title": "Métodos de predicción",
         "prediction_physics": "Física (0-72h): Deriva lagrangiana + corrientes oceánicas. Preciso.",
         "prediction_ml": "ML (4-21d): Modelo supervisado entrenado en datos históricos. Más preciso que solo climatología.",
         "prediction_seasonal": "Temporada (>21d): Climatología histórica del Caribe. No predice eventos específicos.",
-        "prediction_date_note": "⚠️ Hasta 3 días: pronóstico físico. 4-21 días: estimación ML. Más lejos: climatología estacional.",
+        "prediction_date_note": "Hasta 3 días: pronóstico físico. 4-21 días: estimación ML. Más lejos: climatología estacional.",
         "ml_badge": "Pronóstico ML (extendido)",
         "persist_badge": "Persistencia (extendido)",
         "seasonal_ext_badge": "Estacional (extendido)",
@@ -425,9 +424,9 @@ _T = {
         "ml_probs": "Probabilidad de riesgo medio o alto: {p}%",
         "zone_arrival_prob": "Probabilidad de que llegue sargazo a la costa de la zona en 72 h: {p}%",
         "beach_arrival_prob": "Probabilidad de que llegue sargazo a {km} km de esta playa en 72 h: {p}%",
-        "expo_sheltered": "🧭 Hoy la corriente y el viento alejan el sargazo de esta orilla, así que el sargazo cercano cuenta un nivel menos de riesgo.",
-        "expo_exposed": "🧭 Hoy la corriente y el viento empujan el sargazo hacia esta orilla.",
-        "expo_sheltered_model": "🧭 En las próximas 24 h la corriente y el viento alejan el sargazo de esta orilla.",
+        "expo_sheltered": "Hoy la corriente y el viento alejan el sargazo de esta orilla, así que el sargazo cercano cuenta un nivel menos de riesgo.",
+        "expo_exposed": "Hoy la corriente y el viento empujan el sargazo hacia esta orilla.",
+        "expo_sheltered_model": "En las próximas 24 h la corriente y el viento alejan el sargazo de esta orilla.",
         "eta_source_model": "Pronóstico de deriva · corrientes y viento reales",
         "ml_note_map": "Vista extendida — ML · posiciones especulativas",
         "beach_legend": "Playas por región",
@@ -445,7 +444,7 @@ _T = {
         "method_seasonal": "Método: climatología estacional · Confianza: estimación",
         "seasonal_advisory": "Estimación basada en el ciclo anual típico del Caribe para este mes y costa. No es un pronóstico exacto.",
         "results": "{n} de {total} playas",
-        "select_beach": "📍 Selecciona una playa",
+        "select_beach": "Selecciona una playa",
         "best_time": "Mejor época",
         "access": "Acceso",
         "entrance": "Entrada",
@@ -462,28 +461,28 @@ _T = {
         "risk_unavail": "Sin datos (API offline)",
         "nearest_zone": "zona más cercana",
         "away": "de distancia",
-        "recommendations": "✨ Playas similares",
+        "recommendations": "Playas similares",
         "view_details": "Ver →",
-        "tip": "💡 Haz clic en un marcador para ver detalles",
+        "tip": "Haz clic en un marcador para ver detalles",
         "risk_legend": "Riesgo de sargazo",
         "no_match": "Ninguna playa coincide con los filtros.",
-        "search_beach": "🔍 Buscar playa",
+        "search_beach": "Buscar playa",
         "search_placeholder": "Ej: Rincón, Sosúa, Bávaro…",
         "choose_options": "Elige opciones",
         "all_regions": "Todas las regiones",
         "all_provinces": "Todas las provincias",
-        "layers_header": "🌊 Capas y pronóstico",
-        "goto_beach": "📍 Ir a la playa",
+        "layers_header": "Capas y pronóstico",
+        "goto_beach": "Ir a la playa",
         "goto_help": "Elige una playa y el mapa vuela hasta ella.",
         "goto_placeholder": "Elige una playa…",
         "proudly_dr": "Orgullosamente dominicano · Open source",
-        "donate": "☕ Invítame un café",
-        "disclaimer_title": "⚠️ Aviso importante",
+        "donate": "Invítame un café",
+        "disclaimer_title": "Aviso importante",
         "disclaimer_short": "Estimación, no es un aviso oficial.",
         "report_title": "¿Estás en la playa? ¿Cuánto sargazo hay hoy?",
         "report_heading": "¿Estás en la playa?",
         "report_question": "¿Cuánto sargazo hay hoy en {beach}?",
-        "report_question_short": "📣 ¿Estás aquí? ¿Cuánto sargazo hay hoy?",
+        "report_question_short": "¿Estás aquí? ¿Cuánto sargazo hay hoy?",
         "report_none": "Nada",
         "report_low": "Poco",
         "report_medium": "Bastante",
@@ -496,11 +495,11 @@ _T = {
         "license_code": "Código",
         "license_data": "datos",
         "source_code": "Código fuente",
-        "zoom_here": "🔍 Acercar a esta playa",
+        "zoom_here": "Acercar a esta playa",
         "popup_sargassum": "Sargazo",
         "popup_no_data": "sin datos",
-        "popup_nearby": "⚠️ Sargazo ya cerca",
-        "popup_eta": "⏱️ Llegada estimada",
+        "popup_nearby": "Sargazo ya cerca",
+        "popup_eta": "Llegada estimada",
         "mass_ml_route": "Ruta especulativa ML",
         "mass_ml_pos": "Sargazo especulativo",
         "mass_route": "Ruta estimada",
@@ -510,11 +509,11 @@ _T = {
         "risk_medium": "Medio",
         "risk_high": "Alto",
         # ── Surf / viento (datos en vivo de Open-Meteo) ──────────────────────
-        "surf_header": "🏄 Surf y viento",
+        "surf_header": "Surf y viento",
         "surf_section": "Condiciones para surfear",
-        "surf_mode": "🏄 Colorear por surf",
+        "surf_mode": "Colorear por surf",
         "surf_mode_note": "El anillo de cada playa muestra la calidad del surf en vez de la región.",
-        "surf_spots_only": "🏄 Solo spots de surf",
+        "surf_spots_only": "Solo spots de surf",
         "surf_min_rating": "Calidad de surf",
         "surf_swell": "Oleaje",
         "surf_period": "Periodo",
@@ -535,47 +534,47 @@ _T = {
         "surf_cross_onshore": "lat. entrante",
         "surf_cross_offshore": "lat. terral",
         "surf_wind_unknown": "sin datos",
-        "conoce_title": "🧭 Conoce esta playa",
-        "lens_vida": "🐠 Vida",
-        "lens_roca": "🪨 Roca",
-        "lens_historia": "📜 Historia",
+        "conoce_title": "Conoce esta playa",
+        "lens_vida": "Vida",
+        "lens_roca": "Roca",
+        "lens_historia": "Historia",
         "see_more": "Ver más ({n})",
         "source": "Fuente",
         "sources": "Fuentes",
         "photos_credit": "Foto de la especie",
         "sand": "Arena",
         "sargassum_why": "¿Por qué llega el sargazo aquí?",
-        "sargassum_note": "🌿 Sargazo",
+        "sargassum_note": "Sargazo",
         "reference_photo": "Foto de referencia",
         "photo_by": "Foto de",
         "licence": "Licencia",
     },
     "en": {
-        "title": "🌴 Discover DR Beaches",
+        "title": "Discover DR Beaches",
         "subtitle": "55 Dominican beaches: access, activities, wildlife, live sargassum and surf.",
-        "filters_header": "🔎 Filter beaches",
+        "filters_header": "Filter beaches",
         "region": "Region",
         "province": "Province",
         "activity": "Activity",
-        "protected_only": "🐢 Protected areas only",
+        "protected_only": "Protected areas only",
         "free_only": "Free entrance only",
-        "risk_filter": "🌊 Filter by sargassum risk",
-        "month_filter": "🗓️ Visit date",
+        "risk_filter": "Filter by sargassum risk",
+        "month_filter": "Visit date",
         "month_note": "Filters by best season. Sargassum risk reflects current conditions (72 h forecast).",
-        "show_zones": "🌊 Show monitoring zones",
-        "show_masses": "🟤 Show detected sargassum masses",
+        "show_zones": "Show monitoring zones",
+        "show_masses": "Show detected sargassum masses",
         "masses_unavail": "No detections (run the pipeline)",
-        "horizon": "⏱️ Forecast horizon",
+        "horizon": "Forecast horizon",
         "horizon_note": "Sargassum forecast is reliable only ~72h. Beyond that, use the season.",
         "horizon_now": "Now",
         "risk_by_horizon": "Projected risk",
         "more_details": "More details",
-        "season_note": "📅 Sargassum: March–August.",
-        "prediction_info_title": "ℹ️ Prediction methods",
+        "season_note": "Sargassum: March–August.",
+        "prediction_info_title": "Prediction methods",
         "prediction_physics": "Physics (0-72h): Lagrangian drift + ocean currents. Accurate.",
         "prediction_ml": "ML (4-21d): Supervised model trained on historical data. More accurate than climatology alone.",
         "prediction_seasonal": "Seasonal (>21d): Caribbean historical climatology. Does not predict specific events.",
-        "prediction_date_note": "⚠️ Within 3 days: physics drift. 4-21 days: ML estimate. Further: seasonal climatology.",
+        "prediction_date_note": "Within 3 days: physics drift. 4-21 days: ML estimate. Further: seasonal climatology.",
         "ml_badge": "ML Forecast (extended)",
         "persist_badge": "Persistence (extended)",
         "seasonal_ext_badge": "Seasonal (extended)",
@@ -587,9 +586,9 @@ _T = {
         "ml_probs": "Chance of medium or high risk: {p}%",
         "zone_arrival_prob": "Chance of sargassum reaching the zone's coast within 72 h: {p}%",
         "beach_arrival_prob": "Chance of sargassum arriving within {km} km of this beach in 72 h: {p}%",
-        "expo_sheltered": "🧭 Today the current and wind carry sargassum away from this shore, so nearby sargassum counts one risk level lower.",
-        "expo_exposed": "🧭 Today the current and wind push sargassum toward this shore.",
-        "expo_sheltered_model": "🧭 Over the next 24 h the current and wind carry sargassum away from this shore.",
+        "expo_sheltered": "Today the current and wind carry sargassum away from this shore, so nearby sargassum counts one risk level lower.",
+        "expo_exposed": "Today the current and wind push sargassum toward this shore.",
+        "expo_sheltered_model": "Over the next 24 h the current and wind carry sargassum away from this shore.",
         "eta_source_model": "Drift forecast · real currents and wind",
         "ml_note_map": "Extended view — ML · speculative positions",
         "beach_legend": "Beaches by region",
@@ -607,7 +606,7 @@ _T = {
         "method_seasonal": "Method: seasonal climatology · Confidence: estimate",
         "seasonal_advisory": "Estimate based on the Caribbean's typical annual cycle for this month and coast. Not an exact forecast.",
         "results": "{n} of {total} beaches",
-        "select_beach": "📍 Select a beach",
+        "select_beach": "Select a beach",
         "best_time": "Best time",
         "access": "Access",
         "entrance": "Entrance",
@@ -620,32 +619,32 @@ _T = {
         "facilities": "Facilities",
         "ecosystem": "Ecosystem",
         "open_maps": "Google Maps",
-        "risk_header": "🌊 Sargassum Risk",
+        "risk_header": "Sargassum Risk",
         "risk_unavail": "No data (API offline)",
         "nearest_zone": "nearest zone",
         "away": "away",
-        "recommendations": "✨ Similar beaches",
+        "recommendations": "Similar beaches",
         "view_details": "View →",
-        "tip": "💡 Click a marker to see details",
+        "tip": "Click a marker to see details",
         "risk_legend": "Sargassum risk",
         "no_match": "No beaches match the current filters.",
-        "search_beach": "🔍 Search beach",
+        "search_beach": "Search beach",
         "search_placeholder": "e.g. Rincón, Sosúa, Bávaro…",
         "choose_options": "Choose options",
         "all_regions": "All regions",
         "all_provinces": "All provinces",
-        "layers_header": "🌊 Layers & forecast",
-        "goto_beach": "📍 Go to beach",
+        "layers_header": "Layers & forecast",
+        "goto_beach": "Go to beach",
         "goto_help": "Pick a beach and the map flies straight to it.",
         "goto_placeholder": "Choose a beach…",
         "proudly_dr": "Proudly Dominican · Open source",
-        "donate": "☕ Buy me a coffee",
-        "disclaimer_title": "⚠️ Important notice",
+        "donate": "Buy me a coffee",
+        "disclaimer_title": "Important notice",
         "disclaimer_short": "An estimate, not an official advisory.",
         "report_title": "At the beach? How much sargassum is there today?",
         "report_heading": "At the beach?",
         "report_question": "How much sargassum is at {beach} today?",
-        "report_question_short": "📣 Here now? How much sargassum is there today?",
+        "report_question_short": "Here now? How much sargassum is there today?",
         "report_none": "None",
         "report_low": "A little",
         "report_medium": "Quite a lot",
@@ -658,11 +657,11 @@ _T = {
         "license_code": "Code",
         "license_data": "data",
         "source_code": "Source code",
-        "zoom_here": "🔍 Zoom to this beach",
+        "zoom_here": "Zoom to this beach",
         "popup_sargassum": "Sargassum",
         "popup_no_data": "no data",
-        "popup_nearby": "⚠️ Sargassum already nearby",
-        "popup_eta": "⏱️ ETA",
+        "popup_nearby": "Sargassum already nearby",
+        "popup_eta": "ETA",
         "mass_ml_route": "ML speculative route",
         "mass_ml_pos": "Speculative sargassum",
         "mass_route": "Estimated route",
@@ -672,11 +671,11 @@ _T = {
         "risk_medium": "Medium",
         "risk_high": "High",
         # ── Surf / wind (live Open-Meteo data) ──────────────────────────────
-        "surf_header": "🏄 Surf & wind",
+        "surf_header": "Surf & wind",
         "surf_section": "Surf conditions",
-        "surf_mode": "🏄 Colour by surf",
+        "surf_mode": "Colour by surf",
         "surf_mode_note": "Each beach's ring shows surf quality instead of its region.",
-        "surf_spots_only": "🏄 Surf spots only",
+        "surf_spots_only": "Surf spots only",
         "surf_min_rating": "Surf quality",
         "surf_swell": "Swell",
         "surf_period": "Period",
@@ -697,17 +696,17 @@ _T = {
         "surf_cross_onshore": "cross-on",
         "surf_cross_offshore": "cross-off",
         "surf_wind_unknown": "no data",
-        "conoce_title": "🧭 Get to know this beach",
-        "lens_vida": "🐠 Life",
-        "lens_roca": "🪨 Rock",
-        "lens_historia": "📜 History",
+        "conoce_title": "Get to know this beach",
+        "lens_vida": "Life",
+        "lens_roca": "Rock",
+        "lens_historia": "History",
         "see_more": "See more ({n})",
         "source": "Source",
         "sources": "Sources",
         "photos_credit": "Species photo",
         "sand": "Sand",
         "sargassum_why": "Why does sargassum arrive here?",
-        "sargassum_note": "🌿 Sargassum",
+        "sargassum_note": "Sargassum",
         "reference_photo": "Reference photo",
         "photo_by": "Photo by",
         "licence": "Licence",
@@ -1628,7 +1627,7 @@ section[data-testid="stMain"] div.st-key-beach_report_card [data-testid="stMarkd
 
 st.markdown("""
 <div id="sarg-loader">
-  <div class="sarg-brand">🌴 Descubre Playas RD</div>
+  <div class="sarg-brand">Descubre Playas RD</div>
   <div class="sarg-wave"></div>
   <div class="sarg-label">Cargando mapa… / Loading map…</div>
 </div>
@@ -1664,7 +1663,7 @@ if "beach" in _qp and not st.session_state.get("selected_beach"):
 # Language selector (top of sidebar)
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    _en = st.toggle("🇬🇧 🇺🇸 English", value=False, key="lang_en")
+    _en = st.toggle("English", value=False, key="lang_en")
     lang = "en" if _en else "es"
     L = _T[lang]
     RISK_LABEL = _RISK_LABELS[lang]
@@ -1835,14 +1834,14 @@ def _render_report_form(beach: dict) -> None:
     with st.container(key="beach_report_card"):
         st.markdown(
             f"<div class='report-card-head'>"
-            f"<div class='report-card-title'>📣 {L['report_heading']}</div>"
+            f"<div class='report-card-title'>{icon('megaphone', 14)} {L['report_heading']}</div>"
             f"<div class='report-card-sub'>{L['report_question'].format(beach=name)}</div>"
             f"<div class='report-card-sub-short'>{L['report_question_short']}</div>"
             f"</div>",
             unsafe_allow_html=True,
         )
         if name in reported:
-            st.markdown(f"<div class='report-card-done'>✅ {L['report_thanks']}</div>",
+            st.markdown(f"<div class='report-card-done'>{icon('check', 14)} {L['report_thanks']}</div>",
                         unsafe_allow_html=True)
             return
         slug = _slugify(name)
@@ -1859,7 +1858,7 @@ def _render_report_form(beach: dict) -> None:
                 reported.add(name)
                 st.rerun()
             else:
-                st.markdown(f"<div class='report-card-error'>⚠️ {L['report_error']}</div>",
+                st.markdown(f"<div class='report-card-error'>{icon('triangle-alert', 14)} {L['report_error']}</div>",
                             unsafe_allow_html=True)
         st.markdown(f"<div class='report-card-note'>{L['report_help']}</div>",
                     unsafe_allow_html=True)
@@ -2033,7 +2032,7 @@ POSSIBLE_PROB = 0.15
 # Grey-green sits between grey "none" and green "low"; amber would read as
 # worse than "low".
 POSSIBLE_COLOR = "#6f8a6a"
-POSSIBLE_EMOJI = "🔍"
+_PROTECTED_LABEL = {"es": "Área protegida", "en": "Protected area"}
 
 
 def _beach_arrival_prob_at(beach: dict, horizon: int) -> float | None:
@@ -2095,10 +2094,10 @@ def _ext_badge(method: str | None) -> str:
     """Badge for the extended (4-21 day) forecast, naming the method that the
     pipeline published: ML, persistence or seasonal."""
     if method == "persistence":
-        return f"📌 {L['persist_badge']}"
+        return f"{icon('pin', 11)} {L['persist_badge']}"
     if method == "seasonal":
-        return f"📊 {L['seasonal_ext_badge']}"
-    return f"🤖 {L['ml_badge']}"
+        return f"{icon('chart-column', 11)} {L['seasonal_ext_badge']}"
+    return f"{icon('bot', 11)} {L['ml_badge']}"
 
 
 def _masses_shifted_to(masses: list[dict], horizon: int) -> list[dict]:
@@ -2556,7 +2555,7 @@ with st.sidebar:
 
     # Everything below is secondary: collapsed by default so the sidebar opens
     # as a short, calm panel instead of a wall of ~15 controls.
-    with st.expander(L["filters_header"], expanded=False):
+    with st.expander(L["filters_header"], expanded=False, icon=":material/tune:"):
         # An empty region selection means "all regions" (see _matches), which
         # keeps the control compact — the alternative, pre-selecting all five,
         # rendered five removable chips that read as an active filter.
@@ -2593,7 +2592,7 @@ with st.sidebar:
             L["risk_filter"],
             options=["high", "medium", "low", "none"],
             default=[],
-            format_func=lambda k: f"{RISK_EMOJI.get(k, '')} {RISK_LABEL.get(k, k)}".strip(),
+            format_func=lambda k: RISK_LABEL.get(k, k),
             placeholder=L["choose_options"],
             key="risk_filter",
         )
@@ -2619,15 +2618,15 @@ with st.sidebar:
         if sel_date is not None:
             _days_ahead = (sel_date - _today).days
             if 0 <= _days_ahead <= 3:
-                st.caption("🔬 " + L["method_particles"])
+                st.caption(L["method_particles"])
             elif 4 <= _days_ahead <= 21:
                 _has_ml = bool(_ml_forecasts)
                 _ml_src = "ML" if _has_ml else ("Climatología" if lang == "es" else "Climatology")
-                st.caption(f"🤖 {_ml_src} — {_days_ahead}d ahead")
+                st.caption(f"{_ml_src} — {_days_ahead}d ahead")
             else:
-                st.caption("📊 " + L["method_seasonal"])
+                st.caption(L["method_seasonal"])
 
-    with st.expander(L["layers_header"], expanded=False):
+    with st.expander(L["layers_header"], expanded=False, icon=":material/layers:"):
         # Off by default: the 11 dashed rectangles are the model's own grid,
         # not something a visitor needs to see. Every beach still reads its
         # risk from the nearest zone whether or not the boxes are drawn — this
@@ -2635,7 +2634,7 @@ with st.sidebar:
         show_zones = st.checkbox(L["show_zones"], value=False, key="show_zones")
         show_masses = st.checkbox(L["show_masses"], value=True, key="show_masses")
         if not zones:
-            st.caption(f"🌊 {L['risk_unavail']}")
+            st.caption(L['risk_unavail'])
 
         # Forecast horizon — the physics-limited time dimension of the
         # prediction. Drift is only reliable ~72h out, so we expose
@@ -2669,7 +2668,7 @@ with st.sidebar:
     # Surf & wind. Its own expander rather than more checkboxes in Layers:
     # this is a second, independent reason to come to the app, and someone
     # looking for waves is not the same visitor as someone avoiding sargassum.
-    with st.expander(L["surf_header"], expanded=False):
+    with st.expander(L["surf_header"], expanded=False, icon=":material/surfing:"):
         surf_mode = st.checkbox(
             L["surf_mode"], value=False, key="surf_mode",
             help=L["surf_mode_note"],
@@ -2682,8 +2681,7 @@ with st.sidebar:
             L["surf_min_rating"],
             options=["epic", "good", "fair", "poor", "flat"],
             default=[],
-            format_func=lambda k: f"{SURF_EMOJI.get(k, '')} "
-                                  f"{surf_rating_label(k, lang)}".strip(),
+            format_func=lambda k: surf_rating_label(k, lang),
             placeholder=L["choose_options"],
             key="surf_rating_filter",
         )
@@ -2692,7 +2690,7 @@ with st.sidebar:
     # Legal notice. Collapsed like the rest, but the short form is repeated in
     # the beach panel next to the risk badge, which is where someone actually
     # makes a decision from this data.
-    with st.expander(L["disclaimer_title"], expanded=False):
+    with st.expander(L["disclaimer_title"], expanded=False, icon=":material/warning:"):
         st.markdown(
             f"<div style='font-size:11px;line-height:1.55;color:#ffe0b2'>"
             f"{L['disclaimer_body']}</div>",
@@ -2700,12 +2698,12 @@ with st.sidebar:
         )
 
     # Prediction methodology explainer
-    with st.expander(L["prediction_info_title"], expanded=False):
+    with st.expander(L["prediction_info_title"], expanded=False, icon=":material/info:"):
         st.markdown(
             f"<div style='font-size:11px;line-height:1.5;color:#b2ebf2'>"
-            f"<div style='margin-bottom:6px'><strong style='color:#4dd0e1'>🔬 {L['prediction_physics']}</strong></div>"
-            f"<div style='margin-bottom:6px'><strong style='color:#ce93d8'>🤖 {L['prediction_ml']}</strong></div>"
-            f"<div style='margin-bottom:6px'><strong style='color:#4dd0e1'>📊 {L['prediction_seasonal']}</strong></div>"
+            f"<div style='margin-bottom:6px'><strong style='color:#4dd0e1'>{icon('microscope', 12)} {L['prediction_physics']}</strong></div>"
+            f"<div style='margin-bottom:6px'><strong style='color:#ce93d8'>{icon('bot', 12)} {L['prediction_ml']}</strong></div>"
+            f"<div style='margin-bottom:6px'><strong style='color:#4dd0e1'>{icon('chart-column', 12)} {L['prediction_seasonal']}</strong></div>"
             f"</div>",
             unsafe_allow_html=True,
         )
@@ -2902,7 +2900,7 @@ with _nav_slot:
             """
             alias = _search_alias(name)
             shown = f"{name} ({alias})" if alias else name
-            return f"🏖️ {shown} · {_nav_by_name[name]['province']}"
+            return f"{shown} · {_nav_by_name[name]['province']}"
         # Nothing is selected until the visitor asks for it: the app opens on
         # the national map with no beach card. A beach that a filter has just
         # excluded counts as not selected, so the card closes instead of
@@ -2946,6 +2944,7 @@ with _nav_slot:
         # and the legend. This block runs before the map is rendered, so a
         # click lands on the same rerun.
         if _pick and st.button(L["zoom_here"], key="beach_zoom_btn",
+                               icon=":material/zoom_in:",
                                use_container_width=True):
             _goto_beach(_nav_by_name[_pick], zoom=ZOOM_CLOSE)
 
@@ -2960,12 +2959,13 @@ with st.sidebar:
     st.markdown(
         "<div style='margin-top:18px;padding:10px 16px 8px;"
         "border-top:1px solid rgba(255,255,255,.18);text-align:center'>"
-        "<span style='font-size:13px;color:#9edde6'>Made with ❤️ by </span>"
+        f"<span style='font-size:13px;color:#9edde6'>Made with "
+        f"<span style='color:#ef9a9a'>{icon('heart', 12)}</span> by </span>"
         "<a href='https://www.linkedin.com/in/ayesha-yege/' target='_blank' "
         "style='font-size:13px;font-weight:800;color:#4dd0e1;text-decoration:none'>"
         "Ayesha Yege ↗</a>"
         f"<div style='font-size:11.5px;font-weight:800;color:#b2ebf2;"
-        f"margin-top:8px;line-height:1.5'>🇩🇴 {L['proudly_dr']}</div>"
+        f"margin-top:8px;line-height:1.5'>{L['proudly_dr']}</div>"
         f"<div style='font-size:11px;color:#80cbc4;margin-top:6px;line-height:1.6'>"
         f"{L['license_code']} "
         f"<a href='{APACHE_URL}' target='_blank' rel='license noopener' "
@@ -2978,7 +2978,7 @@ with st.sidebar:
         # across two lines when this sat on the end of the licence line.
         f"<div style='margin-top:5px'>"
         f"<a href='{REPO_URL}' target='_blank' rel='noopener' "
-        f"style='{_lnk};white-space:nowrap'>💻 {L['source_code']} ↗</a></div>"
+        f"style='{_lnk};white-space:nowrap'>{icon('code', 12)} {L['source_code']} ↗</a></div>"
         # Rendered only when DONATE_URL is configured, so no dead payment link
         # can ever reach a visitor.
         + (
@@ -2987,7 +2987,7 @@ with st.sidebar:
             f"style='display:inline-block;background:rgba(255,193,7,.16);"
             f"border:1px solid rgba(255,193,7,.45);border-radius:20px;"
             f"padding:6px 15px;font-size:11.5px;font-weight:800;color:#ffd54f;"
-            f"text-decoration:none;white-space:nowrap'>{L['donate']}</a></div>"
+            f"text-decoration:none;white-space:nowrap'>{icon('coffee', 12)} {L['donate']}</a></div>"
             if DONATE_URL else ""
         ) +
         f"<div style='font-size:10px;color:#5f9ea0;margin-top:6px'>"
@@ -3098,7 +3098,8 @@ for b in filtered:
         region_color = SURF_COLORS.get(
             (_surf_b or {}).get("rating", "unknown"), "#455a64")
     risk_level, near_zone, dist_km_b, _, _mode_b, _eta_b = _beach_risk_cached(b)
-    turtle_icon = " 🐢" if b["protected_area"] else ""
+    turtle_icon = (" " + icon("turtle", 14, label=_PROTECTED_LABEL[lang])
+                   if b["protected_area"] else "")
     _desc_full = tr_text(b, "description")
     desc_short = _desc_full[:170].rstrip()
     if len(_desc_full) > 170:
@@ -3110,12 +3111,12 @@ for b in filtered:
         if _eta_b == 0:
             _eta_popup = (
                 "<div style='color:#ffcdd2;font-size:10.5px;margin-top:3px'>"
-                f"{L['popup_nearby']}</div>"
+                f"{icon('triangle-alert', 11)} {L['popup_nearby']}</div>"
             )
         else:
             _eta_popup = (
                 f"<div style='color:#b2ebf2;font-size:10.5px;margin-top:3px'>"
-                f"{L['popup_eta']}: ~{_eta_b}h</div>"
+                f"{icon('clock', 11)} {L['popup_eta']}: ~{_eta_b}h</div>"
             )
 
     # Risk badge — always present
@@ -3133,7 +3134,7 @@ for b in filtered:
         risk_badge = (
             f"<div style='background:{rc};color:#fff;display:inline-block;"
             f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            f"🌊 {L['popup_sargassum']}: {label_txt}"
+            f"{L['popup_sargassum']}: {label_txt}"
             f"</div>"
             f"<div style='color:#ce93d8;font-size:10.5px;margin-top:4px'>"
             f"{_ext_badge(_ml_method_b)} · {_ml_conf_pct}%</div>"
@@ -3144,10 +3145,10 @@ for b in filtered:
         risk_badge = (
             f"<div style='background:{rc};color:#fff;display:inline-block;"
             f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            f"🌊 {L['popup_sargassum']}: {label_txt}"
+            f"{L['popup_sargassum']}: {label_txt}"
             f"</div>"
             f"<div style='color:#b2ebf2;font-size:10.5px;margin-top:4px'>"
-            f"📊 {L['seasonal_badge']}</div>"
+            f"{icon('chart-column', 11)} {L['seasonal_badge']}</div>"
         )
     elif risk_level is not None and near_zone:
         rc = RISK_COLORS.get(risk_level, "#6c757d")
@@ -3162,14 +3163,14 @@ for b in filtered:
         risk_badge = (
             f"<div style='background:{rc};color:#fff;display:inline-block;"
             f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            f"🌊 {L['popup_sargassum']}: {label_txt}{_dist_txt}"
+            f"{L['popup_sargassum']}: {label_txt}{_dist_txt}"
             f"</div>{_eta_popup}"
         )
     else:
         risk_badge = (
             "<div style='background:#90a4ae;color:#fff;display:inline-block;"
             "padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:5px 0'>"
-            f"🌊 {L['popup_sargassum']}: {L['popup_no_data']}"
+            f"{L['popup_sargassum']}: {L['popup_no_data']}"
             "</div>"
         )
 
@@ -3184,7 +3185,7 @@ for b in filtered:
         surf_badge = (
             f"<div style='background:{_sc};color:#04242b;display:inline-block;"
             f"padding:3px 12px;border-radius:20px;font-size:11px;font-weight:800;"
-            f"margin:5px 0'>{SURF_EMOJI.get(_sr, '')} {_sport_lbl}: "
+            f"margin:5px 0'>{_sport_lbl}: "
             f"{surf_rating_label(_sr, lang)}</div>"
         )
         _cnd = _surf_b.get("conditions") or {}
@@ -3193,12 +3194,12 @@ for b in filtered:
             _pd = _cnd.get("swell_period_s")
             _pd_txt = f"@{_pd:.0f}s" if _pd is not None else ""
             _wd = _cnd.get("wind_speed_kt")
-            _wd_txt = (f" · 💨 {_wd:.0f}kt "
+            _wd_txt = (f" · {icon('wind', 11)} {_wd:.0f}kt "
                        f"{_surf_relation_label(_surf_b['wind_relation'])}"
                        if _wd is not None else "")
             surf_badge += (
                 f"<div style='color:#b2ebf2;font-size:10.5px;margin-top:3px'>"
-                f"🌊 {_sw:.1f}m{_pd_txt}{_wd_txt}</div>"
+                f"{icon('waves', 11)} {_sw:.1f}m{_pd_txt}{_wd_txt}</div>"
             )
 
     popup_html = (
@@ -3213,7 +3214,7 @@ for b in filtered:
         + f"<a href='{b['google_maps_url']}' target='_blank' "
         f"style='display:block;text-align:center;background:rgba(255,255,255,.22);"
         f"color:#fff;border-radius:20px;padding:5px;font-size:11px;font-weight:800;"
-        f"margin-top:8px;text-decoration:none'>📍 Google Maps ↗</a>"
+        f"margin-top:8px;text-decoration:none'>{icon('map-pin', 12)} Google Maps ↗</a>"
         f"</div></div>"
     )
     # Draw beach as a white pin with a colored ring (region color).
@@ -3227,7 +3228,7 @@ for b in filtered:
         fill_opacity=1.0,
         weight=3,
         popup=folium.Popup(popup_html, max_width=340),
-        tooltip=f"🏖️ {b['name']} — {b['province']}",
+        tooltip=f"{b['name']} — {b['province']}",
     ).add_to(cluster)
 
 # ---------------------------------------------------------------------------
@@ -3273,30 +3274,30 @@ if show_zones and zones:
                 f"{_ext_badge(_z_method)} · +{_ml_lead}d</div>"
                 f"<div style='color:#ce93d8;font-size:10px;margin-top:3px'>"
                 f"{L['ml_confidence']}: {_z_conf_pct}%</div>"
-                + (f"<div style='color:#80cbc4;font-size:10px;margin-top:3px'>📅 {_ml_valid}</div>"
+                + (f"<div style='color:#80cbc4;font-size:10px;margin-top:3px'>{icon('calendar', 10)} {_ml_valid}</div>"
                    if _ml_valid else "")
             )
         elif _date_mode == "seasonal":
             _z_extra = (
                 f"<div style='background:rgba(255,193,7,.2);border-radius:12px;"
                 f"padding:3px 10px;font-size:10px;color:#ffe082;margin-top:4px'>"
-                f"📊 {L['seasonal_badge']}</div>"
+                f"{icon('chart-column', 10)} {L['seasonal_badge']}</div>"
                 f"<div style='color:#80cbc4;font-size:10px;margin-top:4px'>"
                 f"{L['method_seasonal']}</div>"
             )
         else:
             _z_extra = (
                 (
-                    f"<div style='color:#b2dfdb;font-size:11px'>⏱️ ETA ~{_fc_z['eta_hours']}h</div>"
+                    f"<div style='color:#b2dfdb;font-size:11px'>{icon('clock', 11)} ETA ~{_fc_z['eta_hours']}h</div>"
                     if _fc_z and _fc_z.get("eta_hours") is not None else ""
                 )
                 + (
-                    f"<div style='color:#b2dfdb;font-size:11px'>📅 {_fmt_arrival(_fc_z)}</div>"
+                    f"<div style='color:#b2dfdb;font-size:11px'>{icon('calendar', 11)} {_fmt_arrival(_fc_z)}</div>"
                     if _fmt_arrival(_fc_z) else ""
                 )
                 + (
                     f"<div style='color:#80cbc4;font-size:10px;margin-top:4px'>"
-                    f"🔄 {_fc_z.get('run_at','')[:16].replace('T',' ')} UTC</div>"
+                    f"{icon('refresh-cw', 10)} {_fc_z.get('run_at','')[:16].replace('T',' ')} UTC</div>"
                     if _fc_z and _fc_z.get("run_at") else ""
                 )
             )
@@ -3306,7 +3307,7 @@ if show_zones and zones:
                 f"background:linear-gradient(135deg,#003540,#005f6e);border-radius:12px;"
                 f"padding:12px 14px;color:#e0f7fa'>"
                 f"<div style='font-size:14px;font-weight:900;color:#fff;margin-bottom:4px'>"
-                f"🌊 {_z['name']}</div>"
+                f"{_z['name']}</div>"
                 f"<div style='background:{_z_color};border-radius:16px;display:inline-block;"
                 f"padding:3px 12px;font-size:11px;font-weight:800;color:#fff;margin-bottom:6px'>"
                 f"{_z_label}</div>"
@@ -3314,7 +3315,7 @@ if show_zones and zones:
                 + f"</div>",
                 max_width=220,
             )
-        _z_tip = f"🌊 {_z['name']} — {_z_label}"
+        _z_tip = f"{_z['name']} — {_z_label}"
         if _z.get("coast"):
             # The coastline this zone owns: where the drift model counts
             # its arrivals. Drawn instead of the old square box, which no
@@ -3420,12 +3421,12 @@ if show_masses:
                         _trail.append([_tp[0], _tp[1]])
                     folium.PolyLine(
                         _trail, color="#7b1fa2", weight=1.5, opacity=0.45, dash_array="6 6",
-                        tooltip=f"🟣 {L['mass_track_route']} · {_a:.2f} km²",
+                        tooltip=f"{L['mass_track_route']} · {_a:.2f} km²",
                     ).add_to(_mass_group)
                     folium.CircleMarker(
                         location=_trail[-1], radius=max(3.0, _r - 2), color="#7b1fa2",
                         fill=True, fill_color="#ce93d8", fill_opacity=0.45, weight=1.0,
-                        tooltip=f"🟣 {L['mass_track_pos']} · {_a:.2f} km²",
+                        tooltip=f"{L['mass_track_pos']} · {_a:.2f} km²",
                     ).add_to(_mass_group)
                     _landed = True  # no orange "estimated position" ghost beyond the model
                 elif _ml_drift_mode:
@@ -3447,7 +3448,7 @@ if show_masses:
                         weight=1.5,
                         opacity=0.35,
                         dash_array="6 6",
-                        tooltip=f"🟣 {L['mass_ml_route']} · {_a:.2f} km²",
+                        tooltip=f"{L['mass_ml_route']} · {_a:.2f} km²",
                     ).add_to(_mass_group)
                     # Short physics segment (first 72 h) in the normal brown
                     _trail_72 = [[_lat0, _lon0]]
@@ -3471,7 +3472,7 @@ if show_masses:
                         fill_opacity=0.20,
                         weight=1.5,
                         dash_array="4 3",
-                        tooltip=f"🟣 {L['mass_ml_pos']} (+{_drift_h}h ML) · {_a:.2f} km²",
+                        tooltip=f"{L['mass_ml_pos']} (+{_drift_h}h ML) · {_a:.2f} km²",
                     ).add_to(_mass_group)
                     # Smaller solid dot at predicted centre
                     folium.CircleMarker(
@@ -3482,7 +3483,7 @@ if show_masses:
                         fill_color="#ce93d8",
                         fill_opacity=0.45,
                         weight=1.0,
-                        tooltip=f"🟣 {L['mass_ml_pos']} (+{_drift_h}h ML) · {_a:.2f} km²",
+                        tooltip=f"{L['mass_ml_pos']} (+{_drift_h}h ML) · {_a:.2f} km²",
                     ).add_to(_mass_group)
                 else:
                     # Physics mode — original 4-point trail, truncated at the
@@ -3510,7 +3511,7 @@ if show_masses:
                         weight=1.5,
                         opacity=0.65,
                         dash_array="5 4",
-                        tooltip=f"🟤 {L['mass_route']} · {_a:.2f} km²",
+                        tooltip=f"{L['mass_route']} · {_a:.2f} km²",
                     ).add_to(_mass_group)
 
                 # Physics ghost circle (only for non-ML mode, and only while
@@ -3527,7 +3528,7 @@ if show_masses:
                         fill_opacity=0.55,
                         weight=1.5,
                         dash_array="4 3",
-                        tooltip=f"🟠 {L['popup_sargassum']} (+{_drift_h}h {L['mass_estimated']}) · {_a:.2f} km²",
+                        tooltip=f"{L['popup_sargassum']} (+{_drift_h}h {L['mass_estimated']}) · {_a:.2f} km²",
                     ).add_to(_mass_group)
 
             # Current detected position — fainter in ML mode to signal mass has moved
@@ -3542,7 +3543,7 @@ if show_masses:
                 "fillOpacity": 0.20 if _ml_drift_mode else 0.55,
                 "weight": 1,
             },
-            label=f"🟤 {L['popup_sargassum']} · ",
+            label=f"{L['popup_sargassum']} · ",
         ).add_to(_mass_group)
         _mass_group.add_to(m)
     # If no masses came back we silently skip — sidebar caption explains why below.
@@ -3609,7 +3610,7 @@ if not st.session_state.get("selected_beach"):
         f"<div id='sarg-tip' style='position:absolute;top:{_MAP_TOP_LANE}px;left:60px;"
         f"z-index:1000;background:rgba(0,96,100,.88);color:#fff;border-radius:10px;"
         f"padding:8px 14px;font-size:12px;font-weight:700;backdrop-filter:blur(4px)'>"
-        f"{L['tip']}</div>"
+        f"{icon('mouse-pointer-click', 13)} {L['tip']}</div>"
     ))
 if _ml_drift_mode:
     m.get_root().html.add_child(folium.Element(
@@ -3617,7 +3618,7 @@ if _ml_drift_mode:
         f"background:rgba(74,20,140,.85);color:#e1bee7;border-radius:10px;"
         f"padding:7px 13px;font-size:11px;font-weight:700;backdrop-filter:blur(4px);"
         f"border:1px solid #7b1fa2'>"
-        f"🤖 {L['ml_note_map']} (+{_days_ahead_g}d)</div>"
+        f"{icon('bot', 12)} {L['ml_note_map']} (+{_days_ahead_g}d)</div>"
     ))
 
 # Render map — stable key preserves pan/zoom between beach selections.
@@ -3680,15 +3681,12 @@ _panel_beach: dict | None = (
 if _panel_beach:
     _pb = _panel_beach
     _risk_level, _near_zone, _dist_km, _fc, _mode, _beach_eta = _beach_risk_cached(_pb, compute_eta=True)
-    _turtle = " 🐢" if _pb["protected_area"] else ""
+    _turtle = (" " + icon("turtle", 16, label=_PROTECTED_LABEL[lang])
+               if _pb["protected_area"] else "")
 
     # ── Advisory text per risk level ──────────────────────────────────────
-    # Emoji comes from RISK_EMOJI (the one convention used everywhere else in
-    # the app — map, legends, sidebar, horizon breakdown below) rather than a
-    # bespoke set here: this dict used to carry its own emoji per level (🟢
-    # for "none"), which disagreed with RISK_EMOJI's ⚪ for the same level and
-    # made the badge look like it contradicted the horizon breakdown even
-    # when the underlying risk value was identical.
+    # The badges carry no per-level symbol: their colour and label already say
+    # the level, and a second cue only added noise.
     _ADVISORY = {
         "none":   ("Sin sargazo detectado en la zona más cercana.",
                    "No sargassum detected in the nearest monitored zone."),
@@ -3706,7 +3704,6 @@ if _panel_beach:
     if _mode == "ml" and _risk_level and _near_zone:
         _rc = RISK_COLORS.get(_risk_level, "#607d8b")
         _rlbl = RISK_LABEL.get(_risk_level, _risk_level.upper())
-        _emoji = RISK_EMOJI.get(_risk_level, "⚪")
         _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("", ""))
         _advice = _advice_en if lang == "en" else _advice_es
         _ml_conf_panel = int((_fc or {}).get("confidence", 0.4) * 100)
@@ -3724,7 +3721,7 @@ if _panel_beach:
             f"padding:10px 12px;margin:9px 0;border-left:4px solid {_rc}'>"
             f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px'>"
             f"<span style='background:{_rc};color:#fff;border-radius:16px;"
-            f"padding:2px 10px;font-size:11px;font-weight:800'>{_emoji} {_rlbl}</span>"
+            f"padding:2px 10px;font-size:11px;font-weight:800'>{_rlbl}</span>"
             f"<span style='background:rgba(123,31,162,.25);color:#ce93d8;border-radius:16px;"
             f"padding:2px 10px;font-size:10px;font-weight:700'>{_ext_badge(_ext_method)}</span>"
             f"</div>"
@@ -3732,14 +3729,14 @@ if _panel_beach:
             f"<div style='background:rgba(0,0,0,.2);border-radius:8px;padding:6px 10px;margin:5px 0'>"
             f"<div style='display:flex;justify-content:space-between;align-items:center'>"
             f"<span style='color:#80cbc4;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px'>"
-            f"📅 {'Pronóstico' if lang == 'es' else 'Forecast'} +{_ml_lead_panel}d</span>"
+            f"{icon('calendar', 11)} {'Pronóstico' if lang == 'es' else 'Forecast'} +{_ml_lead_panel}d</span>"
             f"<span style='color:#e0f7fa;font-size:13px;font-weight:800'>{_rlbl}</span>"
             f"</div>"
             f"<div style='color:#546e7a;font-size:9.5px;margin-top:2px'>"
             f"{'Zona' if lang == 'es' else 'Zone'}: {_zone_name} · {L['ml_confidence']}: {_ml_conf_panel}%</div>"
             + _ml_probs_html +
             f"</div>"
-            f"<div style='color:#ce93d8;font-size:10.5px;line-height:1.4;margin-bottom:4px'>⚠️ {L['persist_advisory'] if _ext_method == 'persistence' else L['ml_advisory']}</div>"
+            f"<div style='color:#ce93d8;font-size:10.5px;line-height:1.4;margin-bottom:4px'>{icon('triangle-alert', 11)} {L['persist_advisory'] if _ext_method == 'persistence' else L['ml_advisory']}</div>"
             f"<div style='color:#80cbc4;font-size:10px;border-top:1px solid rgba(255,255,255,.1);"
             f"padding-top:5px;margin-top:5px'>{(L['method_persist'] if _ext_method == 'persistence' else L['method_ml']).format(conf=_ml_conf_panel)}</div>"
             f"</div>"
@@ -3749,7 +3746,6 @@ if _panel_beach:
         # a statistical expectation for the month, not a deterministic forecast.
         _rc = RISK_COLORS.get(_risk_level, "#607d8b")
         _rlbl = RISK_LABEL.get(_risk_level, _risk_level.upper())
-        _emoji = RISK_EMOJI.get(_risk_level, "⚪")
         _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("", ""))
         _advice = _advice_en if lang == "en" else _advice_es
         _seasonal_note = L["seasonal_advisory"]
@@ -3758,14 +3754,14 @@ if _panel_beach:
             f"padding:10px 12px;margin:9px 0;border-left:4px solid {_rc}'>"
             f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px'>"
             f"<span style='background:{_rc};color:#fff;border-radius:16px;"
-            f"padding:2px 10px;font-size:11px;font-weight:800'>{_emoji} {_rlbl}</span>"
+            f"padding:2px 10px;font-size:11px;font-weight:800'>{_rlbl}</span>"
             f"<span style='background:rgba(255,193,7,.22);color:#ffe082;border-radius:16px;"
-            f"padding:2px 10px;font-size:10px;font-weight:700'>📊 {L['seasonal_badge']}</span>"
+            f"padding:2px 10px;font-size:10px;font-weight:700'>{icon('chart-column', 11)} {L['seasonal_badge']}</span>"
             f"</div>"
             f"<div style='color:#cfd8dc;font-size:11.5px;line-height:1.45;"
             f"margin-bottom:6px'>{_advice}</div>"
             f"<div style='color:#ffcc80;font-size:10.5px;line-height:1.4;"
-            f"margin-bottom:4px'>⚠️ {_seasonal_note}</div>"
+            f"margin-bottom:4px'>{icon('triangle-alert', 11)} {_seasonal_note}</div>"
             f"<div style='color:#80cbc4;font-size:10px;border-top:1px solid "
             f"rgba(255,255,255,.1);padding-top:5px;margin-top:5px'>"
             f"{L['method_seasonal']}</div>"
@@ -3774,7 +3770,6 @@ if _panel_beach:
     elif _risk_level and _near_zone:
         _rc = RISK_COLORS.get(_risk_level, "#607d8b")
         _rlbl = RISK_LABEL.get(_risk_level, _risk_level.upper())
-        _emoji = RISK_EMOJI.get(_risk_level, "⚪")
         _advice_es, _advice_en = _ADVISORY.get(_risk_level, ("", ""))
         _advice = _advice_en if lang == "en" else _advice_es
         _has_bfc = _pb["name"] in _BEACH_FC
@@ -3784,7 +3779,6 @@ if _panel_beach:
             # Minority of ensemble runs arrive: not "Sin riesgo", not yet "Bajo".
             _rc = POSSIBLE_COLOR
             _rlbl = L["risk_possible"]
-            _emoji = POSSIBLE_EMOJI
             _advice = L["advice_possible"].format(
                 p=round(100 * (_beach_arrival_prob_at(_pb, _sel_h_risk) or 0)))
         elif _has_bfc and _risk_level == "none":
@@ -3799,7 +3793,7 @@ if _panel_beach:
                 _eta_line += (
                     f"<div style='background:rgba(220,53,69,.2);border-radius:8px;"
                     f"padding:6px 10px;margin:5px 0;display:flex;align-items:center;gap:8px'>"
-                    f"<span style='font-size:15px'>⚠️</span>"
+                    f"<span style='color:#ffcdd2;display:flex'>{icon('triangle-alert', 15)}</span>"
                     f"<span style='color:#ffcdd2;font-size:12px;font-weight:700'>"
                     f"{'Sargazo ya cerca de esta playa' if lang == 'es' else 'Sargassum already near this beach'}"
                     f"</span></div>"
@@ -3811,7 +3805,7 @@ if _panel_beach:
                     f"<div style='display:flex;justify-content:space-between;align-items:center'>"
                     f"<span style='color:#80cbc4;font-size:10px;font-weight:700;"
                     f"text-transform:uppercase;letter-spacing:.5px'>"
-                    f"⏱️ {'Llegada a esta playa' if lang == 'es' else 'Arrival at this beach'}</span>"
+                    f"{icon('clock', 11)} {'Llegada a esta playa' if lang == 'es' else 'Arrival at this beach'}</span>"
                     f"<span style='color:#e0f7fa;font-size:13px;font-weight:800'>~{_beach_eta}h</span>"
                     f"</div>"
                     f"<div style='color:#546e7a;font-size:9.5px;margin-top:2px'>"
@@ -3833,7 +3827,7 @@ if _panel_beach:
                 f"<div style='display:flex;justify-content:space-between;"
                 f"align-items:center;margin:3px 0'>"
                 f"<span style='color:#546e7a;font-size:10px;letter-spacing:.4px'>"
-                f"🔄 {'Actualizado' if lang == 'es' else 'Updated'}</span>"
+                f"{icon('refresh-cw', 10)} {'Actualizado' if lang == 'es' else 'Updated'}</span>"
                 f"<span style='color:#78909c;font-size:10px'>{_ru_fmt} AST</span></div>"
             )
 
@@ -3865,9 +3859,9 @@ if _panel_beach:
             for _h, _h_risk in _horizons_bd:
                 _h_label = L["horizon_now"] if _h == 0 else f"+{_h}h"
                 _h_color = RISK_COLORS.get(_h_risk, "#607d8b")
-                _h_emoji = RISK_EMOJI.get(_h_risk, "⚪")
+                _h_text = RISK_LABEL.get(_h_risk, _h_risk)
                 if _pb["name"] in _BEACH_FC and _is_possible(_pb, _h_risk, _h):
-                    _h_color, _h_emoji = POSSIBLE_COLOR, POSSIBLE_EMOJI
+                    _h_color, _h_text = POSSIBLE_COLOR, L["risk_possible"]
                 _h_border = (
                     "border:2px solid #fff" if _h == _sel_h else "border:2px solid transparent"
                 )
@@ -3875,14 +3869,14 @@ if _panel_beach:
                     f"<div style='flex:1;text-align:center;background:{_h_color};"
                     f"border-radius:8px;padding:4px 2px;{_h_border};box-sizing:border-box'>"
                     f"<div style='font-size:9px;color:#fff;opacity:.85'>{_h_label}</div>"
-                    f"<div style='font-size:11px;color:#fff'>{_h_emoji}</div>"
+                    f"<div style='font-size:9.5px;font-weight:800;color:#fff;line-height:1.3'>{_h_text}</div>"
                     f"</div>"
                 )
             _horizon_bd_html = (
                 f"<div style='margin:8px 0 2px'>"
                 f"<div style='color:#80cbc4;font-size:10px;font-weight:700;"
                 f"text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px'>"
-                f"⏱️ {L['risk_by_horizon']}</div>"
+                f"{icon('clock', 11)} {L['risk_by_horizon']}</div>"
                 f"<div style='display:flex;gap:5px'>{''.join(_hb_cells)}</div>"
                 f"</div>"
             )
@@ -3921,7 +3915,7 @@ if _panel_beach:
             # Header row: badge (labelled with its horizon) + zone
             f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px'>"
             f"<span style='background:{_rc};color:#fff;border-radius:16px;"
-            f"padding:2px 10px;font-size:11px;font-weight:800'>{_emoji} {_rlbl} · {_sel_h_label}</span>"
+            f"padding:2px 10px;font-size:11px;font-weight:800'>{_rlbl} · {_sel_h_label}</span>"
             f"<span style='color:#80cbc4;font-size:11px'>{_zone_name}"
             f"{_mass_dist_txt}</span></div>"
             # Advisory
@@ -3941,7 +3935,7 @@ if _panel_beach:
         _risk_section = (
             f"<div style='background:rgba(0,0,0,.2);border-radius:12px;"
             f"padding:10px 12px;margin:9px 0;border-left:4px solid #546e7a'>"
-            f"<div style='color:#90a4ae;font-size:11.5px'>🌊 {L['risk_unavail']}</div>"
+            f"<div style='color:#90a4ae;font-size:11.5px'>{L['risk_unavail']}</div>"
             f"</div>"
         )
 
@@ -3983,7 +3977,7 @@ if _panel_beach:
             f"flex-wrap:wrap;margin-bottom:7px'>"
             f"<span style='background:{_sc};color:#04242b;border-radius:16px;"
             f"padding:2px 10px;font-size:11px;font-weight:800'>"
-            f"{SURF_EMOJI.get(_sr, '')} {surf_rating_label(_sr, lang)}</span>"
+            f"{surf_rating_label(_sr, lang)}</span>"
             f"<span style='color:#80cbc4;font-size:10.5px;font-weight:700;"
             f"text-transform:uppercase;letter-spacing:.5px'>{_sport_lbl}</span>"
             f"<span style='margin-left:auto;color:#e0f7fa;font-size:13px;"
@@ -4072,8 +4066,6 @@ if _panel_beach:
                     f"<div style='color:#80cbc4;font-size:9px;font-weight:700;"
                     f"text-transform:uppercase'>"
                     f"{L['surf_today'] if _od['day'] == _dr_today else _day_names[_od['day'].weekday()]}</div>"
-                    f"<div style='font-size:13px;line-height:1.3'>"
-                    f"{SURF_EMOJI.get(_od['rating'], '')}</div>"
                     f"<div style='color:#e0f7fa;font-size:11px;font-weight:800'>"
                     f"{_od['score']:.1f}</div>"
                     f"<div style='color:#546e7a;font-size:8.5px'>{_local_h}</div>"
@@ -4089,7 +4081,7 @@ if _panel_beach:
         # Provenance + the two honest caveats: how well this beach is
         # calibrated, and how far offshore the wave model was sampled.
         # Provenance on one short line. No surf-specific disclaimer: the card
-        # already carries "⚠️ Estimación, no es un aviso oficial." just above
+        # already carries "Estimación, no es un aviso oficial." just above
         # the surf block, so repeating it spent 148 characters saying nothing new.
         _prov = [L["surf_precision_spot"] if _surf_p.get("precision") == "spot"
                  else L["surf_precision_region"]]
@@ -4109,7 +4101,7 @@ if _panel_beach:
 
     _acts = tr_terms(_pb["activities"])
     _facs = tr_terms(_pb["facilities"])
-    _park = ("✅ " + L["yes"]) if _pb["parking"] else ("⚠️ " + L["no_limited"])
+    _park = L["yes"] if _pb["parking"] else L["no_limited"]
     _desc_raw = tr_text(_pb, "description")
     # Trimmed to ~140 chars: the card now leads with live sargassum AND surf,
     # and a 200-char paragraph pushed the practical rows (fee, parking,
@@ -4126,13 +4118,14 @@ if _panel_beach:
         for _rec_b in _recs:
             _rec_name = _rec_b["name"]
             _rec_prov = _rec_b["province"]
-            _turtle_r = " 🐢" if _rec_b.get("protected_area") else ""
+            _turtle_r = (" " + icon("turtle", 12, label=_PROTECTED_LABEL[lang])
+                         if _rec_b.get("protected_area") else "")
             _rec_items += (
                 f"<a href='?beach={_rec_name}' style='display:block;"
                 f"background:rgba(0,180,130,.12);border:1px solid rgba(0,255,180,.18);"
                 f"border-radius:10px;padding:7px 10px;margin:4px 0;"
                 f"color:#b2ebf2;font-size:11px;font-weight:700;text-decoration:none'>"
-                f"🏖️ {_rec_name}{_turtle_r}"
+                f"{_rec_name}{_turtle_r}"
                 f"<span style='color:#80cbc4;font-weight:400'> · {_rec_prov}</span></a>"
             )
         _recs_html = (
@@ -4153,9 +4146,9 @@ if _panel_beach:
     # so the card leads with risk + practical basics instead of a 15-field
     # wall of text.
     _more_html = (
-        _brow("🌊", L["water"], tr_text(_pb, "water_conditions"))
-        + _brow("🏄", L["activities"], _acts)
-        + _brow("🏗️", L["facilities"], _facs)
+        _brow(icon("waves", 11), L["water"], tr_text(_pb, "water_conditions"))
+        + _brow(icon("sun", 11), L["activities"], _acts)
+        + _brow(icon("building", 11), L["facilities"], _facs)
         + _recs_html
     )
 
@@ -4173,14 +4166,14 @@ if _panel_beach:
         f"<div style='font-size:17px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:3px'>"
         f"{_pb['name']}{_turtle}</div>"
         f"<div style='font-size:11px;color:#80cbc4;margin-bottom:4px'>"
-        f"📍 {_pb['province']} · {region_short(_pb['region'])}</div>"
+        f"{icon('map-pin', 11)} {_pb['province']} · {region_short(_pb['region'])}</div>"
         # Sargassum risk section (rich card)
         + _risk_section
         # Short legal notice, right under the risk figure — this is the point
         # where someone actually decides whether to go to a beach. The full
         # text lives in the sidebar's "Aviso importante" expander.
         + f"<div style='font-size:9.5px;color:#ffcc80;opacity:.85;"
-          f"margin:-4px 0 9px;line-height:1.35'>⚠️ {L['disclaimer_short']}</div>"
+          f"margin:-4px 0 9px;line-height:1.35'>{icon('triangle-alert', 10)} {L['disclaimer_short']}</div>"
         # Live surf & wind, directly under the live sargassum reading: both
         # answer "what is the water doing today", and both are fetched.
         + _surf_html
@@ -4189,10 +4182,10 @@ if _panel_beach:
         f"<div style='font-size:11.5px;color:#b2dfdb;line-height:1.5;margin-bottom:11px;"
         f"border-left:3px solid rgba(0,255,180,.25);padding-left:9px'>{_desc}</div>"
         f"<hr style='border:none;border-top:1px solid rgba(255,255,255,.13);margin:9px 0'>"
-        + _brow("🗓️", L["best_time"], tr_term(_pb["best_time_to_visit"]))
-        + _brow("🎟️", L["entrance"], tr_term(_pb["entrance_fee"]))
-        + _brow("🅿️", L["parking"], _park)
-        + _brow("🚪", L["access"],
+        + _brow(icon("calendar", 11), L["best_time"], tr_term(_pb["best_time_to_visit"]))
+        + _brow(icon("ticket", 11), L["entrance"], tr_term(_pb["entrance_fee"]))
+        + _brow(icon("car", 11), L["parking"], _park)
+        + _brow(icon("door-open", 11), L["access"],
                 f"{tr_term(_pb['access_type'])} — {tr_text(_pb, 'access_description')}")
         + f"<a href='{_pb['google_maps_url']}' target='_blank' style='"
         "display:block;text-align:center;margin-top:12px;"
@@ -4200,7 +4193,7 @@ if _panel_beach:
         "color:#fff;"
         "border:1px solid rgba(0,255,180,.3);border-radius:25px;"
         "padding:9px;font-size:12px;font-weight:800;text-decoration:none'>"
-        f"📍 {L['open_maps']} ↗</a>"
+        f"{icon('map-pin', 13)} {L['open_maps']} ↗</a>"
         + conoce_panel(_pb["name"], lang, L, tr_text(_pb, "ecosystem"),
                        tr_terms(_pb["wildlife"]) if _pb["wildlife"] else "")
         + (
